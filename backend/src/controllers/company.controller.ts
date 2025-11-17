@@ -1,0 +1,493 @@
+import { Request, Response, NextFunction } from 'express';
+import { CompanyModel } from '../models/company.model';
+import { CreateCompanyDTO, UpdateCompanyDTO, CompanySearchFilters } from '../types/company.types';
+
+// Extended Request with user from auth middleware
+export interface AuthRequest extends Request {
+  user?: {
+    id: number;
+    email: string;
+    role: string;
+  };
+}
+
+// Factory function to create company controller
+export const createCompanyController = () => {
+  return {
+    /**
+     * Create a new company
+     * POST /api/companies
+     * Requires: authentication, role: vetcompany
+     */
+    async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const userId = req.user?.id;
+
+        if (!userId) {
+          res.status(401).json({
+            success: false,
+            message: 'Unauthorized: User not authenticated',
+          });
+          return;
+        }
+
+        // Check if user already has a company
+        const existingCompany = await CompanyModel.findByUserId(userId);
+        if (existingCompany) {
+          res.status(409).json({
+            success: false,
+            message: 'User already has a company profile',
+          });
+          return;
+        }
+
+        // Validate required fields
+        const { name, email, phone, address, city, state, zip_code, clinic_type } = req.body;
+
+        if (!name || !email || !phone || !address || !city || !state || !zip_code || !clinic_type) {
+          res.status(400).json({
+            success: false,
+            message: 'Missing required fields',
+          });
+          return;
+        }
+
+        // Create company DTO
+        const companyData: CreateCompanyDTO = {
+          user_id: userId,
+          name,
+          email,
+          phone,
+          website: req.body.website,
+          description: req.body.description,
+          address,
+          city,
+          state,
+          zip_code,
+          latitude: req.body.latitude,
+          longitude: req.body.longitude,
+          clinic_type,
+          years_in_business: req.body.years_in_business,
+          num_veterinarians: req.body.num_veterinarians,
+          logo_url: req.body.logo_url,
+          photos: req.body.photos || [],
+          specializations: req.body.specializations || [],
+          facilities: req.body.facilities || [],
+          payment_methods: req.body.payment_methods || [],
+          opening_hours: req.body.opening_hours || {},
+        };
+
+        const company = await CompanyModel.create(companyData);
+
+        res.status(201).json({
+          success: true,
+          message: 'Company created successfully',
+          data: company,
+        });
+      } catch (error: any) {
+        console.error('Error creating company:', error);
+        next(error);
+      }
+    },
+
+    /**
+     * Get current user's company
+     * GET /api/companies/my-company
+     * Requires: authentication
+     */
+    async getMyCompany(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const userId = req.user?.id;
+
+        if (!userId) {
+          res.status(401).json({
+            success: false,
+            message: 'Unauthorized: User not authenticated',
+          });
+          return;
+        }
+
+        const company = await CompanyModel.findByUserId(userId);
+
+        if (!company) {
+          res.status(404).json({
+            success: false,
+            message: 'Company not found for this user',
+          });
+          return;
+        }
+
+        res.status(200).json({
+          success: true,
+          data: company,
+        });
+      } catch (error: any) {
+        console.error('Error fetching company:', error);
+        next(error);
+      }
+    },
+
+    /**
+     * Get company by ID
+     * GET /api/companies/:id
+     * Public endpoint
+     */
+    async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const companyId = parseInt(req.params.id);
+
+        if (isNaN(companyId)) {
+          res.status(400).json({
+            success: false,
+            message: 'Invalid company ID',
+          });
+          return;
+        }
+
+        const company = await CompanyModel.findById(companyId);
+
+        if (!company) {
+          res.status(404).json({
+            success: false,
+            message: 'Company not found',
+          });
+          return;
+        }
+
+        res.status(200).json({
+          success: true,
+          data: company,
+        });
+      } catch (error: any) {
+        console.error('Error fetching company by ID:', error);
+        next(error);
+      }
+    },
+
+    /**
+     * Update company
+     * PUT /api/companies/:id
+     * Requires: authentication, ownership check
+     */
+    async update(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const userId = req.user?.id;
+        const companyId = parseInt(req.params.id);
+
+        if (!userId) {
+          res.status(401).json({
+            success: false,
+            message: 'Unauthorized: User not authenticated',
+          });
+          return;
+        }
+
+        if (isNaN(companyId)) {
+          res.status(400).json({
+            success: false,
+            message: 'Invalid company ID',
+          });
+          return;
+        }
+
+        // Check ownership
+        const existingCompany = await CompanyModel.findById(companyId);
+        if (!existingCompany) {
+          res.status(404).json({
+            success: false,
+            message: 'Company not found',
+          });
+          return;
+        }
+
+        if (existingCompany.user_id !== userId) {
+          res.status(403).json({
+            success: false,
+            message: 'Forbidden: You do not own this company',
+          });
+          return;
+        }
+
+        // Build update DTO
+        const updateData: UpdateCompanyDTO = {};
+
+        if (req.body.name !== undefined) updateData.name = req.body.name;
+        if (req.body.email !== undefined) updateData.email = req.body.email;
+        if (req.body.phone !== undefined) updateData.phone = req.body.phone;
+        if (req.body.website !== undefined) updateData.website = req.body.website;
+        if (req.body.description !== undefined) updateData.description = req.body.description;
+        if (req.body.address !== undefined) updateData.address = req.body.address;
+        if (req.body.city !== undefined) updateData.city = req.body.city;
+        if (req.body.state !== undefined) updateData.state = req.body.state;
+        if (req.body.zip_code !== undefined) updateData.zip_code = req.body.zip_code;
+        if (req.body.latitude !== undefined) updateData.latitude = req.body.latitude;
+        if (req.body.longitude !== undefined) updateData.longitude = req.body.longitude;
+        if (req.body.clinic_type !== undefined) updateData.clinic_type = req.body.clinic_type;
+        if (req.body.years_in_business !== undefined) updateData.years_in_business = req.body.years_in_business;
+        if (req.body.num_veterinarians !== undefined) updateData.num_veterinarians = req.body.num_veterinarians;
+        if (req.body.logo_url !== undefined) updateData.logo_url = req.body.logo_url;
+        if (req.body.photos !== undefined) updateData.photos = req.body.photos;
+        if (req.body.specializations !== undefined) updateData.specializations = req.body.specializations;
+        if (req.body.facilities !== undefined) updateData.facilities = req.body.facilities;
+        if (req.body.payment_methods !== undefined) updateData.payment_methods = req.body.payment_methods;
+        if (req.body.opening_hours !== undefined) updateData.opening_hours = req.body.opening_hours;
+        if (req.body.is_active !== undefined) updateData.is_active = req.body.is_active;
+
+        const updatedCompany = await CompanyModel.update(companyId, updateData);
+
+        res.status(200).json({
+          success: true,
+          message: 'Company updated successfully',
+          data: updatedCompany,
+        });
+      } catch (error: any) {
+        console.error('Error updating company:', error);
+        next(error);
+      }
+    },
+
+    /**
+     * Delete company
+     * DELETE /api/companies/:id
+     * Requires: authentication, ownership check
+     */
+    async delete(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const userId = req.user?.id;
+        const companyId = parseInt(req.params.id);
+
+        if (!userId) {
+          res.status(401).json({
+            success: false,
+            message: 'Unauthorized: User not authenticated',
+          });
+          return;
+        }
+
+        if (isNaN(companyId)) {
+          res.status(400).json({
+            success: false,
+            message: 'Invalid company ID',
+          });
+          return;
+        }
+
+        // Check ownership
+        const existingCompany = await CompanyModel.findById(companyId);
+        if (!existingCompany) {
+          res.status(404).json({
+            success: false,
+            message: 'Company not found',
+          });
+          return;
+        }
+
+        if (existingCompany.user_id !== userId) {
+          res.status(403).json({
+            success: false,
+            message: 'Forbidden: You do not own this company',
+          });
+          return;
+        }
+
+        await CompanyModel.delete(companyId);
+
+        res.status(200).json({
+          success: true,
+          message: 'Company deleted successfully',
+        });
+      } catch (error: any) {
+        console.error('Error deleting company:', error);
+        next(error);
+      }
+    },
+
+    /**
+     * Search companies with filters
+     * GET /api/companies?filters
+     * Public endpoint
+     */
+    async search(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const filters: CompanySearchFilters = {};
+
+        if (req.query.city) filters.city = req.query.city as string;
+        if (req.query.state) filters.state = req.query.state as string;
+        if (req.query.clinic_type) filters.clinic_type = req.query.clinic_type as any;
+        if (req.query.specialization) filters.specialization = req.query.specialization as any;
+        if (req.query.is_verified) filters.is_verified = req.query.is_verified === 'true';
+
+        // Location-based search
+        if (req.query.latitude && req.query.longitude && req.query.radius_km) {
+          filters.latitude = parseFloat(req.query.latitude as string);
+          filters.longitude = parseFloat(req.query.longitude as string);
+          filters.radius_km = parseFloat(req.query.radius_km as string);
+        }
+
+        const companies = await CompanyModel.search(filters);
+
+        res.status(200).json({
+          success: true,
+          count: companies.length,
+          data: companies,
+        });
+      } catch (error: any) {
+        console.error('Error searching companies:', error);
+        next(error);
+      }
+    },
+
+    /**
+     * Upload company photo
+     * POST /api/companies/:id/photos
+     * Requires: authentication, ownership check
+     */
+    async uploadPhoto(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const userId = req.user?.id;
+        const companyId = parseInt(req.params.id);
+
+        if (!userId) {
+          res.status(401).json({
+            success: false,
+            message: 'Unauthorized: User not authenticated',
+          });
+          return;
+        }
+
+        if (isNaN(companyId)) {
+          res.status(400).json({
+            success: false,
+            message: 'Invalid company ID',
+          });
+          return;
+        }
+
+        // Check ownership
+        const company = await CompanyModel.findById(companyId);
+        if (!company) {
+          res.status(404).json({
+            success: false,
+            message: 'Company not found',
+          });
+          return;
+        }
+
+        if (company.user_id !== userId) {
+          res.status(403).json({
+            success: false,
+            message: 'Forbidden: You do not own this company',
+          });
+          return;
+        }
+
+        const { photo_url } = req.body;
+
+        if (!photo_url) {
+          res.status(400).json({
+            success: false,
+            message: 'Photo URL is required',
+          });
+          return;
+        }
+
+        // Check maximum photo limit (10)
+        if (company.photos.length >= 10) {
+          res.status(400).json({
+            success: false,
+            message: 'Maximum 10 photos allowed',
+          });
+          return;
+        }
+
+        // Add photo to photos array
+        const updatedPhotos = [...company.photos, photo_url];
+
+        const updatedCompany = await CompanyModel.update(companyId, {
+          photos: updatedPhotos,
+        });
+
+        res.status(200).json({
+          success: true,
+          message: 'Photo uploaded successfully',
+          data: updatedCompany,
+        });
+      } catch (error: any) {
+        console.error('Error uploading photo:', error);
+        next(error);
+      }
+    },
+
+    /**
+     * Delete company photo
+     * DELETE /api/companies/:id/photos
+     * Requires: authentication, ownership check
+     */
+    async deletePhoto(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const userId = req.user?.id;
+        const companyId = parseInt(req.params.id);
+
+        if (!userId) {
+          res.status(401).json({
+            success: false,
+            message: 'Unauthorized: User not authenticated',
+          });
+          return;
+        }
+
+        if (isNaN(companyId)) {
+          res.status(400).json({
+            success: false,
+            message: 'Invalid company ID',
+          });
+          return;
+        }
+
+        // Check ownership
+        const company = await CompanyModel.findById(companyId);
+        if (!company) {
+          res.status(404).json({
+            success: false,
+            message: 'Company not found',
+          });
+          return;
+        }
+
+        if (company.user_id !== userId) {
+          res.status(403).json({
+            success: false,
+            message: 'Forbidden: You do not own this company',
+          });
+          return;
+        }
+
+        const { photo_url } = req.body;
+
+        if (!photo_url) {
+          res.status(400).json({
+            success: false,
+            message: 'Photo URL is required',
+          });
+          return;
+        }
+
+        // Remove photo from photos array
+        const updatedPhotos = company.photos.filter(url => url !== photo_url);
+
+        const updatedCompany = await CompanyModel.update(companyId, {
+          photos: updatedPhotos,
+        });
+
+        res.status(200).json({
+          success: true,
+          message: 'Photo deleted successfully',
+          data: updatedCompany,
+        });
+      } catch (error: any) {
+        console.error('Error deleting photo:', error);
+        next(error);
+      }
+    },
+  };
+};

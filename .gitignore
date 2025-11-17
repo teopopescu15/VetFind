@@ -1,41 +1,163 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# VetFinder - React Native + Node.js Backend Project
 
-# dependencies
+# ========================
+# Dependencies
+# ========================
 node_modules/
+.pnp
+.pnp.js
 
-# Expo
+# ========================
+# Environment Variables
+# ========================
+.env
+.env.local
+.env.development
+.env.production
+.env*.local
+
+# Keep example env files
+!.env.example
+
+# ========================
+# Expo & React Native
+# ========================
 .expo/
 dist/
 web-build/
 expo-env.d.ts
 
-# Native
-.kotlin/
+# generated native folders (Expo managed workflow)
+/ios
+/android
+
+# Native builds
 *.orig.*
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
+*.keystore
 
-# Metro
+# Kotlin
+.kotlin/
+
+# Metro bundler
 .metro-health-check*
 
-# debug
+# ========================
+# Backend Build
+# ========================
+backend/dist/
+backend/build/
+
+# ========================
+# Logs
+# ========================
+logs/
+*.log
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+backend.log
+frontend.log
 
-# macOS
-.DS_Store
-*.pem
+# ========================
+# Testing & Coverage
+# ========================
+coverage/
+.nyc_output
+.playwright-mcp/
 
-# local env files
-.env*.local
-
-# typescript
+# ========================
+# TypeScript
+# ========================
 *.tsbuildinfo
 
-# generated native folders
-/ios
-/android
+# ========================
+# IDE & Editors
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code project files (keep these)
+!.claude/
+
+# ========================
+# OS Files
+# ========================
+.DS_Store
+Thumbs.db
+*.pem
+
+# ========================
+# Temporary Files
+# ========================
+tmp/
+temp/
+*.tmp
+
+# ========================
+# Database
+# ========================
+*.sqlite
+*.sqlite3
+*.db
+
+# ========================
+# Documentation (generated)
+# ========================
+*_REPORT.md
+*_PLAN.md
+*_GUIDE.md
+*_SUMMARY.md
+*_ANALYSIS.md
+*_PROGRESS.md
+*_COMPLETE.md
+*_FIX.md
+*_IMPLEMENTATION.md
+
+# Keep project documentation
+!README.md
+!CLAUDE.md
+!LICENSE.md
+
+# ========================
+# Scripts & Debug
+# ========================
+debug-app.sh
+health-check.sh
+restart-expo-tunnel.sh
+start-mobile.sh
+start-with-tunnel.sh
+test-*.sh
+test-*.html
+test-*.ts
+setup-port-forwarding.ps1
+
+# ========================
+# Credentials & Secrets
+# ========================
+credentials.txt
+
+# ========================
+# Project-Specific
+# ========================
+# MCP configuration (keep local only)
+.mcp.json
+.serena/
+
+# Config files (usually local)
+metro.config.js
+
+# Screenshots and images (usually examples)
+*.png
+!assets/**/*.png
+!src/assets/**/*.png
+
+# PDFs (unless documentation)
+*.pdf

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "SMA-NEW",
-    "slug": "SMA-NEW",
+    "slug": "vetfind-W256f72vf16TwHdc9Gsju",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -25,6 +25,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e3cc8cce-ee8b-4e8e-9757-98abad954494"
+      }
+    },
+    "owner": "teokyles-organization"
   }
 }

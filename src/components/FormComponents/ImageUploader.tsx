@@ -1,0 +1,266 @@
+import React, { useState } from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
+
+/**
+ * ImageUploader Component
+ * Single image upload component with camera and gallery support
+ * Follows object-literal pattern (no classes)
+ */
+
+interface ImageUploaderProps {
+  value: string | null;
+  onChange: (uri: string | null) => void;
+  placeholder?: string;
+  aspectRatio?: [number, number];
+  disabled?: boolean;
+}
+
+export const ImageUploader = ({
+  value,
+  onChange,
+  placeholder = 'Upload Image',
+  aspectRatio = [4, 3],
+  disabled = false,
+}: ImageUploaderProps) => {
+  const [loading, setLoading] = useState(false);
+
+  // Request permissions
+  const requestPermissions = async (type: 'camera' | 'library'): Promise<boolean> => {
+    try {
+      if (type === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Permission Required',
+            'Camera access is required to take photos. Please enable it in settings.',
+            [{ text: 'OK' }]
+          );
+          return false;
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Permission Required',
+            'Gallery access is required to select photos. Please enable it in settings.',
+            [{ text: 'OK' }]
+          );
+          return false;
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error('Permission error:', error);
+      return false;
+    }
+  };
+
+  // Pick image from camera
+  const pickFromCamera = async () => {
+    if (disabled) return;
+
+    const hasPermission = await requestPermissions('camera');
+    if (!hasPermission) return;
+
+    try {
+      setLoading(true);
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: aspectRatio,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        onChange(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Pick image from gallery
+  const pickFromGallery = async () => {
+    if (disabled) return;
+
+    const hasPermission = await requestPermissions('library');
+    if (!hasPermission) return;
+
+    try {
+      setLoading(true);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: aspectRatio,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        onChange(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Show picker options
+  const showPickerOptions = () => {
+    if (disabled) return;
+
+    Alert.alert(
+      'Select Image',
+      'Choose an option',
+      [
+        {
+          text: 'Take Photo',
+          onPress: pickFromCamera,
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: pickFromGallery,
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  // Remove image
+  const removeImage = () => {
+    if (disabled) return;
+
+    Alert.alert(
+      'Remove Image',
+      'Are you sure you want to remove this image?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => onChange(null),
+        },
+      ]
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {value ? (
+        <View style={styles.imageContainer}>
+          <Image source={{ uri: value }} style={styles.image} resizeMode="cover" />
+          {!disabled && (
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={removeImage}
+              accessibilityLabel="Remove image"
+              accessibilityRole="button"
+            >
+              <Ionicons name="close-circle" size={32} color="#fff" />
+            </TouchableOpacity>
+          )}
+          {!disabled && (
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={showPickerOptions}
+              accessibilityLabel="Change image"
+              accessibilityRole="button"
+            >
+              <Ionicons name="camera" size={24} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={[styles.uploadButton, disabled && styles.uploadButtonDisabled]}
+          onPress={showPickerOptions}
+          disabled={disabled || loading}
+          accessibilityLabel={placeholder}
+          accessibilityRole="button"
+        >
+          <Ionicons
+            name="camera-outline"
+            size={48}
+            color={disabled ? '#999' : '#666'}
+          />
+          <Text style={[styles.uploadText, disabled && styles.uploadTextDisabled]}>
+            {loading ? 'Loading...' : placeholder}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+  },
+  imageContainer: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#f0f0f0',
+    position: 'relative',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  removeButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 16,
+  },
+  editButton: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadButton: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+    backgroundColor: '#f9f9f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadButtonDisabled: {
+    backgroundColor: '#f5f5f5',
+    borderColor: '#e0e0e0',
+  },
+  uploadText: {
+    marginTop: 8,
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+  uploadTextDisabled: {
+    color: '#999',
+  },
+});

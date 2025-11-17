@@ -1,0 +1,454 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Platform
+} from 'react-native';
+import { vetApi } from '../services/vetApi';
+import type { Clinic, Service, Review } from '../types/vet.types';
+
+interface ClinicDetailScreenProps {
+  route: any;
+  navigation: any;
+}
+
+export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProps) => {
+  const { clinicId } = route.params;
+  const [clinic, setClinic] = useState<Clinic | null>(null);
+  const [services, setServices] = useState<Service[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTab, setSelectedTab] = useState<'services' | 'reviews'>('services');
+
+  useEffect(() => {
+    loadClinicData();
+  }, [clinicId]);
+
+  const loadClinicData = async () => {
+    try {
+      setLoading(true);
+      const [clinicData, servicesData, reviewsData] = await Promise.all([
+        vetApi.clinics.getById(clinicId),
+        vetApi.services.getByClinic(clinicId),
+        vetApi.reviews.getByClinic(clinicId)
+      ]);
+
+      setClinic(clinicData);
+      setServices(servicesData);
+      setReviews(reviewsData);
+    } catch (error: any) {
+      console.error('Error loading clinic data:', error);
+      Alert.alert('Error', 'Failed to load clinic details. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBookAppointment = (service?: Service) => {
+    navigation.navigate('BookAppointment', {
+      clinicId: clinic?.id,
+      clinicName: clinic?.name,
+      serviceId: service?.id,
+      serviceName: service?.name
+    });
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4ECDC4" />
+        <Text style={styles.loadingText}>Loading clinic details...</Text>
+      </View>
+    );
+  }
+
+  if (!clinic) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Clinic not found</Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={styles.header}>
+        <Text style={styles.clinicName}>{clinic.name}</Text>
+        {clinic.avg_rating && (
+          <View style={styles.ratingContainer}>
+            <Text style={styles.ratingText}>⭐ {clinic.avg_rating.toFixed(1)}</Text>
+            <Text style={styles.reviewCount}>({clinic.review_count} reviews)</Text>
+          </View>
+        )}
+      </View>
+
+      {clinic.description && (
+        <View style={styles.section}>
+          <Text style={styles.description}>{clinic.description}</Text>
+        </View>
+      )}
+
+      <View style={styles.infoSection}>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>📍 Address:</Text>
+          <Text style={styles.infoText}>
+            {clinic.address}, {clinic.city}, {clinic.state} {clinic.zip_code}
+          </Text>
+        </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>📞 Phone:</Text>
+          <Text style={styles.infoText}>{clinic.phone}</Text>
+        </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>✉️ Email:</Text>
+          <Text style={styles.infoText}>{clinic.email}</Text>
+        </View>
+      </View>
+
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, selectedTab === 'services' && styles.activeTab]}
+          onPress={() => setSelectedTab('services')}
+        >
+          <Text style={[styles.tabText, selectedTab === 'services' && styles.activeTabText]}>
+            Services ({services.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, selectedTab === 'reviews' && styles.activeTab]}
+          onPress={() => setSelectedTab('reviews')}
+        >
+          <Text style={[styles.tabText, selectedTab === 'reviews' && styles.activeTabText]}>
+            Reviews ({reviews.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {selectedTab === 'services' ? (
+        <View style={styles.servicesContainer}>
+          {services.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No services available</Text>
+            </View>
+          ) : (
+            services.map((service) => (
+              <View key={service.id} style={styles.serviceCard}>
+                <View style={styles.serviceHeader}>
+                  <Text style={styles.serviceName}>{service.name}</Text>
+                  <Text style={styles.servicePrice}>${service.price.toFixed(2)}</Text>
+                </View>
+
+                {service.description && (
+                  <Text style={styles.serviceDescription}>{service.description}</Text>
+                )}
+
+                {service.duration_minutes && (
+                  <Text style={styles.serviceDuration}>
+                    ⏱️ Duration: {service.duration_minutes} minutes
+                  </Text>
+                )}
+
+                <TouchableOpacity
+                  style={styles.bookButton}
+                  onPress={() => handleBookAppointment(service)}
+                >
+                  <Text style={styles.bookButtonText}>Book This Service</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+
+          <TouchableOpacity
+            style={styles.generalBookButton}
+            onPress={() => handleBookAppointment()}
+          >
+            <Text style={styles.generalBookButtonText}>Book General Appointment</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.reviewsContainer}>
+          {reviews.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No reviews yet</Text>
+              <Text style={styles.emptySubtext}>Be the first to review this clinic!</Text>
+            </View>
+          ) : (
+            reviews.map((review) => (
+              <View key={review.id} style={styles.reviewCard}>
+                <View style={styles.reviewHeader}>
+                  <Text style={styles.reviewerName}>
+                    {review.user_name || 'Anonymous User'}
+                  </Text>
+                  <Text style={styles.reviewRating}>
+                    {'⭐'.repeat(review.rating)}
+                  </Text>
+                </View>
+
+                {review.comment && (
+                  <Text style={styles.reviewComment}>{review.comment}</Text>
+                )}
+
+                {review.created_at && (
+                  <Text style={styles.reviewDate}>
+                    {new Date(review.created_at).toLocaleDateString()}
+                  </Text>
+                )}
+              </View>
+            ))
+          )}
+        </View>
+      )}
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5'
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5'
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666666'
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 40
+  },
+  errorText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#666666',
+    marginBottom: 20
+  },
+  backButton: {
+    backgroundColor: '#4ECDC4',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 8
+  },
+  backButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  header: {
+    backgroundColor: '#4ECDC4',
+    padding: 20,
+    paddingTop: Platform.OS === 'web' ? 20 : 40
+  },
+  clinicName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 10
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  ratingText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginRight: 8
+  },
+  reviewCount: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.9
+  },
+  section: {
+    backgroundColor: '#FFFFFF',
+    padding: 15,
+    marginTop: 10
+  },
+  description: {
+    fontSize: 16,
+    color: '#666666',
+    lineHeight: 24
+  },
+  infoSection: {
+    backgroundColor: '#FFFFFF',
+    padding: 15,
+    marginTop: 10
+  },
+  infoRow: {
+    marginBottom: 15
+  },
+  infoLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 5
+  },
+  infoText: {
+    fontSize: 16,
+    color: '#666666'
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    marginTop: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0'
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 15,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent'
+  },
+  activeTab: {
+    borderBottomColor: '#4ECDC4'
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#999999'
+  },
+  activeTabText: {
+    color: '#4ECDC4'
+  },
+  servicesContainer: {
+    padding: 15
+  },
+  serviceCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    elevation: 2
+  },
+  serviceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10
+  },
+  serviceName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333333',
+    flex: 1,
+    marginRight: 10
+  },
+  servicePrice: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#4ECDC4'
+  },
+  serviceDescription: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 8,
+    lineHeight: 20
+  },
+  serviceDuration: {
+    fontSize: 14,
+    color: '#999999',
+    marginBottom: 10
+  },
+  bookButton: {
+    backgroundColor: '#4ECDC4',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10
+  },
+  bookButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  generalBookButton: {
+    backgroundColor: '#FF6B6B',
+    paddingVertical: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 20
+  },
+  generalBookButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700'
+  },
+  reviewsContainer: {
+    padding: 15
+  },
+  reviewCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    elevation: 2
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10
+  },
+  reviewerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333333'
+  },
+  reviewRating: {
+    fontSize: 16
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: '#666666',
+    lineHeight: 20,
+    marginBottom: 8
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: '#999999'
+  },
+  emptyState: {
+    paddingVertical: 40,
+    alignItems: 'center'
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666666',
+    marginBottom: 8
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999999'
+  }
+});
+
+export default ClinicDetailScreen;
