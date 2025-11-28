@@ -42,7 +42,7 @@ export type PaymentMethod =
   | 'mobile_payment'
   | 'pet_insurance';
 
-export type ServiceCategory =
+export type ServiceCategoryType =
   | 'routine_care'
   | 'dental_care'
   | 'diagnostic_services'
@@ -52,8 +52,8 @@ export type ServiceCategory =
   | 'custom';
 
 export interface DaySchedule {
-  open: string; // "09:00"
-  close: string; // "17:00"
+  open: string | null; // "09:00" or null for blank
+  close: string | null; // "17:00" or null for blank
   closed: boolean;
 }
 
@@ -106,6 +106,7 @@ export interface Company {
   // Status
   is_verified: boolean;
   is_active: boolean;
+  company_completed: boolean; // Indicates if 4-step registration is complete
 
   // Timestamps
   created_at: string | Date;
@@ -146,6 +147,9 @@ export interface CreateCompanyDTO {
 
   // Opening Hours
   opening_hours?: OpeningHours;
+
+  // Completion Status
+  company_completed?: boolean;
 }
 
 export interface UpdateCompanyDTO {
@@ -202,9 +206,10 @@ export interface CompanyService {
   company_id: number;
 
   // Service Information
-  category: ServiceCategory;
+  category: ServiceCategoryType;
   service_name: string;
   description?: string;
+  specialization_id?: number;
 
   // Pricing
   price_min: number;
@@ -224,8 +229,10 @@ export interface CompanyService {
 
 export interface CreateServiceDTO {
   company_id?: number; // Optional - will be set from company context
-  category: ServiceCategory;
+  category: ServiceCategoryType;
   service_name: string;
+  specialization_id?: number;
+  category_id?: number; // Service category ID from database
   description?: string;
   price_min: number;
   price_max: number;
@@ -234,7 +241,7 @@ export interface CreateServiceDTO {
 }
 
 export interface UpdateServiceDTO {
-  category?: ServiceCategory;
+  category?: ServiceCategoryType;
   service_name?: string;
   description?: string;
   price_min?: number;
@@ -244,7 +251,7 @@ export interface UpdateServiceDTO {
 }
 
 export interface ServiceTemplate {
-  category: ServiceCategory;
+  category: ServiceCategoryType;
   service_name: string;
   suggested_price_min: number;
   suggested_price_max: number;
@@ -252,29 +259,60 @@ export interface ServiceTemplate {
   description: string;
 }
 
+// ==================== Service Pricing DTO (for Step 4 redesign) ====================
+
+/**
+ * Service Pricing DTO for Step 4
+ * Represents a service with pricing information to be created
+ */
+export interface ServicePricingDTO {
+  specialization_id?: number; // null for custom services
+  category_id?: number;
+  service_name: string;
+  description?: string;
+  price_min: string | null; // null initially, filled in by company in Step 4 form
+  price_max: string | null; // null initially, can be same as price_min for fixed price
+  duration_minutes?: number;
+  is_custom: boolean;
+}
+
 // Multi-step form data types
 export interface Step1FormData {
   name: string;
   logo_url?: string;
   email: string;
-  phone: string;
+  phone: string; // Romanian format: +40 XXX XXX XXX
   description?: string;
+  cui?: string; // CUI (Cod Unic de Înregistrare) - optional
 }
 
 export interface Step2FormData {
-  address: string;
-  city: string;
-  state: string;
-  zip_code: string;
+  // Romanian Address Structure
+  street: string; // Strada
+  streetNumber: string; // Număr
+  building?: string; // Bloc (optional)
+  apartment?: string; // Apartament (optional)
+  city: string; // Oraș/Localitate
+  county: string; // Județ (county code: AB, B, CJ, etc.)
+  postalCode: string; // Cod poștal (6 digits: XXXXXX)
   latitude?: number;
   longitude?: number;
   website?: string;
   opening_hours?: OpeningHours;
+
+  // Deprecated American fields (for backwards compatibility)
+  address?: string; // Deprecated: use street + streetNumber
+  state?: string; // Deprecated: use county
+  zip_code?: string; // Deprecated: use postalCode
 }
 
 export interface Step3FormData {
   clinic_type: ClinicType;
+  // Legacy fields (kept for backwards compatibility)
   specializations: Specialization[];
+  // New hierarchical category/specialization fields
+  selected_categories: number[]; // Category IDs from service_categories table
+  selected_specializations: number[]; // Specialization IDs from category_specializations table
   facilities: Facility[];
   num_veterinarians?: number;
   years_in_business?: number;
@@ -282,9 +320,16 @@ export interface Step3FormData {
 }
 
 export interface Step4FormData {
+  services: ServicePricingDTO[];
+  photos: string[];
+  description?: string;
+}
+
+// Legacy Step4FormData for backwards compatibility
+export interface Step4FormDataLegacy {
   services: CreateServiceDTO[];
   photos: string[];
-  full_description?: string;
+  description?: string;
 }
 
 export interface CompanyFormData {
@@ -348,7 +393,7 @@ export const isValidClinicType = (value: string): value is ClinicType => {
   return ['general_practice', 'emergency_care', 'specialized_care', 'mobile_vet', 'emergency_24_7'].includes(value);
 };
 
-export const isValidServiceCategory = (value: string): value is ServiceCategory => {
+export const isValidServiceCategory = (value: string): value is ServiceCategoryType => {
   return ['routine_care', 'dental_care', 'diagnostic_services', 'emergency_care', 'surgical_procedures', 'grooming', 'custom'].includes(value);
 };
 
@@ -397,7 +442,7 @@ export const PaymentMethodLabels: Record<PaymentMethod, string> = {
   pet_insurance: 'Pet Insurance',
 };
 
-export const ServiceCategoryLabels: Record<ServiceCategory, string> = {
+export const ServiceCategoryLabels: Record<ServiceCategoryType, string> = {
   routine_care: 'Routine Care',
   dental_care: 'Dental Care',
   diagnostic_services: 'Diagnostic Services',
@@ -406,3 +451,75 @@ export const ServiceCategoryLabels: Record<ServiceCategory, string> = {
   grooming: 'Grooming',
   custom: 'Custom Service',
 };
+
+// ==================== Service Categories & Specializations (Phase 2) ====================
+
+/**
+ * Service Category from the database
+ * Represents a top-level category like "Dental Care", "Surgery", etc.
+ */
+export interface ServiceCategory {
+  id: number;
+  name: string;
+  description?: string;
+  icon?: string;
+  display_order: number;
+  is_active: boolean;
+  created_at: string | Date;
+  updated_at: string | Date;
+}
+
+/**
+ * Category Specialization from the database
+ * Represents a specific service within a category (e.g., "Teeth Cleaning" under "Dental Care")
+ */
+export interface CategorySpecialization {
+  id: number;
+  category_id: number;
+  name: string;
+  description?: string;
+  suggested_duration_minutes: number;
+  icon?: string;
+  display_order: number;
+  is_active: boolean;
+  created_at: string | Date;
+  updated_at: string | Date;
+  // Added when fetching with category info
+  category_name?: string;
+}
+
+/**
+ * Category with its nested specializations
+ * Used for hierarchical display in Step 3
+ */
+export interface CategoryWithSpecializations extends ServiceCategory {
+  specializations: CategorySpecialization[];
+}
+
+// API Response types for service categories
+export interface ServiceCategoriesApiResponse {
+  success: boolean;
+  count?: number;
+  data?: ServiceCategory[];
+  message?: string;
+}
+
+export interface CategoriesWithSpecializationsApiResponse {
+  success: boolean;
+  count?: number;
+  data?: CategoryWithSpecializations[];
+  message?: string;
+}
+
+export interface CategoryWithSpecializationsApiResponse {
+  success: boolean;
+  data?: CategoryWithSpecializations;
+  message?: string;
+}
+
+export interface SpecializationsApiResponse {
+  success: boolean;
+  count?: number;
+  data?: CategorySpecialization[];
+  message?: string;
+}

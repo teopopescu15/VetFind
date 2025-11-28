@@ -19,6 +19,10 @@ export interface CompanyService {
   service_name: string;
   description?: string;
 
+  // Specialization reference (null for custom services)
+  specialization_id?: number | null;
+  category_id?: number;
+
   // Pricing
   price_min: number;
   price_max: number;
@@ -40,6 +44,8 @@ export interface CreateServiceDTO {
   category: ServiceCategory;
   service_name: string;
   description?: string;
+  specialization_id?: number | null;
+  category_id?: number;
   price_min: number;
   price_max: number;
   duration_minutes?: number;
@@ -50,6 +56,8 @@ export interface UpdateServiceDTO {
   category?: ServiceCategory;
   service_name?: string;
   description?: string;
+  specialization_id?: number | null;
+  category_id?: number;
   price_min?: number;
   price_max?: number;
   duration_minutes?: number;

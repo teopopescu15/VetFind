@@ -13,11 +13,9 @@ dotenv.config();
 import sampleRoutes from './routes/sample.routes';
 import userRoutes from './routes/user.routes';
 import authRoutes from './routes/auth.routes';
-import clinicRoutes from './routes/clinic.routes';
-import reviewRoutes from './routes/review.routes';
-import appointmentRoutes from './routes/appointment.routes';
 import companyRoutes from './routes/company.routes';
 import companyServiceRoutes from './routes/companyService.routes';
+import serviceCategoryRoutes from './routes/serviceCategory';
 
 // Import error handler middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -96,12 +94,10 @@ app.get('/api', (req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/sample', sampleRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api', clinicRoutes); // Clinic routes at /api
-app.use('/api/vet', reviewRoutes);
-app.use('/api/vet', appointmentRoutes);
 app.use('/api/companies', companyRoutes); // Company routes
 app.use('/api/companies', companyServiceRoutes); // Company service routes at /api/companies/:companyId/services
 app.use('/api/services', companyServiceRoutes); // Also mount at /api/services for templates endpoint
+app.use('/api/service-categories', serviceCategoryRoutes); // Service categories and specializations
 
 // Error handling middleware (should be last)
 app.use(notFound);

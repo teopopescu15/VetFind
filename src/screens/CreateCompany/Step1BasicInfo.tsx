@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { TextInput, Text, HelperText } from 'react-native-paper';
 import { ImageUploader } from '../../components/FormComponents/ImageUploader';
+import { RomanianPhoneInput } from '../../components/FormComponents/RomanianPhoneInput';
+import { ScrollContainer } from '../../components/FormComponents/ScrollContainer';
 import { Step1FormData } from '../../types/company.types';
 
 export interface Step1BasicInfoProps {
-  data: Step1FormData;
-  onChange: (data: Step1FormData) => void;
+  data: Partial<Step1FormData>;
+  onChange: (data: Partial<Step1FormData>) => void;
   errors?: { [key: string]: string };
 }
 
@@ -34,18 +36,14 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScrollContainer>
       {/* Header */}
       <View style={styles.header}>
         <Text variant="headlineMedium" style={styles.title}>
-          Basic Information
+          Tell Us About Your Clinic
         </Text>
         <Text variant="bodyMedium" style={styles.subtitle}>
-          Let's start with the basics about your veterinary clinic
+          Start with the basics so pet owners can recognize and contact you
         </Text>
       </View>
 
@@ -62,6 +60,9 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
           onChange={(uri) => updateField('logo_url', uri)}
           placeholder="Upload Logo"
           aspectRatio={[1, 1]}
+          maxWidth={150}
+          maxHeight={150}
+          centerAlign={true}
         />
         {errors.logo_url && (
           <HelperText type="error" visible={true}>
@@ -91,7 +92,7 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
         <HelperText type="error" visible={!!errors.name}>
           {errors.name || ' '}
         </HelperText>
-        <HelperText type="info" visible={!errors.name && (isFocused.name || data.name)}>
+        <HelperText type="info" visible={!errors.name && (isFocused.name || !!data.name)}>
           {data.name ? `${data.name.length}/100 characters` : '3-100 characters required'}
         </HelperText>
       </View>
@@ -123,24 +124,36 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
 
       {/* Phone Number */}
       <View style={styles.section}>
-        <TextInput
-          label="Phone Number *"
+        <RomanianPhoneInput
           value={data.phone || ''}
-          onChangeText={(text) => updateField('phone', text)}
-          onFocus={() => handleFocus('phone')}
-          onBlur={() => handleBlur('phone')}
+          onChange={(phone) => updateField('phone', phone)}
+          error={errors.phone}
+          disabled={false}
+        />
+      </View>
+
+      {/* CUI (Romanian Tax ID) */}
+      <View style={styles.section}>
+        <TextInput
+          label="CUI (Cod Unic de Înregistrare)"
+          value={data.cui || ''}
+          onChangeText={(text) => updateField('cui', text)}
+          onFocus={() => handleFocus('cui')}
+          onBlur={() => handleBlur('cui')}
           mode="outlined"
-          error={!!errors.phone}
-          keyboardType="phone-pad"
-          placeholder="+1 (555) 123-4567"
+          error={!!errors.cui}
+          placeholder="RO12345678 sau 12345678"
           style={styles.input}
           outlineColor="#e5e7eb"
           activeOutlineColor="#7c3aed"
-          accessibilityLabel="Phone Number"
-          accessibilityHint="Enter your clinic's phone number"
+          accessibilityLabel="CUI"
+          accessibilityHint="Optional - Romanian Tax ID (can be added later)"
         />
-        <HelperText type="error" visible={!!errors.phone}>
-          {errors.phone || ' '}
+        <HelperText type="error" visible={!!errors.cui}>
+          {errors.cui || ' '}
+        </HelperText>
+        <HelperText type="info" visible={!errors.cui}>
+          Optional - poate fi adăugat mai târziu
         </HelperText>
       </View>
 
@@ -167,7 +180,7 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
         <HelperText type="error" visible={!!errors.description}>
           {errors.description || ' '}
         </HelperText>
-        <HelperText type="info" visible={!errors.description && (isFocused.description || data.description)}>
+        <HelperText type="info" visible={!errors.description && (isFocused.description || !!data.description)}>
           {data.description ? `${data.description.length}/100 characters` : 'Optional, max 100 characters'}
         </HelperText>
       </View>
@@ -178,19 +191,11 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
           * Required fields
         </Text>
       </View>
-    </ScrollView>
+    </ScrollContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff'
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40
-  },
   header: {
     marginBottom: 24
   },

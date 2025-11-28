@@ -130,9 +130,7 @@ export const MultiSelectCheckbox = ({
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
           <Text style={[styles.counter, minNotMet && styles.counterError]}>
-            {selectionCount}
-            {maxSelections ? `/${maxSelections}` : ''} selected
-            {minSelections > 0 && selectionCount < minSelections && ` (min ${minSelections})`}
+            {`${selectionCount}${maxSelections ? `/${maxSelections}` : ''} selected${minSelections > 0 && selectionCount < minSelections ? ` (min ${minSelections})` : ''}`}
           </Text>
         </View>
       )}

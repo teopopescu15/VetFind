@@ -3,6 +3,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useAuth } from '../context/AuthContext';
+import type { RootStackParamList } from '../types/navigation.types';
 
 // Navigators
 import AuthNavigator from './AuthNavigator';
@@ -14,10 +15,11 @@ import ClinicDetailScreen from '../screens/ClinicDetailScreen';
 import BookAppointmentScreen from '../screens/BookAppointmentScreen';
 import MyAppointmentsScreen from '../screens/MyAppointmentsScreen';
 import { CreateCompanyScreen } from '../screens/CreateCompanyScreen';
+import { CompanyCreatedSuccessScreen } from '../screens/CompanyCreatedSuccessScreen';
 import { CompanyDashboardScreen } from '../screens/CompanyDashboardScreen';
 
 // Stack navigators
-const Stack = createStackNavigator();
+const Stack = createStackNavigator<RootStackParamList>();
 
 const AppNavigator: React.FC = () => {
   const { isLoading, isAuthenticated } = useAuth();
@@ -42,6 +44,14 @@ const AppNavigator: React.FC = () => {
         >
           <Stack.Screen name="Dashboard" component={DashboardScreen} />
           <Stack.Screen name="CreateCompany" component={CreateCompanyScreen} />
+          <Stack.Screen
+            name="CompanyCreatedSuccess"
+            component={CompanyCreatedSuccessScreen}
+            options={{
+              gestureEnabled: false, // Prevent back swipe
+              headerShown: false,
+            }}
+          />
           <Stack.Screen name="CompanyDashboard" component={CompanyDashboardScreen} />
           <Stack.Screen name="VetFinderHome" component={VetFinderHomeScreen} />
           <Stack.Screen name="ClinicDetail" component={ClinicDetailScreen} />

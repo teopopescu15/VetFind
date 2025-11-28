@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   CreateServiceDTO,
   ServiceTemplate,
-  ServiceCategory,
+  ServiceCategoryType,
   ServiceCategoryLabels,
 } from '../../types/company.types';
 
@@ -171,7 +171,7 @@ export const ServiceListBuilder = ({
                       styles.categoryChip,
                       service.category === key && styles.categoryChipSelected,
                     ]}
-                    onPress={() => updateService(index, 'category', key as ServiceCategory)}
+                    onPress={() => updateService(index, 'category', key as ServiceCategoryType)}
                     disabled={disabled}
                   >
                     <Text

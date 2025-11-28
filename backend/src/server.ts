@@ -21,24 +21,48 @@ const startServer = async () => {
       console.log(`🔗 API endpoint: http://localhost:${PORT}/api`);
     });
 
-    // Graceful shutdown
-    process.on('SIGTERM', async () => {
-      console.log('SIGTERM signal received: closing HTTP server');
-      server.close(async () => {
-        console.log('HTTP server closed');
-        await closeDatabaseConnection();
-        process.exit(0);
-      });
-    });
+    // Graceful shutdown with timeout
+    let isShuttingDown = false;
 
-    process.on('SIGINT', async () => {
-      console.log('SIGINT signal received: closing HTTP server');
-      server.close(async () => {
-        console.log('HTTP server closed');
+    const gracefulShutdown = async (signal: string) => {
+      if (isShuttingDown) {
+        console.log('⚠️ Shutdown already in progress...');
+        return;
+      }
+
+      isShuttingDown = true;
+      console.log(`\n${signal} signal received: closing HTTP server`);
+
+      // Set a timeout for forced shutdown (5 seconds)
+      const forceShutdownTimer = setTimeout(() => {
+        console.error('⚠️ Forcing shutdown after timeout');
+        process.exit(1);
+      }, 5000);
+
+      try {
+        // Close HTTP server (stops accepting new connections)
+        await new Promise<void>((resolve) => {
+          server.close(() => {
+            console.log('✅ HTTP server closed');
+            resolve();
+          });
+        });
+
+        // Close database connection
         await closeDatabaseConnection();
+
+        clearTimeout(forceShutdownTimer);
+        console.log('👋 Shutdown complete');
         process.exit(0);
-      });
-    });
+      } catch (error) {
+        console.error('❌ Error during shutdown:', error);
+        clearTimeout(forceShutdownTimer);
+        process.exit(1);
+      }
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
     // Handle unhandled promise rejections
     process.on('unhandledRejection', async (err: Error) => {

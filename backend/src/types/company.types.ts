@@ -68,13 +68,24 @@ export interface Company {
   website?: string;
   description?: string;
 
-  // Location Information
-  address: string;
-  city: string;
-  state: string;
-  zip_code: string;
+  // Romanian Address Structure
+  street?: string; // Strada
+  street_number?: string; // Număr
+  building?: string; // Bloc (optional)
+  apartment?: string; // Apartament (optional)
+  city: string; // Oraș/Localitate
+  county?: string; // Județ (county code: AB, B, CJ, etc.)
+  postal_code?: string; // Cod poștal (6 digits)
   latitude?: number;
   longitude?: number;
+
+  // CUI (Romanian Tax ID)
+  cui?: string;
+
+  // Deprecated fields (for backwards compatibility)
+  address?: string; // Deprecated: use street + street_number
+  state?: string; // Deprecated: use county
+  zip_code?: string; // Deprecated: use postal_code
 
   // Business Details
   clinic_type: ClinicType;
@@ -96,6 +107,7 @@ export interface Company {
   // Status
   is_verified: boolean;
   is_active: boolean;
+  company_completed: boolean; // Indicates if 4-step registration is complete
 
   // Timestamps
   created_at: Date;
@@ -108,17 +120,26 @@ export interface CreateCompanyDTO {
   // Basic Information (Required)
   name: string;
   email: string;
-  phone: string;
+  phone: string; // Romanian format: +40 XXX XXX XXX
   website?: string;
   description?: string;
+  cui?: string; // Optional
 
-  // Location Information (Required)
-  address: string;
+  // Romanian Address Structure (Required)
+  street?: string;
+  street_number?: string;
+  building?: string;
+  apartment?: string;
   city: string;
-  state: string;
-  zip_code: string;
+  county?: string; // County code
+  postal_code?: string; // 6 digits
   latitude?: number;
   longitude?: number;
+
+  // Deprecated fields (for backwards compatibility)
+  address?: string;
+  state?: string;
+  zip_code?: string;
 
   // Business Details
   clinic_type: ClinicType;
@@ -136,23 +157,35 @@ export interface CreateCompanyDTO {
 
   // Opening Hours
   opening_hours?: OpeningHours;
+
+  // Completion Status
+  company_completed?: boolean;
 }
 
 export interface UpdateCompanyDTO {
   // Basic Information
   name?: string;
   email?: string;
-  phone?: string;
+  phone?: string; // Romanian format
   website?: string;
   description?: string;
+  cui?: string;
 
-  // Location Information
-  address?: string;
+  // Romanian Address Structure
+  street?: string;
+  street_number?: string;
+  building?: string;
+  apartment?: string;
   city?: string;
-  state?: string;
-  zip_code?: string;
+  county?: string;
+  postal_code?: string;
   latitude?: number;
   longitude?: number;
+
+  // Deprecated fields (for backwards compatibility)
+  address?: string;
+  state?: string;
+  zip_code?: string;
 
   // Business Details
   clinic_type?: ClinicType;
@@ -173,6 +206,7 @@ export interface UpdateCompanyDTO {
 
   // Status
   is_active?: boolean;
+  company_completed?: boolean;
 }
 
 export interface CompanySearchFilters {

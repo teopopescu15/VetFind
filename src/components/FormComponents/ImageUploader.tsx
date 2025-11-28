@@ -15,6 +15,9 @@ interface ImageUploaderProps {
   placeholder?: string;
   aspectRatio?: [number, number];
   disabled?: boolean;
+  maxWidth?: number; // Maximum width in pixels
+  maxHeight?: number; // Maximum height in pixels
+  centerAlign?: boolean; // Center the uploader
 }
 
 export const ImageUploader = ({
@@ -23,6 +26,9 @@ export const ImageUploader = ({
   placeholder = 'Upload Image',
   aspectRatio = [4, 3],
   disabled = false,
+  maxWidth,
+  maxHeight,
+  centerAlign = false,
 }: ImageUploaderProps) => {
   const [loading, setLoading] = useState(false);
 
@@ -157,10 +163,22 @@ export const ImageUploader = ({
     );
   };
 
+  // Calculate container styles based on props
+  const containerStyles = [
+    styles.container,
+    centerAlign && styles.containerCenter,
+    maxWidth && { maxWidth },
+  ];
+
+  const uploaderStyles = [
+    maxWidth && { width: maxWidth },
+    maxHeight && { height: maxHeight },
+  ];
+
   return (
-    <View style={styles.container}>
+    <View style={containerStyles}>
       {value ? (
-        <View style={styles.imageContainer}>
+        <View style={[styles.imageContainer, ...uploaderStyles]}>
           <Image source={{ uri: value }} style={styles.image} resizeMode="cover" />
           {!disabled && (
             <TouchableOpacity
@@ -185,7 +203,7 @@ export const ImageUploader = ({
         </View>
       ) : (
         <TouchableOpacity
-          style={[styles.uploadButton, disabled && styles.uploadButtonDisabled]}
+          style={[styles.uploadButton, disabled && styles.uploadButtonDisabled, ...uploaderStyles]}
           onPress={showPickerOptions}
           disabled={disabled || loading}
           accessibilityLabel={placeholder}
@@ -208,6 +226,10 @@ export const ImageUploader = ({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+  },
+  containerCenter: {
+    alignItems: 'center',
+    alignSelf: 'center',
   },
   imageContainer: {
     width: '100%',

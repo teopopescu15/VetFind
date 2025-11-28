@@ -34,6 +34,7 @@ export const CompanyModel = {
       facilities = [],
       payment_methods = [],
       opening_hours = {},
+      company_completed = true, // Default to true for new companies
     } = companyData;
 
     const query = `
@@ -41,13 +42,15 @@ export const CompanyModel = {
         user_id, name, email, phone, website, description,
         address, city, state, zip_code, latitude, longitude,
         clinic_type, years_in_business, num_veterinarians,
-        logo_url, photos, specializations, facilities, payment_methods, opening_hours
+        logo_url, photos, specializations, facilities, payment_methods, opening_hours,
+        company_completed
       )
       VALUES (
         $1, $2, $3, $4, $5, $6,
         $7, $8, $9, $10, $11, $12,
         $13, $14, $15,
-        $16, $17, $18, $19, $20, $21
+        $16, $17, $18, $19, $20, $21,
+        $22
       )
       RETURNING *
     `;
@@ -74,6 +77,7 @@ export const CompanyModel = {
       facilities,
       payment_methods,
       JSON.stringify(opening_hours),
+      company_completed,
     ];
 
     try {
@@ -256,6 +260,12 @@ export const CompanyModel = {
       paramCount++;
     }
 
+    if (companyData.company_completed !== undefined) {
+      fields.push(`company_completed = $${paramCount}`);
+      values.push(companyData.company_completed);
+      paramCount++;
+    }
+
     // Always update updated_at
     fields.push(`updated_at = CURRENT_TIMESTAMP`);
 
@@ -435,6 +445,26 @@ export const CompanyModel = {
     `;
 
     const result = await pool.query(query, [isVerified, id]);
+
+    if (result.rows.length === 0) {
+      throw new Error('Company not found');
+    }
+
+    return CompanyModel._deserializeCompany(result.rows[0]);
+  },
+
+  /**
+   * Update company completion status
+   */
+  async updateCompletionStatus(id: number, completed: boolean): Promise<Company> {
+    const query = `
+      UPDATE companies
+      SET company_completed = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, [completed, id]);
 
     if (result.rows.length === 0) {
       throw new Error('Company not found');

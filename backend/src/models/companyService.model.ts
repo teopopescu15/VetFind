@@ -19,6 +19,8 @@ export const CompanyServiceModel = {
       category,
       service_name,
       description,
+      specialization_id,
+      category_id,
       price_min,
       price_max,
       duration_minutes,
@@ -28,9 +30,9 @@ export const CompanyServiceModel = {
     const query = `
       INSERT INTO company_services (
         company_id, category, service_name, description,
-        price_min, price_max, duration_minutes, is_custom
+        specialization_id, category_id, price_min, price_max, duration_minutes, is_custom
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `;
 
@@ -39,6 +41,8 @@ export const CompanyServiceModel = {
       category,
       service_name,
       description || null,
+      specialization_id || null,
+      category_id || null,
       price_min,
       price_max,
       duration_minutes || null,
@@ -51,7 +55,7 @@ export const CompanyServiceModel = {
     } catch (error: any) {
       if (error.code === '23503') {
         // Foreign key violation
-        throw new Error('Company not found');
+        throw new Error('Company or specialization not found');
       }
       if (error.code === '23514') {
         // Check constraint violation
@@ -130,6 +134,18 @@ export const CompanyServiceModel = {
       paramCount++;
     }
 
+    if (serviceData.specialization_id !== undefined) {
+      fields.push(`specialization_id = $${paramCount}`);
+      values.push(serviceData.specialization_id);
+      paramCount++;
+    }
+
+    if (serviceData.category_id !== undefined) {
+      fields.push(`category_id = $${paramCount}`);
+      values.push(serviceData.category_id);
+      paramCount++;
+    }
+
     if (serviceData.price_min !== undefined) {
       fields.push(`price_min = $${paramCount}`);
       values.push(serviceData.price_min);
@@ -181,6 +197,10 @@ export const CompanyServiceModel = {
 
       return result.rows[0];
     } catch (error: any) {
+      if (error.code === '23503') {
+        // Foreign key violation
+        throw new Error('Specialization not found');
+      }
       if (error.code === '23514') {
         // Check constraint violation
         throw new Error('Invalid price range: price_min must be >= 0 and price_max must be >= price_min');
@@ -229,23 +249,29 @@ export const CompanyServiceModel = {
       const createdServices: CompanyService[] = [];
 
       for (const serviceData of services) {
+        console.log('MODEL DEBUG - serviceData:', JSON.stringify(serviceData, null, 2));
+
         const {
           company_id,
           category,
           service_name,
           description,
+          specialization_id,
+          category_id,
           price_min,
           price_max,
           duration_minutes,
           is_custom = false,
         } = serviceData;
 
+        console.log('MODEL DEBUG - extracted specialization_id:', specialization_id, 'type:', typeof specialization_id);
+
         const query = `
           INSERT INTO company_services (
             company_id, category, service_name, description,
-            price_min, price_max, duration_minutes, is_custom
+            specialization_id, category_id, price_min, price_max, duration_minutes, is_custom
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
           RETURNING *
         `;
 
@@ -254,11 +280,15 @@ export const CompanyServiceModel = {
           category,
           service_name,
           description || null,
+          specialization_id || null,
+          category_id || null,
           price_min,
           price_max,
           duration_minutes || null,
           is_custom,
         ];
+
+        console.log('MODEL DEBUG - values array:', values);
 
         const result = await client.query(query, values);
         createdServices.push(result.rows[0]);
@@ -270,7 +300,7 @@ export const CompanyServiceModel = {
       await client.query('ROLLBACK');
 
       if (error.code === '23503') {
-        throw new Error('Company not found');
+        throw new Error('Company or specialization not found');
       }
       if (error.code === '23514') {
         throw new Error('Invalid price range in one or more services');

@@ -18,6 +18,12 @@ import {
   CompanyApiResponse,
   ServicesApiResponse,
   ServiceTemplatesApiResponse,
+  // New types for Phase 2
+  CategoryWithSpecializations,
+  CategorySpecialization,
+  CategoriesWithSpecializationsApiResponse,
+  CategoryWithSpecializationsApiResponse,
+  SpecializationsApiResponse,
 } from '../types/company.types';
 
 // API Base URL Configuration
@@ -523,7 +529,100 @@ const createApiService = () => {
         console.error('Get service templates error:', error);
         return [];
       }
-    }
+    },
+
+    // ==================== Service Categories & Specializations (Phase 2) ====================
+
+    /**
+     * Get all service categories with their specializations (hierarchical data)
+     * Used in Step 3 for category/specialization picker
+     */
+    async getServiceCategoriesWithSpecializations(): Promise<CategoryWithSpecializations[]> {
+      try {
+        const response: CategoriesWithSpecializationsApiResponse = await request(
+          '/service-categories/with-specializations',
+          'GET'
+        );
+
+        if (!response.success || !response.data) {
+          return [];
+        }
+
+        return response.data;
+      } catch (error: any) {
+        console.error('Get service categories with specializations error:', error);
+        return [];
+      }
+    },
+
+    /**
+     * Get a single service category by ID with its specializations
+     */
+    async getServiceCategoryById(id: number): Promise<CategoryWithSpecializations | null> {
+      try {
+        const response: CategoryWithSpecializationsApiResponse = await request(
+          `/service-categories/${id}`,
+          'GET'
+        );
+
+        if (!response.success || !response.data) {
+          return null;
+        }
+
+        return response.data;
+      } catch (error: any) {
+        console.error('Get service category by ID error:', error);
+        return null;
+      }
+    },
+
+    /**
+     * Get specializations for a specific category
+     */
+    async getSpecializationsByCategory(categoryId: number): Promise<CategorySpecialization[]> {
+      try {
+        const response: SpecializationsApiResponse = await request(
+          `/service-categories/${categoryId}/specializations`,
+          'GET'
+        );
+
+        if (!response.success || !response.data) {
+          return [];
+        }
+
+        return response.data;
+      } catch (error: any) {
+        console.error('Get specializations by category error:', error);
+        return [];
+      }
+    },
+
+    /**
+     * Get multiple specializations by their IDs (with category info)
+     * Used in Step 4 to display selected specializations for pricing
+     */
+    async getSpecializationsByIds(ids: number[]): Promise<CategorySpecialization[]> {
+      try {
+        if (ids.length === 0) {
+          return [];
+        }
+
+        const response: SpecializationsApiResponse = await request(
+          '/service-categories/specializations/by-ids',
+          'POST',
+          { ids }
+        );
+
+        if (!response.success || !response.data) {
+          return [];
+        }
+
+        return response.data;
+      } catch (error: any) {
+        console.error('Get specializations by IDs error:', error);
+        return [];
+      }
+    },
   };
 };
 

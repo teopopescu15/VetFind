@@ -3,10 +3,11 @@ import { View, ScrollView, StyleSheet, Image, Alert, TouchableOpacity } from 're
 import { Text, Card, Button, ActivityIndicator, Chip } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Company } from '../types/company.types';
+import { Company, CategoryWithSpecializations } from '../types/company.types';
 import { ApiService } from '../services/api';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { CategoryCard } from '../components/Dashboard/CategoryCard';
 
 /**
  * CompanyDashboardScreen - Main dashboard for vet company users
@@ -24,10 +25,18 @@ export const CompanyDashboardScreen = () => {
   const [company, setCompany] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [profileCompletion, setProfileCompletion] = useState(0);
+  const [categories, setCategories] = useState<CategoryWithSpecializations[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
   useEffect(() => {
     loadCompany();
   }, []);
+
+  useEffect(() => {
+    if (company) {
+      loadCategories();
+    }
+  }, [company]);
 
   const loadCompany = async () => {
     try {
@@ -73,6 +82,23 @@ export const CompanyDashboardScreen = () => {
 
     const percentage = Math.round((completedFields / totalFields) * 100);
     setProfileCompletion(percentage);
+  };
+
+  const loadCategories = async () => {
+    try {
+      setIsLoadingCategories(true);
+      const allCategories = await ApiService.getServiceCategoriesWithSpecializations();
+
+      // Filter categories that have at least one specialization selected by the company
+      // For now, we'll show all categories since the company profile uses the old specializations array
+      // In the future, this should be filtered based on company.selected_specializations
+      setCategories(allCategories);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      // Don't show alert for categories loading failure - it's not critical
+    } finally {
+      setIsLoadingCategories(false);
+    }
   };
 
   if (isLoading) {
@@ -175,11 +201,25 @@ export const CompanyDashboardScreen = () => {
           <View style={styles.profileCompletionContainer}>
             <View style={styles.profileCompletionHeader}>
               <Text variant="titleMedium" style={styles.profileCompletionTitle}>
-                Profile Completion
+                Profile Status
               </Text>
-              <Text variant="titleMedium" style={styles.profileCompletionPercentage}>
-                {profileCompletion}%
-              </Text>
+              {company.company_completed ? (
+                <Chip
+                  icon={() => <Ionicons name="checkmark-circle" size={16} color="#22c55e" />}
+                  style={styles.completedChip}
+                  textStyle={styles.completedChipText}
+                >
+                  Complete
+                </Chip>
+              ) : (
+                <Chip
+                  icon={() => <Ionicons name="alert-circle" size={16} color="#f59e0b" />}
+                  style={styles.incompleteChip}
+                  textStyle={styles.incompleteChipText}
+                >
+                  Incomplete
+                </Chip>
+              )}
             </View>
 
             <View style={styles.progressBarBackground}>
@@ -193,6 +233,10 @@ export const CompanyDashboardScreen = () => {
                 ]}
               />
             </View>
+
+            <Text variant="bodySmall" style={styles.profileCompletionPercentage}>
+              {profileCompletion}% Complete
+            </Text>
 
             {profileCompletion < 100 && (
               <Text variant="bodySmall" style={styles.profileCompletionHint}>
@@ -291,7 +335,40 @@ export const CompanyDashboardScreen = () => {
         </View>
       </View>
 
-      {/* Specializations */}
+      {/* Services & Categories */}
+      {categories.length > 0 && (
+        <View style={styles.categoriesContainer}>
+          <View style={styles.categoriesHeader}>
+            <Text variant="titleLarge" style={styles.sectionTitle}>
+              Services & Specializations
+            </Text>
+            <Chip
+              style={styles.totalServicesChip}
+              textStyle={styles.totalServicesChipText}
+              compact
+            >
+              {categories.reduce((sum, cat) => sum + cat.specializations.length, 0)} Total Services
+            </Chip>
+          </View>
+
+          {isLoadingCategories ? (
+            <View style={styles.categoriesLoading}>
+              <ActivityIndicator size="small" color="#7c3aed" />
+              <Text variant="bodyMedium" style={styles.categoriesLoadingText}>
+                Loading services...
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.categoriesList}>
+              {categories.map((category) => (
+                <CategoryCard key={category.id} category={category} />
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Specializations (Legacy) */}
       {company.specializations && company.specializations.length > 0 && (
         <View style={styles.specializationsContainer}>
           <Text variant="titleMedium" style={styles.sectionTitle}>
@@ -450,14 +527,31 @@ const styles = StyleSheet.create({
     color: '#111827'
   },
   profileCompletionPercentage: {
-    fontWeight: '700',
-    color: '#7c3aed'
+    marginTop: 8,
+    color: '#6b7280'
+  },
+  completedChip: {
+    backgroundColor: '#dcfce7',
+    borderColor: '#22c55e'
+  },
+  completedChipText: {
+    color: '#166534',
+    fontWeight: '600'
+  },
+  incompleteChip: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#f59e0b'
+  },
+  incompleteChipText: {
+    color: '#92400e',
+    fontWeight: '600'
   },
   progressBarBackground: {
     height: 8,
     backgroundColor: '#e5e7eb',
     borderRadius: 4,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    marginTop: 12
   },
   progressBarFill: {
     height: '100%',
@@ -525,5 +619,37 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderColor: '#7c3aed'
+  },
+  categoriesContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 24
+  },
+  categoriesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  totalServicesChip: {
+    backgroundColor: '#f3e8ff',
+    borderColor: '#7c3aed'
+  },
+  totalServicesChipText: {
+    color: '#7c3aed',
+    fontWeight: '600',
+    fontSize: 12
+  },
+  categoriesLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 12
+  },
+  categoriesLoadingText: {
+    color: '#6b7280'
+  },
+  categoriesList: {
+    gap: 12
   }
 });

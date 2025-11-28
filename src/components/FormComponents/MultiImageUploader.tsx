@@ -21,20 +21,22 @@ import { Ionicons } from '@expo/vector-icons';
 interface MultiImageUploaderProps {
   value: string[];
   onChange: (uris: string[]) => void;
-  minPhotos?: number;
-  maxPhotos?: number;
+  minPhotos?: number; // Default 0 (optional photos)
+  maxPhotos?: number; // Default 10
   disabled?: boolean;
+  required?: boolean; // Whether photos are required
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const IMAGE_SIZE = (SCREEN_WIDTH - 48) / 3; // 3 columns with padding
+const IMAGE_SIZE = (SCREEN_WIDTH - 64) / 4; // 4 columns with padding (~75px)
 
 export const MultiImageUploader = ({
   value,
   onChange,
-  minPhotos = 4,
+  minPhotos = 0,
   maxPhotos = 10,
   disabled = false,
+  required = false,
 }: MultiImageUploaderProps) => {
   const [loading, setLoading] = useState(false);
 
@@ -244,7 +246,7 @@ export const MultiImageUploader = ({
         </Text>
       </View>
 
-      {photoCount < minPhotos && (
+      {minPhotos > 0 && photoCount < minPhotos && (
         <Text style={styles.requirementText}>
           Minimum {minPhotos} photos required
         </Text>
@@ -254,7 +256,7 @@ export const MultiImageUploader = ({
         data={value}
         renderItem={renderPhotoItem}
         keyExtractor={(item, index) => `photo-${index}`}
-        numColumns={3}
+        numColumns={4}
         columnWrapperStyle={styles.row}
         ListFooterComponent={renderAddButton}
         ListEmptyComponent={

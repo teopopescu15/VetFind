@@ -35,87 +35,81 @@ const runMigrations = async () => {
     // Now connect to VetFind database and run migrations
     const client = await pool.connect();
 
-    // Read migration file
-    const migrationPath = path.join(__dirname, '001_create_database.sql');
-    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+    // List of migration files to run in order
+    const migrations = [
+      '001_create_database.sql',
+      '002_create_refresh_tokens.sql',
+      '003_create_companies.sql',
+      '004_create_company_services.sql',
+      '005_create_vetfinder_tables.sql',
+      '006_service_categories_specializations.sql',
+      '007_romanian_localization.sql',
+      '008_add_company_completed.sql',
+      '009_remove_legacy_clinic_system.sql',
+      '010_add_category_id_to_company_services.sql',
+    ];
 
-    // Execute the entire migration as one query
-    // Remove comments and database creation statements
-    const cleanedSQL = migrationSQL
-      .split('\n')
-      .filter(line => !line.trim().startsWith('--'))
-      .join('\n')
-      .replace(/CREATE DATABASE[^;]*;/gi, '');
+    console.log(`\n📋 Found ${migrations.length} migration files to execute\n`);
 
-    try {
-      await client.query(cleanedSQL);
-      console.log('✅ Migration executed successfully');
-    } catch (error: any) {
-      // If error is because objects already exist, that's okay
-      if (error.code === '42710' || error.code === '42P07') {
-        console.log('📝 Some database objects already exist, continuing...');
-      } else {
-        console.error('❌ Migration error:', error.message);
+    // Run each migration
+    for (const migrationFile of migrations) {
+      console.log(`\n🔄 Running migration: ${migrationFile}`);
 
-        // Try to execute statements individually if batch fails
-        console.log('🔄 Attempting to run statements individually...');
+      try {
+        const migrationPath = path.join(__dirname, migrationFile);
 
-        const statements = [
-          // Create enum type
-          `CREATE TYPE user_role AS ENUM ('user', 'vetcompany')`,
+        // Check if file exists
+        if (!fs.existsSync(migrationPath)) {
+          console.log(`⚠️ Migration file not found: ${migrationFile}, skipping...`);
+          continue;
+        }
 
-          // Create users table
-          `CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            password VARCHAR(255) NOT NULL,
-            role user_role NOT NULL DEFAULT 'user',
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-          )`,
+        const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
 
-          // Create indexes
-          `CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`,
-          `CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`,
+        // Remove comments and database creation statements
+        const cleanedSQL = migrationSQL
+          .split('\n')
+          .filter(line => !line.trim().startsWith('--'))
+          .join('\n')
+          .replace(/CREATE DATABASE[^;]*;/gi, '');
 
-          // Create function
-          `CREATE OR REPLACE FUNCTION update_updated_at_column()
-          RETURNS TRIGGER AS $$
-          BEGIN
-              NEW.updated_at = CURRENT_TIMESTAMP;
-              RETURN NEW;
-          END;
-          $$ language 'plpgsql'`,
+        // Execute the migration
+        await client.query(cleanedSQL);
+        console.log(`✅ ${migrationFile} executed successfully`);
 
-          // Create trigger
-          `DROP TRIGGER IF EXISTS update_users_updated_at ON users`,
-          `CREATE TRIGGER update_users_updated_at BEFORE UPDATE
-            ON users FOR EACH ROW EXECUTE PROCEDURE
-            update_updated_at_column()`
-        ];
-
-        for (const statement of statements) {
-          try {
-            await client.query(statement);
-            console.log('✅ Executed:', statement.substring(0, 50).replace(/\n/g, ' ') + '...');
-          } catch (err: any) {
-            if (err.code === '42710' || err.code === '42P07') {
-              console.log('📝 Already exists:', statement.substring(0, 50).replace(/\n/g, ' ') + '...');
-            } else {
-              console.error('❌ Failed:', err.message);
-            }
-          }
+      } catch (error: any) {
+        // If error is because objects already exist, that's okay
+        if (error.code === '42710' || error.code === '42P07' || error.code === '42P04') {
+          console.log(`📝 ${migrationFile}: Some objects already exist, continuing...`);
+        } else {
+          console.error(`❌ ${migrationFile} error:`, error.message);
+          console.log(`⚠️ Continuing with next migration...`);
         }
       }
     }
 
-    console.log('✅ All migrations completed!');
+    console.log('\n✅ All migrations completed!\n');
 
-    // Test the connection and table
-    const result = await client.query('SELECT * FROM users LIMIT 1');
-    console.log('📊 Users table exists and is accessible');
-    console.log('📋 Table columns:', result.fields.map(f => f.name).join(', '));
+    // Test the connection and show table info
+    console.log('📊 Verifying database tables...\n');
+
+    const tables = [
+      'users',
+      'refresh_tokens',
+      'companies',
+      'company_services',
+      'service_categories',
+      'category_specializations'
+    ];
+
+    for (const table of tables) {
+      try {
+        const result = await client.query(`SELECT COUNT(*) FROM ${table}`);
+        console.log(`✅ ${table}: ${result.rows[0].count} rows`);
+      } catch (error: any) {
+        console.log(`❌ ${table}: Not found or error`);
+      }
+    }
 
     client.release();
 
@@ -131,7 +125,7 @@ const runMigrations = async () => {
 if (require.main === module) {
   runMigrations()
     .then(() => {
-      console.log('✨ Database setup complete!');
+      console.log('\n✨ Database setup complete!');
       process.exit(0);
     })
     .catch((error) => {

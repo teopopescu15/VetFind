@@ -1,0 +1,387 @@
+installHook.js:1 "shadow*" style props are deprecated. Use "boxShadow".
+overrideMethod @ installHook.js:1
+installHook.js:1 "textShadow*" style props are deprecated. Use "textShadow".
+overrideMethod @ installHook.js:1
+index.js:71 Running application "main" with appParams:
+ Object 
+Development-level warnings: ON.
+Performance optimizations: OFF.
+installHook.js:1 props.pointerEvents is deprecated. Use style.pointerEvents
+overrideMethod @ installHook.js:1
+CompanyContext.tsx:220 ⏳ Auth is loading, waiting...
+:5000/api/auth/verify:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+installHook.js:1 API request error: ApiError: Invalid or expired token
+    at request (api.ts:93:23)
+    at async Object.verifyToken (api.ts:206:42)
+    at async checkAuth (AuthContext.tsx:59:30)
+overrideMethod @ installHook.js:1
+AuthContext.tsx:71 Auth verification failed: Error: Invalid or expired token
+    at Object.verifyToken (api.ts:214:15)
+    at async checkAuth (AuthContext.tsx:59:30)
+AuthContext.tsx:88 Token refreshed successfully
+DashboardScreen.tsx:32 🔍 Checking user role: vetcompany
+DashboardScreen.tsx:33 🔍 Is vetcompany?: true
+CompanyContext.tsx:253 👤 VetCompany user detected, auto-loading company...
+CompanyContext.tsx:93 🔄 Loading company data from API...
+CompanyContext.tsx:99 ✅ Company loaded successfully: esojcvpmfdiv
+installHook.js:1 Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md
+overrideMethod @ installHook.js:1
+installHook.js:1 Error loading categories: TypeError: _servicesApi.ApiService.getCategoriesWithSpecializations is not a function
+    at loadCategories (CompanyDashboardScreen.tsx:90:46)
+    at CompanyDashboardScreen.tsx:37:7
+    at react-stack-bottom-frame (react-dom-client.development.js:23949:20)
+    at runWithFiberInDEV (react-dom-client.development.js:1519:30)
+    at commitHookEffectListMount (react-dom-client.development.js:11905:29)
+    at commitHookPassiveMountEffects (react-dom-client.development.js:12026:11)
+    at commitPassiveMountOnFiber (react-dom-client.development.js:13841:13)
+    at recursivelyTraversePassiveMountEffects (react-dom-client.development.js:13815:11)
+    at commitPassiveMountOnFiber (react-dom-client.development.js:13834:11)
+    at recursivelyTraversePassiveMountEffects (react-dom-client.development.js:13815:11)
+overrideMethod @ installHook.js:1
+CompanyContext.tsx:235 👤 User logged out, resetting company state
+(index):1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+CompanyContext.tsx:220 ⏳ Auth is loading, waiting...
+CompanyContext.tsx:220 ⏳ Auth is loading, waiting...
+DashboardScreen.tsx:32 🔍 Checking user role: vetcompany
+DashboardScreen.tsx:33 🔍 Is vetcompany?: true
+CompanyContext.tsx:253 👤 VetCompany user detected, auto-loading company...
+CompanyContext.tsx:93 🔄 Loading company data from API...
+:5000/api/companies/my-company:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+installHook.js:1 API request error: ApiError: Company not found for this user
+    at request (api.ts:93:23)
+    at async Object.getMyCompany (api.ts:244:46)
+    at async checkIfUserHasCompany (DashboardScreen.tsx:39:25)
+overrideMethod @ installHook.js:1
+installHook.js:1 Get my company error: ApiError: Company not found for this user
+    at request (api.ts:93:23)
+    at async Object.getMyCompany (api.ts:244:46)
+    at async checkIfUserHasCompany (DashboardScreen.tsx:39:25)
+overrideMethod @ installHook.js:1
+:5000/api/companies/my-company:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+installHook.js:1 API request error: ApiError: Company not found for this user
+    at request (api.ts:93:23)
+    at async Object.getMyCompany (api.ts:244:46)
+    at async CompanyContext.tsx:95:27
+overrideMethod @ installHook.js:1
+installHook.js:1 Get my company error: ApiError: Company not found for this user
+    at request (api.ts:93:23)
+    at async Object.getMyCompany (api.ts:244:46)
+    at async CompanyContext.tsx:95:27
+overrideMethod @ installHook.js:1
+CompanyContext.tsx:102 ℹ️ No company found for user
+DashboardScreen.tsx:61 Navigate to CreateCompanyScreen
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:74 === CURRENT STEP CHANGED === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:74 === CURRENT STEP CHANGED === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 2
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 3
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+CreateCompanyScreen.tsx:74 === CURRENT STEP CHANGED === 3
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 3
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 3
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 3
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 3
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 3
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+installHook.js:1 Unexpected text node: . A text node cannot be a child of a <View>.
+overrideMethod @ installHook.js:1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 4
+SpecializationPricingForm.tsx:97 🔵 [FIXED VERSION] SpecializationPricingForm useEffect triggered
+SpecializationPricingForm.tsx:98 🔵 Categories length: 0
+SpecializationPricingForm.tsx:99 🔵 SpecializationMap size: 0
+SpecializationPricingForm.tsx:103 ⚠️ [GUARD TRIGGERED] Categories not loaded yet, skipping service creation
+SpecializationPricingForm.tsx:104 ⚠️ Categories: Array(0)
+SpecializationPricingForm.tsx:105 ⚠️ Selected specialization IDs: Array(1)
+CreateCompanyScreen.tsx:74 === CURRENT STEP CHANGED === 4
+SpecializationPricingForm.tsx:97 🔵 [FIXED VERSION] SpecializationPricingForm useEffect triggered
+SpecializationPricingForm.tsx:98 🔵 Categories length: 6
+SpecializationPricingForm.tsx:99 🔵 SpecializationMap size: 33
+SpecializationPricingForm.tsx:109 ✅ Categories loaded, creating/updating services...
+SpecializationPricingForm.tsx:110 Selected specialization IDs: Array(1)
+SpecializationPricingForm.tsx:111 Specialization map size: 33
+SpecializationPricingForm.tsx:112 Existing services: Array(0)
+SpecializationPricingForm.tsx:121 Existing spec IDs with valid names: Array(0)
+SpecializationPricingForm.tsx:124 New spec IDs to create: Array(1)
+SpecializationPricingForm.tsx:131 Removed services: 0
+SpecializationPricingForm.tsx:137 === CREATING SERVICE FROM SPECIALIZATION ===
+SpecializationPricingForm.tsx:138 Specialization ID: 7
+SpecializationPricingForm.tsx:139 Specialization data: Object
+SpecializationPricingForm.tsx:140 Specialization name: Dental Checkup
+SpecializationPricingForm.tsx:167 ✅ Created service: Object
+SpecializationPricingForm.tsx:179 📦 Final updated services: Array(1)
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 4
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 4
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 4
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 4
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 4
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 4
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 4
+CreateCompanyScreen.tsx:593 Submit button pressed!
+CreateCompanyScreen.tsx:594 Current step: 4
+CreateCompanyScreen.tsx:595 isSubmitting: false
+CreateCompanyScreen.tsx:343 === SUBMIT BUTTON CLICKED ===
+CreateCompanyScreen.tsx:344 Current step: 4
+CreateCompanyScreen.tsx:345 Form data: {
+  "step1": {
+    "name": "gtyfr",
+    "email": "te@gm.com",
+    "phone": "0767400003",
+    "cui": "455555"
+  },
+  "step2": {
+    "opening_hours": {
+      "monday": {
+        "open": "09:00",
+        "close": "17:00",
+        "closed": false
+      },
+      "tuesday": {
+        "open": "09:00",
+        "close": "17:00",
+        "closed": false
+      },
+      "wednesday": {
+        "open": "09:00",
+        "close": "17:00",
+        "closed": false
+      },
+      "thursday": {
+        "open": "09:00",
+        "close": "17:00",
+        "closed": false
+      },
+      "friday": {
+        "open": "09:00",
+        "close": "17:00",
+        "closed": false
+      },
+      "saturday": {
+        "open": "09:00",
+        "close": "13:00",
+        "closed": false
+      },
+      "sunday": {
+        "open": "09:00",
+        "close": "17:00",
+        "closed": true
+      }
+    },
+    "street": "grtgrfr",
+    "streetNumber": "5",
+    "city": "gvfdvf",
+    "county": "BN",
+    "postalCode": "210171"
+  },
+  "step3": {
+    "selected_categories": [
+      2
+    ],
+    "selected_specializations": [
+      7
+    ],
+    "specializations": [],
+    "facilities": [
+      "pickup_dropoff"
+    ],
+    "payment_methods": [
+      "mobile_payment"
+    ],
+    "clinic_type": "general_practice"
+  },
+  "step4": {
+    "services": [
+      {
+        "specialization_id": 7,
+        "category_id": 2,
+        "service_name": "Dental Checkup",
+        "description": "Oral health examination",
+        "price_min": "45",
+        "price_max": "67",
+        "duration_minutes": 30,
+        "is_custom": false
+      }
+    ],
+    "description": "TestPassword1237 Noiembrie • 16:00 – 18:00, Bibliotehnica UPT, Bv V Parvan, K1.\n\nInregistrarea pentru evenimente se face aici: https://luma.com/jb3cym75\n\nNe revedem la o nouă sesiune a Quantum Masterclass organizată de Politehnica University Timisoara, dedicată explorării tehnologiilor cuantice și aplicațiilor lor reale în industrie.\n\nInvitatul nostru special este Gabriel Pavel, Vicepreședinte și Managing Director al Fujitsu pentru Europa Centrală și de Est – unul dintre liderii globali care acc"
+  }
+}
+CreateCompanyScreen.tsx:253 === Validating Step 4 ===
+CreateCompanyScreen.tsx:257 Step 4 data: Object
+CreateCompanyScreen.tsx:258 Description: TestPassword1237 Noiembrie • 16:00 – 18:00, Bibliotehnica UPT, Bv V Parvan, K1.
+
+Inregistrarea pentru evenimente se face aici: https://luma.com/jb3cym75
+
+Ne revedem la o nouă sesiune a Quantum Masterclass organizată de Politehnica University Timisoara, dedicată explorării tehnologiilor cuantice și aplicațiilor lor reale în industrie.
+
+Invitatul nostru special este Gabriel Pavel, Vicepreședinte și Managing Director al Fujitsu pentru Europa Centrală și de Est – unul dintre liderii globali care acc
+CreateCompanyScreen.tsx:259 Description length: 500
+CreateCompanyScreen.tsx:260 Services: Array(1)
+CreateCompanyScreen.tsx:261 Services count: 1
+CreateCompanyScreen.tsx:299 Validation errors: Object
+CreateCompanyScreen.tsx:300 Validation result: true
+CreateCompanyScreen.tsx:349 Step 4 validation result: true
+CreateCompanyScreen.tsx:350 Validation errors: Object
+CreateCompanyScreen.tsx:362 Validation passed, proceeding with submission
+CreateCompanyScreen.tsx:368 === PREPARING COMPANY DATA ===
+CreateCompanyScreen.tsx:369 Step 1 data: Object
+CreateCompanyScreen.tsx:370 Step 2 data: Object
+CreateCompanyScreen.tsx:371 Step 3 data: Objectclinic_type: "general_practice"facilities: ['pickup_dropoff']payment_methods: ['mobile_payment']selected_categories: Array(1)0: 2length: 1[[Prototype]]: Array(0)selected_specializations: Array(1)0: 7length: 1[[Prototype]]: Array(0)specializations: [][[Prototype]]: Object
+CreateCompanyScreen.tsx:372 Step 4 data: Object
+CreateCompanyScreen.tsx:406 === COMPANY DATA TO SEND === {
+  "name": "gtyfr",
+  "email": "te@gm.com",
+  "phone": "0767400003",
+  "description": "TestPassword1237 Noiembrie • 16:00 – 18:00, Bibliotehnica UPT, Bv V Parvan, K1.\n\nInregistrarea pentru evenimente se face aici: https://luma.com/jb3cym75\n\nNe revedem la o nouă sesiune a Quantum Masterclass organizată de Politehnica University Timisoara, dedicată explorării tehnologiilor cuantice și aplicațiilor lor reale în industrie.\n\nInvitatul nostru special este Gabriel Pavel, Vicepreședinte și Managing Director al Fujitsu pentru Europa Centrală și de Est – unul dintre liderii globali care acc",
+  "street": "grtgrfr",
+  "streetNumber": "5",
+  "city": "gvfdvf",
+  "county": "BN",
+  "postalCode": "210171",
+  "opening_hours": {
+    "monday": {
+      "open": "09:00",
+      "close": "17:00",
+      "closed": false
+    },
+    "tuesday": {
+      "open": "09:00",
+      "close": "17:00",
+      "closed": false
+    },
+    "wednesday": {
+      "open": "09:00",
+      "close": "17:00",
+      "closed": false
+    },
+    "thursday": {
+      "open": "09:00",
+      "close": "17:00",
+      "closed": false
+    },
+    "friday": {
+      "open": "09:00",
+      "close": "17:00",
+      "closed": false
+    },
+    "saturday": {
+      "open": "09:00",
+      "close": "13:00",
+      "closed": false
+    },
+    "sunday": {
+      "open": "09:00",
+      "close": "17:00",
+      "closed": true
+    }
+  },
+  "clinicType": "general_practice",
+  "specializations": [],
+  "facilities": [
+    "pickup_dropoff"
+  ],
+  "payment_methods": [
+    "mobile_payment"
+  ],
+  "photos": []
+}
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 4
+CreateCompanyScreen.tsx:453 📤 Sending services to backend: Array(1)
+:5000/api/companies/19/services/bulk:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+installHook.js:1 API request error: ApiError: column "category_id" of relation "company_services" does not exist
+    at request (api.ts:93:23)
+    at async Object.bulkCreateServices (api.ts:499:47)
+    at async handleSubmit (CreateCompanyScreen.tsx:454:11)
+overrideMethod @ installHook.js:1
+installHook.js:1 Error creating company: Error: column "category_id" of relation "company_services" does not exist
+    at Object.bulkCreateServices (api.ts:512:15)
+    at async handleSubmit (CreateCompanyScreen.tsx:454:11)
+overrideMethod @ installHook.js:1
+CreateCompanyScreen.tsx:506 === RENDERING STEP === 4

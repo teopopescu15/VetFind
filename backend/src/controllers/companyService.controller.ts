@@ -84,10 +84,12 @@ export const createCompanyServiceController = () => {
           category,
           service_name,
           description: req.body.description,
+          specialization_id: req.body.specialization_id,
+          category_id: req.body.category_id,
           price_min,
           price_max,
           duration_minutes: req.body.duration_minutes,
-          is_custom: req.body.is_custom || true,
+          is_custom: req.body.is_custom !== undefined ? req.body.is_custom : !req.body.specialization_id,
         };
 
         const service = await CompanyServiceModel.create(serviceData);
@@ -207,6 +209,8 @@ export const createCompanyServiceController = () => {
         if (req.body.category !== undefined) updateData.category = req.body.category;
         if (req.body.service_name !== undefined) updateData.service_name = req.body.service_name;
         if (req.body.description !== undefined) updateData.description = req.body.description;
+        if (req.body.specialization_id !== undefined) updateData.specialization_id = req.body.specialization_id;
+        if (req.body.category_id !== undefined) updateData.category_id = req.body.category_id;
         if (req.body.price_min !== undefined) updateData.price_min = req.body.price_min;
         if (req.body.price_max !== undefined) updateData.price_max = req.body.price_max;
         if (req.body.duration_minutes !== undefined) updateData.duration_minutes = req.body.duration_minutes;
@@ -307,6 +311,7 @@ export const createCompanyServiceController = () => {
      */
     async bulkCreateServices(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
       try {
+        console.log('BULK CREATE - Full request body:', JSON.stringify(req.body, null, 2));
         const userId = req.user?.id;
         const companyId = parseInt(req.params.companyId);
 
@@ -346,6 +351,8 @@ export const createCompanyServiceController = () => {
 
         const { services } = req.body;
 
+        console.log('DEBUG - Raw request body services:', JSON.stringify(services, null, 2));
+
         if (!services || !Array.isArray(services) || services.length === 0) {
           res.status(400).json({
             success: false,
@@ -379,11 +386,15 @@ export const createCompanyServiceController = () => {
           category: service.category,
           service_name: service.service_name,
           description: service.description,
+          specialization_id: service.specialization_id,
+          category_id: service.category_id,
           price_min: service.price_min,
           price_max: service.price_max,
           duration_minutes: service.duration_minutes,
-          is_custom: service.is_custom !== undefined ? service.is_custom : false,
+          is_custom: service.is_custom !== undefined ? service.is_custom : !service.specialization_id,
         }));
+
+        console.log('DEBUG - Services being sent to model:', JSON.stringify(servicesWithCompanyId, null, 2));
 
         const createdServices = await CompanyServiceModel.bulkCreate(servicesWithCompanyId);
 

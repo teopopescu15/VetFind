@@ -6,9 +6,14 @@ import { Step1BasicInfo } from './CreateCompany/Step1BasicInfo';
 import { Step2Location } from './CreateCompany/Step2Location';
 import { Step3Services } from './CreateCompany/Step3Services';
 import { Step4Pricing } from './CreateCompany/Step4Pricing';
-import { CompanyFormData, FormErrors, CreateCompanyDTO, CreateServiceDTO } from '../types/company.types';
-import ApiService from '../services/api';
+import { CompanyFormData, FormErrors, CreateCompanyDTO, CreateServiceDTO, ServicePricingDTO, ServiceCategoryType } from '../types/company.types';
+import { ApiService } from '../services/api';
 import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '../types/navigation.types';
+import { validateRomanianPhone, validateRomanianPostalCode, validateCUI } from '../utils/romanianValidation';
+import { useCompany } from '../context/CompanyContext';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * CreateCompanyScreen - Multi-step company profile creation
@@ -22,13 +27,36 @@ import { useNavigation } from '@react-navigation/native';
  * - Prevent back navigation on Android (mandatory flow)
  * - Success navigation to Company Dashboard
  */
+type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateCompany'>;
+
 export const CreateCompanyScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
+  const { setCompany } = useCompany();
+  const { accessToken } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<CompanyFormData>({
     step1: {},
-    step2: {},
-    step3: {},
+    step2: {
+      // Initialize with default opening hours so validation passes
+      opening_hours: {
+        monday: { open: '09:00', close: '17:00', closed: false },
+        tuesday: { open: '09:00', close: '17:00', closed: false },
+        wednesday: { open: '09:00', close: '17:00', closed: false },
+        thursday: { open: '09:00', close: '17:00', closed: false },
+        friday: { open: '09:00', close: '17:00', closed: false },
+        saturday: { open: '09:00', close: '13:00', closed: false },
+        sunday: { open: '09:00', close: '17:00', closed: true }
+      }
+    },
+    step3: {
+      // Initialize new hierarchical category/specialization arrays
+      selected_categories: [],
+      selected_specializations: [],
+      // Initialize other arrays
+      specializations: [],
+      facilities: [],
+      payment_methods: []
+    },
     step4: {}
   });
   const [errors, setErrors] = useState<FormErrors>({});
@@ -40,6 +68,11 @@ export const CreateCompanyScreen = () => {
     'Services & Specializations',
     'Pricing & Photos'
   ];
+
+  // Debug: Log when currentStep changes
+  useEffect(() => {
+    console.log('=== CURRENT STEP CHANGED ===', currentStep);
+  }, [currentStep]);
 
   // Prevent back navigation on Android (mandatory flow)
   useEffect(() => {
@@ -81,9 +114,16 @@ export const CreateCompanyScreen = () => {
       newErrors.email = 'Invalid email format';
     }
 
-    // Phone validation
+    // Phone validation (Romanian format)
     if (!step1.phone) {
-      newErrors.phone = 'Phone number is required';
+      newErrors.phone = 'Telefonul este obligatoriu';
+    } else if (!validateRomanianPhone(step1.phone)) {
+      newErrors.phone = 'Format invalid. Folosiți +40 XXX XXX XXX sau 07XX XXX XXX';
+    }
+
+    // CUI validation (if provided)
+    if (step1.cui && !validateCUI(step1.cui)) {
+      newErrors.cui = 'Format CUI invalid';
     } else if (!/^\+?1?\s*\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/.test(step1.phone)) {
       newErrors.phone = 'Invalid phone number format';
     }
@@ -101,24 +141,27 @@ export const CreateCompanyScreen = () => {
     const newErrors: { [key: string]: string } = {};
     const { step2 } = formData;
 
-    // Address validation
-    if (!step2.address || step2.address.trim().length === 0) {
-      newErrors.address = 'Street address is required';
+    // Romanian Address validation
+    if (!step2.street || step2.street.trim().length === 0) {
+      newErrors.street = 'Strada este obligatorie';
     }
 
-    // City validation
+    if (!step2.streetNumber || step2.streetNumber.trim().length === 0) {
+      newErrors.streetNumber = 'Numărul este obligatoriu';
+    }
+
     if (!step2.city || step2.city.trim().length === 0) {
-      newErrors.city = 'City is required';
+      newErrors.city = 'Orașul este obligatoriu';
     }
 
-    // State validation
-    if (!step2.state || step2.state.trim().length === 0) {
-      newErrors.state = 'State is required';
+    if (!step2.county || step2.county.trim().length === 0) {
+      newErrors.county = 'Județul este obligatoriu';
     }
 
-    // ZIP code validation
-    if (!step2.zip_code || step2.zip_code.trim().length === 0) {
-      newErrors.zip_code = 'ZIP code is required';
+    if (!step2.postalCode || step2.postalCode.trim().length === 0) {
+      newErrors.postalCode = 'Codul poștal este obligatoriu';
+    } else if (!validateRomanianPostalCode(step2.postalCode)) {
+      newErrors.postalCode = 'Format invalid. Folosiți 6 cifre (ex: 010101)';
     }
 
     // Website validation (optional but must be valid URL if provided)
@@ -129,6 +172,49 @@ export const CreateCompanyScreen = () => {
     // Opening hours validation
     if (!step2.opening_hours) {
       newErrors.opening_hours = 'Opening hours are required';
+    } else {
+      // Validate each day's schedule
+      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
+      let hasInvalidDay = false;
+      let invalidDayMessage = '';
+
+      for (const day of days) {
+        const schedule = step2.opening_hours[day];
+        if (!schedule) continue;
+
+        // If day is not closed, both open and close times are required
+        if (!schedule.closed) {
+          if (!schedule.open || !schedule.close) {
+            hasInvalidDay = true;
+            invalidDayMessage = `Please set opening hours for ${day} or mark it as closed`;
+            break;
+          }
+
+          // Validate time format (HH:MM)
+          const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+          if (!timeRegex.test(schedule.open) || !timeRegex.test(schedule.close)) {
+            hasInvalidDay = true;
+            invalidDayMessage = `Invalid time format for ${day}`;
+            break;
+          }
+
+          // Validate close time is after open time
+          const [openHour, openMin] = schedule.open.split(':').map(Number);
+          const [closeHour, closeMin] = schedule.close.split(':').map(Number);
+          const openMinutes = openHour * 60 + openMin;
+          const closeMinutes = closeHour * 60 + closeMin;
+
+          if (closeMinutes <= openMinutes) {
+            hasInvalidDay = true;
+            invalidDayMessage = `Closing time must be after opening time for ${day}`;
+            break;
+          }
+        }
+      }
+
+      if (hasInvalidDay) {
+        newErrors.opening_hours = invalidDayMessage;
+      }
     }
 
     setErrors({ step2: newErrors });
@@ -144,9 +230,9 @@ export const CreateCompanyScreen = () => {
       newErrors.clinic_type = 'Clinic type is required';
     }
 
-    // Specializations validation
-    if (!step3.specializations || step3.specializations.length === 0) {
-      newErrors.specializations = 'At least 1 specialization is required';
+    // Specializations validation (using new hierarchical selected_specializations)
+    if (!step3.selected_specializations || step3.selected_specializations.length === 0) {
+      newErrors.selected_specializations = 'At least 1 specialization is required';
     }
 
     // Facilities validation
@@ -164,27 +250,54 @@ export const CreateCompanyScreen = () => {
   };
 
   const validateStep4 = (): boolean => {
+    console.log('=== Validating Step 4 ===');
     const newErrors: { [key: string]: string } = {};
     const { step4 } = formData;
+
+    console.log('Step 4 data:', step4);
+    console.log('Description:', step4.description);
+    console.log('Description length:', step4.description?.trim().length || 0);
+    console.log('Services:', step4.services);
+    console.log('Services count:', step4.services?.length || 0);
 
     // Full description validation
     if (!step4.description || step4.description.trim().length < 50) {
       newErrors.description = 'Description must be at least 50 characters';
+      console.log('Description validation failed');
     } else if (step4.description.length > 500) {
       newErrors.description = 'Description must not exceed 500 characters';
+      console.log('Description too long');
     }
 
     // Services validation
     if (!step4.services || step4.services.length === 0) {
       newErrors.services = 'At least 1 service is required';
+      console.log('Services validation failed - no services');
+    } else {
+      // Validate price ranges for each service
+      const invalidPriceServices = step4.services.filter((service) => {
+        if (service.price_min !== null && service.price_max !== null) {
+          const min = parseFloat(service.price_min);
+          const max = parseFloat(service.price_max);
+          return !isNaN(min) && !isNaN(max) && min > max;
+        }
+        return false;
+      });
+
+      if (invalidPriceServices.length > 0) {
+        newErrors.services = 'Some services have invalid price ranges (min > max)';
+        console.log('Invalid price ranges detected');
+      }
     }
 
-    // Photos validation
-    if (!step4.photos || step4.photos.length < 4) {
-      newErrors.photos = 'At least 4 photos are required';
-    } else if (step4.photos.length > 10) {
+    // Photos validation (optional, but max 10 if provided)
+    if (step4.photos && step4.photos.length > 10) {
       newErrors.photos = 'Maximum 10 photos allowed';
+      console.log('Too many photos');
     }
+
+    console.log('Validation errors:', newErrors);
+    console.log('Validation result:', Object.keys(newErrors).length === 0);
 
     setErrors({ step4: newErrors });
     return Object.keys(newErrors).length === 0;
@@ -224,34 +337,62 @@ export const CreateCompanyScreen = () => {
 
   // Handle Submit
   const handleSubmit = async () => {
+    // Immediate alert to confirm button click
+    Alert.alert('Debug', 'Submit button clicked!');
+    
+    console.log('=== SUBMIT BUTTON CLICKED ===');
+    console.log('Current step:', currentStep);
+    console.log('Form data:', JSON.stringify(formData, null, 2));
+    
     // Final validation
-    if (!validateStep4()) {
+    const isValid = validateStep4();
+    console.log('Step 4 validation result:', isValid);
+    console.log('Validation errors:', errors);
+    
+    if (!isValid) {
+      console.log('Validation failed, returning early');
+      Alert.alert(
+        'Validation Failed',
+        'Please fill in all required fields correctly before submitting.',
+        [{ text: 'OK' }]
+      );
       return;
     }
+    
+    console.log('Validation passed, proceeding with submission');
 
     try {
       setIsSubmitting(true);
 
-      // Combine all form data into CreateCompanyDTO
-      const companyData: CreateCompanyDTO = {
+      // Combine all form data - Send Romanian fields directly (backend now supports them!)
+      console.log('=== PREPARING COMPANY DATA ===');
+      console.log('Step 1 data:', formData.step1);
+      console.log('Step 2 data:', formData.step2);
+      console.log('Step 3 data:', formData.step3);
+      console.log('Step 4 data:', formData.step4);
+
+      const companyData: any = {
         // From Step 1
         name: formData.step1.name!,
         email: formData.step1.email!,
         phone: formData.step1.phone!,
-        description: formData.step4.description!, // Full description from Step 4
+        description: formData.step4.description || formData.step1.description,
 
-        // From Step 2
-        address: formData.step2.address!,
+        // From Step 2 - Send Romanian field names directly
+        street: formData.step2.street!,
+        streetNumber: formData.step2.streetNumber!,
+        building: formData.step2.building,
+        apartment: formData.step2.apartment,
         city: formData.step2.city!,
-        state: formData.step2.state!,
-        zip_code: formData.step2.zip_code!,
+        county: formData.step2.county!, // Romanian: Județ
+        postalCode: formData.step2.postalCode!, // Romanian: Cod poștal
         latitude: formData.step2.latitude,
         longitude: formData.step2.longitude,
         website: formData.step2.website,
         opening_hours: formData.step2.opening_hours!,
 
         // From Step 3
-        clinic_type: formData.step3.clinic_type!,
+        clinicType: formData.step3.clinic_type!, // Send as clinicType
         specializations: formData.step3.specializations!,
         facilities: formData.step3.facilities!,
         payment_methods: formData.step3.payment_methods!,
@@ -262,6 +403,8 @@ export const CreateCompanyScreen = () => {
         photos: formData.step4.photos || []
       };
 
+      console.log('=== COMPANY DATA TO SEND ===', JSON.stringify(companyData, null, 2));
+
       // Upload logo if provided (Step 1)
       if (formData.step1.logo_url) {
         // Note: Logo upload will be handled separately after company creation
@@ -269,39 +412,78 @@ export const CreateCompanyScreen = () => {
       }
 
       // Create company
-      const createdCompany = await ApiService.createCompany(companyData);
+      const createdCompany = await ApiService.createCompany(companyData, accessToken || undefined);
 
-      // Create services (Step 4)
+      // Create services (Step 4) - Convert ServicePricingDTO to CreateServiceDTO
       if (formData.step4.services && formData.step4.services.length > 0) {
-        await ApiService.bulkCreateServices(
-          createdCompany.id,
-          formData.step4.services
-        );
+        const servicesToCreate: CreateServiceDTO[] = formData.step4.services
+          .filter((service: ServicePricingDTO) => {
+            // Only include services with valid prices AND non-empty service names
+            const hasValidPrices = service.price_min !== null && service.price_min !== '' &&
+                                   service.price_max !== null && service.price_max !== '';
+            const hasServiceName = service.service_name && service.service_name.trim() !== '';
+
+            if (!hasServiceName) {
+              console.error('❌ Filtered out service with empty name:', service);
+            }
+
+            return hasValidPrices && hasServiceName;
+          })
+          .map((service: ServicePricingDTO) => {
+            const priceMin = parseFloat(service.price_min!);
+            const priceMax = parseFloat(service.price_max!);
+
+            return {
+              category: (service.is_custom ? 'custom' : 'routine_care') as ServiceCategoryType,
+              service_name: service.service_name,
+              description: service.description,
+              specialization_id: service.specialization_id,
+              category_id: service.category_id, // Include category_id from ServicePricingDTO
+              price_min: isNaN(priceMin) ? 0 : priceMin,
+              price_max: isNaN(priceMax) ? 0 : priceMax,
+              duration_minutes: service.duration_minutes,
+              is_custom: service.is_custom,
+            };
+          });
+
+        // Check if we have any services with valid prices
+        if (servicesToCreate.length === 0) {
+          console.warn('No services with valid prices to create');
+        } else {
+          console.log('📤 Sending services to backend:', servicesToCreate);
+          await ApiService.bulkCreateServices(
+            createdCompany.id,
+            servicesToCreate,
+            accessToken || undefined
+          );
+        }
       }
 
       // Upload logo if provided
       if (formData.step1.logo_url) {
         await ApiService.uploadCompanyPhoto(
           createdCompany.id,
-          formData.step1.logo_url
+          formData.step1.logo_url,
+          accessToken || undefined
         );
       }
 
-      // Success! Navigate to Company Dashboard
-      Alert.alert(
-        'Success!',
-        'Your company profile has been created successfully.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Navigate to Company Dashboard
-              // Note: You'll need to implement this navigation route
-              navigation.navigate('CompanyDashboard' as never);
-            }
-          }
-        ]
-      );
+      // Upload photos if provided
+      if (formData.step4.photos && formData.step4.photos.length > 0) {
+        for (const photo of formData.step4.photos) {
+          await ApiService.uploadCompanyPhoto(createdCompany.id, photo, accessToken || undefined);
+        }
+      }
+
+      // Update company context with new company
+      setCompany(createdCompany);
+      console.log('Company created successfully:', createdCompany);
+
+      // Success! Navigate to Success Screen
+      navigation.navigate('CompanyCreatedSuccess', {
+        companyId: createdCompany.id,
+        companyName: createdCompany.name
+      });
     } catch (error: any) {
       console.error('Error creating company:', error);
 
@@ -321,6 +503,7 @@ export const CreateCompanyScreen = () => {
 
   // Render current step
   const renderStep = () => {
+    console.log('=== RENDERING STEP ===', currentStep);
     switch (currentStep) {
       case 1:
         return (
@@ -352,6 +535,7 @@ export const CreateCompanyScreen = () => {
             data={formData.step4}
             onChange={(data) => setFormData({ ...formData, step4: data })}
             errors={errors.step4 || {}}
+            selectedSpecializationIds={formData.step3.selected_specializations || []}
           />
         );
       default:
@@ -392,7 +576,7 @@ export const CreateCompanyScreen = () => {
           Back
         </Button>
 
-        {currentStep < 4 ? (
+{currentStep < 4 ? (
           <Button
             mode="contained"
             onPress={handleNext}
@@ -405,11 +589,17 @@ export const CreateCompanyScreen = () => {
         ) : (
           <Button
             mode="contained"
-            onPress={handleSubmit}
+            onPress={() => {
+              console.log('Submit button pressed!');
+              console.log('Current step:', currentStep);
+              console.log('isSubmitting:', isSubmitting);
+              handleSubmit();
+            }}
             disabled={isSubmitting}
             loading={isSubmitting}
             style={[styles.button, styles.submitButton]}
             buttonColor="#7c3aed"
+            testID="submit-button"
           >
             {isSubmitting ? 'Creating...' : 'Submit'}
           </Button>
@@ -433,11 +623,11 @@ const styles = StyleSheet.create({
   },
   stepContainer: {
     flex: 1,
-    ...(Platform.OS === 'web' && {
-      height: '100%',
-      overflow: 'auto',
-      position: 'relative'
-    })
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minHeight: 0, // Critical for flex children to scroll properly
+    overflow: 'hidden' // Prevent parent from scrolling
   },
   buttonContainer: {
     flexDirection: 'row',

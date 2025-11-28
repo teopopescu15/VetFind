@@ -36,9 +36,21 @@
 
 **IMPORTANT**: All database migrations and models MUST use PostgreSQL syntax (SERIAL, RETURNING, etc.), NOT MySQL syntax.
 
----
+**Testing Strategy:**
+- **Web Version**: Playwright MCP for E2E testing, browser automation, and web UI validation
+- **Mobile Version**: React Native Testing Library and Detox for mobile E2E testing
+- **Backend**: Jest for unit and integration testing of API endpoints
 
-# CLAUDE.md - Project-Specific Instructions
+**Development Commands:**
+- **Backend**: `npm run dev` (runs on port 5000)
+- **Web Version**: `npm run web` (MUST run on port 8081)
+  - **Port Verification**: Before testing with Playwright MCP, verify the frontend is running on port 8081
+  - **Port Conflict Resolution**: If port 8081 is not available or frontend is on wrong port:
+    1. Kill the incorrect port: `lsof -ti:8081 | xargs -r kill -9`
+    2. Restart with: `npm run web`
+    3. Verify port 8081 is now active before proceeding with Playwright tests
+
+---
 
 ## Code Style Requirements
 

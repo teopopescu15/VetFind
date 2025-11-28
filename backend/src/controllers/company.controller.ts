@@ -21,6 +21,9 @@ export const createCompanyController = () => {
      */
     async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
       try {
+        console.log('=== COMPANY CREATION REQUEST ===');
+        console.log('Request body:', JSON.stringify(req.body, null, 2));
+
         const userId = req.user?.id;
 
         if (!userId) {
@@ -30,6 +33,8 @@ export const createCompanyController = () => {
           });
           return;
         }
+
+        console.log('User ID:', userId);
 
         // Check if user already has a company
         const existingCompany = await CompanyModel.findByUserId(userId);
@@ -41,10 +46,55 @@ export const createCompanyController = () => {
           return;
         }
 
-        // Validate required fields
-        const { name, email, phone, address, city, state, zip_code, clinic_type } = req.body;
+        // Support both Romanian and American field names
+        // Romanian fields: street, streetNumber, county, postalCode, clinicType
+        // American fields: address, state, zip_code, clinic_type
+        const {
+          name,
+          email,
+          phone,
+          city,
+          // Romanian address fields (prioritized)
+          street,
+          streetNumber,
+          building,
+          apartment,
+          county,
+          postalCode,
+          clinicType,
+          // American address fields (fallback)
+          address,
+          state,
+          zip_code,
+          clinic_type,
+        } = req.body;
 
-        if (!name || !email || !phone || !address || !city || !state || !zip_code || !clinic_type) {
+        // Map Romanian fields to internal format
+        const finalAddress = street && streetNumber
+          ? `${street} ${streetNumber}${building ? `, Bloc ${building}` : ''}${apartment ? `, Ap. ${apartment}` : ''}`
+          : address;
+        const finalState = county || state;
+        const finalZipCode = postalCode || zip_code;
+        const finalClinicType = clinicType || clinic_type;
+
+        console.log('=== EXTRACTED FIELDS ===');
+        console.log('name:', name);
+        console.log('email:', email);
+        console.log('phone:', phone);
+        console.log('city:', city);
+        console.log('street:', street);
+        console.log('streetNumber:', streetNumber);
+        console.log('county:', county);
+        console.log('postalCode:', postalCode);
+        console.log('clinicType:', clinicType);
+        console.log('=== MAPPED FIELDS ===');
+        console.log('finalAddress:', finalAddress);
+        console.log('finalState:', finalState);
+        console.log('finalZipCode:', finalZipCode);
+        console.log('finalClinicType:', finalClinicType);
+
+        // Validate required fields
+        if (!name || !email || !phone || !finalAddress || !city || !finalState || !finalZipCode || !finalClinicType) {
           res.status(400).json({
             success: false,
             message: 'Missing required fields',
@@ -60,13 +110,13 @@ export const createCompanyController = () => {
           phone,
           website: req.body.website,
           description: req.body.description,
-          address,
+          address: finalAddress,
           city,
-          state,
-          zip_code,
+          state: finalState,
+          zip_code: finalZipCode,
           latitude: req.body.latitude,
           longitude: req.body.longitude,
-          clinic_type,
+          clinic_type: finalClinicType,
           years_in_business: req.body.years_in_business,
           num_veterinarians: req.body.num_veterinarians,
           logo_url: req.body.logo_url,
@@ -75,6 +125,7 @@ export const createCompanyController = () => {
           facilities: req.body.facilities || [],
           payment_methods: req.body.payment_methods || [],
           opening_hours: req.body.opening_hours || {},
+          company_completed: true, // Set to true on creation via 4-step form
         };
 
         const company = await CompanyModel.create(companyData);
@@ -208,7 +259,7 @@ export const createCompanyController = () => {
           return;
         }
 
-        // Build update DTO
+        // Build update DTO (support both Romanian and American field names)
         const updateData: UpdateCompanyDTO = {};
 
         if (req.body.name !== undefined) updateData.name = req.body.name;
@@ -216,13 +267,39 @@ export const createCompanyController = () => {
         if (req.body.phone !== undefined) updateData.phone = req.body.phone;
         if (req.body.website !== undefined) updateData.website = req.body.website;
         if (req.body.description !== undefined) updateData.description = req.body.description;
-        if (req.body.address !== undefined) updateData.address = req.body.address;
+
+        // Address: support Romanian fields (street, streetNumber) or American (address)
+        if (req.body.street !== undefined && req.body.streetNumber !== undefined) {
+          updateData.address = `${req.body.street} ${req.body.streetNumber}${req.body.building ? `, Bloc ${req.body.building}` : ''}${req.body.apartment ? `, Ap. ${req.body.apartment}` : ''}`;
+        } else if (req.body.address !== undefined) {
+          updateData.address = req.body.address;
+        }
+
         if (req.body.city !== undefined) updateData.city = req.body.city;
-        if (req.body.state !== undefined) updateData.state = req.body.state;
-        if (req.body.zip_code !== undefined) updateData.zip_code = req.body.zip_code;
+
+        // State: support Romanian (county) or American (state)
+        if (req.body.county !== undefined) {
+          updateData.state = req.body.county;
+        } else if (req.body.state !== undefined) {
+          updateData.state = req.body.state;
+        }
+
+        // Zip code: support Romanian (postalCode) or American (zip_code)
+        if (req.body.postalCode !== undefined) {
+          updateData.zip_code = req.body.postalCode;
+        } else if (req.body.zip_code !== undefined) {
+          updateData.zip_code = req.body.zip_code;
+        }
+
         if (req.body.latitude !== undefined) updateData.latitude = req.body.latitude;
         if (req.body.longitude !== undefined) updateData.longitude = req.body.longitude;
-        if (req.body.clinic_type !== undefined) updateData.clinic_type = req.body.clinic_type;
+
+        // Clinic type: support Romanian (clinicType) or American (clinic_type)
+        if (req.body.clinicType !== undefined) {
+          updateData.clinic_type = req.body.clinicType;
+        } else if (req.body.clinic_type !== undefined) {
+          updateData.clinic_type = req.body.clinic_type;
+        }
         if (req.body.years_in_business !== undefined) updateData.years_in_business = req.body.years_in_business;
         if (req.body.num_veterinarians !== undefined) updateData.num_veterinarians = req.body.num_veterinarians;
         if (req.body.logo_url !== undefined) updateData.logo_url = req.body.logo_url;

@@ -5,17 +5,16 @@ import {
   TouchableOpacity,
   StyleSheet,
   Switch,
-  Modal,
   ScrollView,
+  Modal,
   Alert,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { OpeningHours, DaySchedule } from '../../types/company.types';
 
 /**
  * OpeningHoursPicker Component
- * Day-wise schedule picker with time selection
+ * Day-wise schedule picker with dropdown time selection
  * Follows object-literal pattern (no classes)
  */
 
@@ -39,28 +38,36 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
   sunday: 'Sunday',
 };
 
+// Generate time options from 00:00 to 23:30 in 30-minute intervals
+const generateTimeOptions = (): string[] => {
+  const times: string[] = [];
+  for (let hour = 0; hour < 24; hour++) {
+    for (let minute = 0; minute < 60; minute += 30) {
+      const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      times.push(timeStr);
+    }
+  }
+  return times;
+};
+
+const TIME_OPTIONS = generateTimeOptions();
+
 export const OpeningHoursPicker = ({
   value,
   onChange,
   disabled = false,
 }: OpeningHoursPickerProps) => {
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showTimeModal, setShowTimeModal] = useState(false);
   const [selectedDay, setSelectedDay] = useState<DayOfWeek | null>(null);
   const [selectedTimeType, setSelectedTimeType] = useState<'open' | 'close'>('open');
 
-  // Parse time string to Date object
-  const parseTime = (timeStr: string): Date => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
-    return date;
-  };
-
-  // Format Date to time string
-  const formatTime = (date: Date): string => {
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
+  // Validate time range
+  const isValidTimeRange = (openTime: string, closeTime: string): boolean => {
+    const [openHour, openMin] = openTime.split(':').map(Number);
+    const [closeHour, closeMin] = closeTime.split(':').map(Number);
+    const openMinutes = openHour * 60 + openMin;
+    const closeMinutes = closeHour * 60 + closeMin;
+    return closeMinutes > openMinutes;
   };
 
   // Toggle day open/closed
@@ -69,8 +76,8 @@ export const OpeningHoursPicker = ({
 
     const currentSchedule = value[day];
     const newSchedule: DaySchedule = currentSchedule?.closed
-      ? { open: '09:00', close: '17:00', closed: false }
-      : { open: '00:00', close: '00:00', closed: true };
+      ? { open: null, close: null, closed: false } // Allow null times initially
+      : { open: null, close: null, closed: true };
 
     onChange({
       ...value,
@@ -78,8 +85,8 @@ export const OpeningHoursPicker = ({
     });
   };
 
-  // Show time picker
-  const showTimePickerModal = (day: DayOfWeek, type: 'open' | 'close') => {
+  // Open time picker modal
+  const openTimePicker = (day: DayOfWeek, type: 'open' | 'close') => {
     if (disabled) return;
 
     const schedule = value[day];
@@ -87,44 +94,58 @@ export const OpeningHoursPicker = ({
 
     setSelectedDay(day);
     setSelectedTimeType(type);
-    setShowTimePicker(true);
+    setShowTimeModal(true);
   };
 
-  // Handle time change
-  const handleTimeChange = (event: any, selectedDate?: Date) => {
-    setShowTimePicker(false);
+  // Handle time selection from modal
+  const handleTimeSelect = (timeValue: string) => {
+    if (!selectedDay) return;
 
-    if (selectedDate && selectedDay) {
-      const schedule = value[selectedDay];
-      if (!schedule) return;
+    const schedule = value[selectedDay];
+    if (!schedule) return;
 
-      const timeStr = formatTime(selectedDate);
+    const newSchedule: DaySchedule = {
+      ...schedule,
+      [selectedTimeType]: timeValue,
+    };
 
-      const newSchedule: DaySchedule = {
-        ...schedule,
-        [selectedTimeType]: timeStr,
-      };
-
-      // Validate time range
-      if (selectedTimeType === 'close') {
-        const openTime = parseTime(newSchedule.open);
-        const closeTime = selectedDate;
-
-        if (closeTime <= openTime) {
-          Alert.alert(
-            'Invalid Time',
-            'Closing time must be after opening time.',
-            [{ text: 'OK' }]
-          );
-          return;
-        }
+    // Validate range if both times are set
+    if (selectedTimeType === 'close' && newSchedule.open && newSchedule.close) {
+      if (!isValidTimeRange(newSchedule.open, newSchedule.close)) {
+        Alert.alert(
+          'Invalid Time Range',
+          'Closing time must be after opening time.',
+          [{ text: 'OK' }]
+        );
+        setShowTimeModal(false);
+        return;
       }
-
-      onChange({
-        ...value,
-        [selectedDay]: newSchedule,
-      });
     }
+
+    onChange({
+      ...value,
+      [selectedDay]: newSchedule,
+    });
+
+    setShowTimeModal(false);
+  };
+
+  // Clear time value (set to null)
+  const clearTime = (day: DayOfWeek, type: 'open' | 'close') => {
+    if (disabled) return;
+
+    const schedule = value[day];
+    if (!schedule) return;
+
+    const newSchedule: DaySchedule = {
+      ...schedule,
+      [type]: null,
+    };
+
+    onChange({
+      ...value,
+      [day]: newSchedule,
+    });
   };
 
   // Copy hours to all days
@@ -167,8 +188,11 @@ export const OpeningHoursPicker = ({
           <View style={styles.dayInfo}>
             <Text style={styles.dayLabel}>{DAY_LABELS[day]}</Text>
             {isOpen && schedule && (
-              <Text style={styles.timeText}>
-                {schedule.open} - {schedule.close}
+              <Text style={[
+                styles.timeText,
+                (!schedule.open || !schedule.close) && styles.timeTextIncomplete,
+              ]}>
+                {schedule.open || '--:--'} - {schedule.close || '--:--'}
               </Text>
             )}
             {!isOpen && <Text style={styles.closedText}>Closed</Text>}
@@ -186,25 +210,85 @@ export const OpeningHoursPicker = ({
 
         {isOpen && schedule && (
           <View style={styles.timeControls}>
-            <TouchableOpacity
-              style={styles.timeButton}
-              onPress={() => showTimePickerModal(day, 'open')}
-              disabled={disabled}
-            >
-              <Ionicons name="time-outline" size={20} color="#7c3aed" />
-              <Text style={styles.timeButtonLabel}>Open: {schedule.open}</Text>
-            </TouchableOpacity>
+            <View style={styles.timeInputGroup}>
+              <TouchableOpacity
+                style={[
+                  styles.timeSelectButton,
+                  !schedule.open && styles.timeSelectButtonEmpty,
+                ]}
+                onPress={() => openTimePicker(day, 'open')}
+                disabled={disabled}
+              >
+                <Ionicons
+                  name="time-outline"
+                  size={20}
+                  color={schedule.open ? '#7c3aed' : '#999'}
+                />
+                <Text
+                  style={[
+                    styles.timeSelectText,
+                    !schedule.open && styles.timeSelectTextEmpty,
+                  ]}
+                >
+                  {schedule.open || 'Choose time'}
+                </Text>
+                <Ionicons
+                  name="chevron-down"
+                  size={20}
+                  color={schedule.open ? '#7c3aed' : '#999'}
+                />
+              </TouchableOpacity>
+              <Text style={styles.inputLabel}>Open</Text>
+              {schedule.open && !disabled && (
+                <TouchableOpacity
+                  style={styles.clearButtonAbsolute}
+                  onPress={() => clearTime(day, 'open')}
+                >
+                  <Ionicons name="close-circle" size={18} color="#666" />
+                </TouchableOpacity>
+              )}
+            </View>
 
-            <TouchableOpacity
-              style={styles.timeButton}
-              onPress={() => showTimePickerModal(day, 'close')}
-              disabled={disabled}
-            >
-              <Ionicons name="time-outline" size={20} color="#7c3aed" />
-              <Text style={styles.timeButtonLabel}>Close: {schedule.close}</Text>
-            </TouchableOpacity>
+            <View style={styles.timeInputGroup}>
+              <TouchableOpacity
+                style={[
+                  styles.timeSelectButton,
+                  !schedule.close && styles.timeSelectButtonEmpty,
+                ]}
+                onPress={() => openTimePicker(day, 'close')}
+                disabled={disabled}
+              >
+                <Ionicons
+                  name="time-outline"
+                  size={20}
+                  color={schedule.close ? '#7c3aed' : '#999'}
+                />
+                <Text
+                  style={[
+                    styles.timeSelectText,
+                    !schedule.close && styles.timeSelectTextEmpty,
+                  ]}
+                >
+                  {schedule.close || 'Choose time'}
+                </Text>
+                <Ionicons
+                  name="chevron-down"
+                  size={20}
+                  color={schedule.close ? '#7c3aed' : '#999'}
+                />
+              </TouchableOpacity>
+              <Text style={styles.inputLabel}>Close</Text>
+              {schedule.close && !disabled && (
+                <TouchableOpacity
+                  style={styles.clearButtonAbsolute}
+                  onPress={() => clearTime(day, 'close')}
+                >
+                  <Ionicons name="close-circle" size={18} color="#666" />
+                </TouchableOpacity>
+              )}
+            </View>
 
-            {!disabled && (
+            {!disabled && (schedule.open || schedule.close) && (
               <TouchableOpacity
                 style={styles.copyButton}
                 onPress={() => copyToAllDays(day)}
@@ -222,25 +306,50 @@ export const OpeningHoursPicker = ({
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Opening Hours</Text>
+        <Text style={styles.subtitle}>Select opening and closing times</Text>
       </View>
 
       <ScrollView style={styles.daysContainer} showsVerticalScrollIndicator={false}>
         {DAYS.map(renderDayCard)}
       </ScrollView>
 
-      {showTimePicker && selectedDay && (
-        <DateTimePicker
-          value={parseTime(
-            selectedTimeType === 'open'
-              ? value[selectedDay]?.open || '09:00'
-              : value[selectedDay]?.close || '17:00'
-          )}
-          mode="time"
-          is24Hour={true}
-          display="spinner"
-          onChange={handleTimeChange}
-        />
-      )}
+      {/* Time Selection Modal */}
+      <Modal
+        visible={showTimeModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowTimeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                Select {selectedTimeType === 'open' ? 'Opening' : 'Closing'} Time
+              </Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowTimeModal(false)}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.timeOptionsContainer}>
+              {TIME_OPTIONS.map((time) => (
+                <TouchableOpacity
+                  key={time}
+                  style={styles.timeOption}
+                  onPress={() => handleTimeSelect(time)}
+                >
+                  <Ionicons name="time-outline" size={20} color="#7c3aed" />
+                  <Text style={styles.timeOptionText}>{time}</Text>
+                  <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -256,6 +365,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
   },
   daysContainer: {
     maxHeight: 400,
@@ -286,6 +401,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
+  timeTextIncomplete: {
+    color: '#999',
+    fontStyle: 'italic',
+  },
   closedText: {
     fontSize: 14,
     color: '#999',
@@ -297,24 +416,51 @@ const styles = StyleSheet.create({
   },
   timeControls: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginTop: 12,
     gap: 8,
   },
-  timeButton: {
+  timeInputGroup: {
     flex: 1,
+    position: 'relative',
+  },
+  timeSelectButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f3f4f6',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     gap: 8,
   },
-  timeButtonLabel: {
+  timeSelectButtonEmpty: {
+    borderColor: '#e5e7eb',
+    borderStyle: 'dashed',
+  },
+  timeSelectText: {
+    flex: 1,
     fontSize: 14,
     color: '#333',
     fontWeight: '500',
+  },
+  timeSelectTextEmpty: {
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  inputLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    marginLeft: 2,
+  },
+  clearButtonAbsolute: {
+    position: 'absolute',
+    right: 40,
+    top: 10,
+    padding: 4,
+    zIndex: 1,
   },
   copyButton: {
     backgroundColor: '#f3f4f6',
@@ -323,5 +469,52 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 0,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e5e5',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  timeOptionsContainer: {
+    maxHeight: 400,
+  },
+  timeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    gap: 12,
+  },
+  timeOptionText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
   },
 });

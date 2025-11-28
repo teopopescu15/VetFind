@@ -1,7 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as api from '../services/api';
-const ApiService = api.ApiService;
+import { ApiService } from '../services/api';
 import {
   User,
   AuthContextType,

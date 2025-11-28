@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import { TextInput, Text, HelperText, Button } from 'react-native-paper';
 import { OpeningHoursPicker } from '../../components/FormComponents/OpeningHoursPicker';
+import { CountyPicker } from '../../components/FormComponents/CountyPicker';
+import { ScrollContainer } from '../../components/FormComponents/ScrollContainer';
 import { Step2FormData } from '../../types/company.types';
+import { CountyCode } from '../../constants/romania';
 import * as Location from 'expo-location';
 
 export interface Step2LocationProps {
-  data: Step2FormData;
-  onChange: (data: Step2FormData) => void;
+  data: Partial<Step2FormData>;
+  onChange: (data: Partial<Step2FormData>) => void;
   errors?: { [key: string]: string };
 }
 
@@ -60,41 +63,15 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
 
       const { latitude, longitude } = location.coords;
 
-      // Reverse geocode to get address
-      const addresses = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude
-      });
+      // Set GPS coordinates only (reverse geocoding has been removed in Expo SDK 49+)
+      updateField('latitude', latitude);
+      updateField('longitude', longitude);
 
-      if (addresses.length > 0) {
-        const addr = addresses[0];
-
-        onChange({
-          ...data,
-          latitude,
-          longitude,
-          address: `${addr.street || ''} ${addr.streetNumber || ''}`.trim() || data.address,
-          city: addr.city || data.city,
-          state: addr.region || data.state,
-          zip_code: addr.postalCode || data.zip_code
-        });
-
-        Alert.alert(
-          'Location Updated',
-          'Your location has been detected and the address fields have been filled.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        // Just set coordinates if reverse geocoding fails
-        updateField('latitude', latitude);
-        updateField('longitude', longitude);
-
-        Alert.alert(
-          'Location Detected',
-          'GPS coordinates have been set. Please fill in the address details manually.',
-          [{ text: 'OK' }]
-        );
-      }
+      Alert.alert(
+        'Location Detected',
+        `GPS coordinates captured (${latitude.toFixed(6)}, ${longitude.toFixed(6)}). Please fill in the address details manually.`,
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       console.error('Error getting location:', error);
       Alert.alert(
@@ -108,18 +85,14 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScrollContainer>
       {/* Header */}
       <View style={styles.header}>
         <Text variant="headlineMedium" style={styles.title}>
-          Location & Contact
+          Where Can Pet Owners Find You?
         </Text>
         <Text variant="bodyMedium" style={styles.subtitle}>
-          Where can pet owners find your clinic?
+          Help clients locate your clinic and know when you're available
         </Text>
       </View>
 
@@ -141,39 +114,103 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
         </HelperText>
       </View>
 
-      {/* Full Address */}
-      <View style={styles.section}>
-        <TextInput
-          label="Street Address *"
-          value={data.address || ''}
-          onChangeText={(text) => updateField('address', text)}
-          onFocus={() => handleFocus('address')}
-          onBlur={() => handleBlur('address')}
-          mode="outlined"
-          error={!!errors.address}
-          placeholder="123 Main Street"
-          style={styles.input}
-          outlineColor="#e5e7eb"
-          activeOutlineColor="#7c3aed"
-          accessibilityLabel="Street Address"
-          accessibilityHint="Enter your clinic's street address"
-        />
-        <HelperText type="error" visible={!!errors.address}>
-          {errors.address || ' '}
-        </HelperText>
+      {/* Street and Number Row */}
+      <View style={styles.row}>
+        <View style={[styles.section, styles.flex3]}>
+          <TextInput
+            label="Strada *"
+            value={data.street || ''}
+            onChangeText={(text) => updateField('street', text)}
+            onFocus={() => handleFocus('street')}
+            onBlur={() => handleBlur('street')}
+            mode="outlined"
+            error={!!errors.street}
+            placeholder="Strada Mihai Eminescu"
+            style={styles.input}
+            outlineColor="#e5e7eb"
+            activeOutlineColor="#7c3aed"
+            accessibilityLabel="Street"
+            accessibilityHint="Enter your clinic's street name"
+          />
+          <HelperText type="error" visible={!!errors.street}>
+            {errors.street || ' '}
+          </HelperText>
+        </View>
+
+        <View style={[styles.section, styles.flex1]}>
+          <TextInput
+            label="Număr *"
+            value={data.streetNumber || ''}
+            onChangeText={(text) => updateField('streetNumber', text)}
+            onFocus={() => handleFocus('streetNumber')}
+            onBlur={() => handleBlur('streetNumber')}
+            mode="outlined"
+            error={!!errors.streetNumber}
+            placeholder="15"
+            style={styles.input}
+            outlineColor="#e5e7eb"
+            activeOutlineColor="#7c3aed"
+            accessibilityLabel="Street Number"
+            accessibilityHint="Enter the street number"
+          />
+          <HelperText type="error" visible={!!errors.streetNumber}>
+            {errors.streetNumber || ' '}
+          </HelperText>
+        </View>
+      </View>
+
+      {/* Building and Apartment Row (optional) */}
+      <View style={styles.row}>
+        <View style={[styles.section, styles.halfWidth]}>
+          <TextInput
+            label="Bloc"
+            value={data.building || ''}
+            onChangeText={(text) => updateField('building', text)}
+            onFocus={() => handleFocus('building')}
+            onBlur={() => handleBlur('building')}
+            mode="outlined"
+            error={!!errors.building}
+            placeholder="A2"
+            style={styles.input}
+            outlineColor="#e5e7eb"
+            activeOutlineColor="#7c3aed"
+            accessibilityLabel="Building"
+            accessibilityHint="Optional building number"
+          />
+          <HelperText type="info">Optional</HelperText>
+        </View>
+
+        <View style={[styles.section, styles.halfWidth]}>
+          <TextInput
+            label="Apartament"
+            value={data.apartment || ''}
+            onChangeText={(text) => updateField('apartment', text)}
+            onFocus={() => handleFocus('apartment')}
+            onBlur={() => handleBlur('apartment')}
+            mode="outlined"
+            error={!!errors.apartment}
+            placeholder="23"
+            style={styles.input}
+            outlineColor="#e5e7eb"
+            activeOutlineColor="#7c3aed"
+            accessibilityLabel="Apartment"
+            accessibilityHint="Optional apartment number"
+          />
+          <HelperText type="info">Optional</HelperText>
+        </View>
       </View>
 
       {/* City */}
       <View style={styles.section}>
         <TextInput
-          label="City *"
+          label="Oraș/Localitate *"
           value={data.city || ''}
           onChangeText={(text) => updateField('city', text)}
           onFocus={() => handleFocus('city')}
           onBlur={() => handleBlur('city')}
           mode="outlined"
           error={!!errors.city}
-          placeholder="San Francisco"
+          placeholder="București"
           style={styles.input}
           outlineColor="#e5e7eb"
           activeOutlineColor="#7c3aed"
@@ -185,53 +222,41 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
         </HelperText>
       </View>
 
-      {/* State and ZIP Code Row */}
-      <View style={styles.row}>
-        <View style={[styles.section, styles.halfWidth]}>
-          <TextInput
-            label="State *"
-            value={data.state || ''}
-            onChangeText={(text) => updateField('state', text)}
-            onFocus={() => handleFocus('state')}
-            onBlur={() => handleBlur('state')}
-            mode="outlined"
-            error={!!errors.state}
-            placeholder="CA"
-            maxLength={2}
-            autoCapitalize="characters"
-            style={styles.input}
-            outlineColor="#e5e7eb"
-            activeOutlineColor="#7c3aed"
-            accessibilityLabel="State"
-            accessibilityHint="Enter the state abbreviation"
-          />
-          <HelperText type="error" visible={!!errors.state}>
-            {errors.state || ' '}
-          </HelperText>
-        </View>
+      {/* County */}
+      <View style={styles.section}>
+        <CountyPicker
+          value={(data.county || '') as CountyCode | ''}
+          onChange={(county) => updateField('county', county)}
+          error={errors.county}
+          disabled={false}
+        />
+      </View>
 
-        <View style={[styles.section, styles.halfWidth]}>
-          <TextInput
-            label="ZIP Code *"
-            value={data.zip_code || ''}
-            onChangeText={(text) => updateField('zip_code', text)}
-            onFocus={() => handleFocus('zip_code')}
-            onBlur={() => handleBlur('zip_code')}
-            mode="outlined"
-            error={!!errors.zip_code}
-            keyboardType="number-pad"
-            placeholder="94102"
-            maxLength={10}
-            style={styles.input}
-            outlineColor="#e5e7eb"
-            activeOutlineColor="#7c3aed"
-            accessibilityLabel="ZIP Code"
-            accessibilityHint="Enter the ZIP code"
-          />
-          <HelperText type="error" visible={!!errors.zip_code}>
-            {errors.zip_code || ' '}
-          </HelperText>
-        </View>
+      {/* Postal Code */}
+      <View style={styles.section}>
+        <TextInput
+          label="Cod Poștal *"
+          value={data.postalCode || ''}
+          onChangeText={(text) => updateField('postalCode', text)}
+          onFocus={() => handleFocus('postalCode')}
+          onBlur={() => handleBlur('postalCode')}
+          mode="outlined"
+          error={!!errors.postalCode}
+          keyboardType="number-pad"
+          placeholder="010101"
+          maxLength={6}
+          style={styles.input}
+          outlineColor="#e5e7eb"
+          activeOutlineColor="#7c3aed"
+          accessibilityLabel="Postal Code"
+          accessibilityHint="Enter the 6-digit postal code"
+        />
+        <HelperText type="error" visible={!!errors.postalCode}>
+          {errors.postalCode || ' '}
+        </HelperText>
+        <HelperText type="info" visible={!errors.postalCode}>
+          Format: XXXXXX (6 cifre)
+        </HelperText>
       </View>
 
       {/* GPS Coordinates (read-only display) */}
@@ -281,13 +306,13 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
         </Text>
         <OpeningHoursPicker
           value={data.opening_hours || {
-            monday: { open: '09:00', close: '17:00', closed: false },
-            tuesday: { open: '09:00', close: '17:00', closed: false },
-            wednesday: { open: '09:00', close: '17:00', closed: false },
-            thursday: { open: '09:00', close: '17:00', closed: false },
-            friday: { open: '09:00', close: '17:00', closed: false },
-            saturday: { open: '09:00', close: '13:00', closed: false },
-            sunday: { open: '09:00', close: '17:00', closed: true }
+            monday: { open: null, close: null, closed: false },
+            tuesday: { open: null, close: null, closed: false },
+            wednesday: { open: null, close: null, closed: false },
+            thursday: { open: null, close: null, closed: false },
+            friday: { open: null, close: null, closed: false },
+            saturday: { open: null, close: null, closed: false },
+            sunday: { open: null, close: null, closed: true }
           }}
           onChange={(hours) => updateField('opening_hours', hours)}
         />
@@ -304,19 +329,11 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
           * Required fields
         </Text>
       </View>
-    </ScrollView>
+    </ScrollContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff'
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40
-  },
   header: {
     marginBottom: 24
   },
@@ -351,6 +368,12 @@ const styles = StyleSheet.create({
   },
   halfWidth: {
     flex: 1
+  },
+  flex1: {
+    flex: 1
+  },
+  flex3: {
+    flex: 3
   },
   locationButton: {
     borderColor: '#7c3aed',
