@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, BackHandler, Alert, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button, ActivityIndicator } from 'react-native-paper';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { Step1BasicInfo } from './CreateCompany/Step1BasicInfo';
@@ -412,7 +413,16 @@ export const CreateCompanyScreen = () => {
       }
 
       // Create company
-      const createdCompany = await ApiService.createCompany(companyData, accessToken || undefined);
+      console.log('🔐 ACCESS TOKEN from useAuth():', accessToken ? `${accessToken.substring(0, 30)}...` : 'NULL/UNDEFINED');
+
+      // Also check localStorage directly
+      const localStorageToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+      console.log('🔐 ACCESS TOKEN from localStorage:', localStorageToken ? `${localStorageToken.substring(0, 30)}...` : 'NULL/UNDEFINED');
+
+      const tokenToUse = accessToken || localStorageToken;
+      console.log('🔐 TOKEN TO USE:', tokenToUse ? `${tokenToUse.substring(0, 30)}...` : 'NONE - THIS WILL FAIL!');
+
+      const createdCompany = await ApiService.createCompany(companyData, tokenToUse || undefined);
 
       // Create services (Step 4) - Convert ServicePricingDTO to CreateServiceDTO
       if (formData.step4.services && formData.step4.services.length > 0) {

@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import EmptyCompanyState from '../components/EmptyCompanyState';
 import { CompanyDashboardScreen } from './CompanyDashboardScreen';
+import { UserDashboardScreen } from './UserDashboardScreen';
 import * as api from '../services/api';
 const ApiService = api.ApiService;
 
@@ -106,6 +107,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
     return <CompanyDashboardScreen />;
   }
 
+  // Regular user (Pet Owner) - show UserDashboard with vet companies
+  if (user?.role === 'user') {
+    return <UserDashboardScreen />;
+  }
+
+  // Fallback for any other case (admin, etc.)
   return (
     <LinearGradient
       colors={['#667eea', '#764ba2']}
@@ -137,7 +144,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
             <View style={styles.infoRow}>
               <Text style={styles.label}>Role:</Text>
               <Text style={styles.value}>
-                {user?.role === 'user' ? 'Pet Owner' : 'Veterinarian'}
+                {user?.role === 'user' ? 'Pet Owner' : user?.role === 'vetcompany' ? 'Veterinarian' : 'Admin'}
               </Text>
             </View>
           </View>
@@ -151,7 +158,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
               onPress={() => navigation.navigate('VetFinderHome')}
               activeOpacity={0.8}
             >
-              <Text style={styles.actionButtonText}>🏥 Find Clinics</Text>
+              <Text style={styles.actionButtonText}>Find Clinics</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -159,7 +166,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
               onPress={() => navigation.navigate('MyAppointments')}
               activeOpacity={0.8}
             >
-              <Text style={styles.actionButtonText}>📅 My Appointments</Text>
+              <Text style={styles.actionButtonText}>My Appointments</Text>
             </TouchableOpacity>
           </View>
 

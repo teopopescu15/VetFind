@@ -16,6 +16,7 @@ import authRoutes from './routes/auth.routes';
 import companyRoutes from './routes/company.routes';
 import companyServiceRoutes from './routes/companyService.routes';
 import serviceCategoryRoutes from './routes/serviceCategory';
+import routesRoutes from './routes/routes';
 
 // Import error handler middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -98,6 +99,7 @@ app.use('/api/companies', companyRoutes); // Company routes
 app.use('/api/companies', companyServiceRoutes); // Company service routes at /api/companies/:companyId/services
 app.use('/api/services', companyServiceRoutes); // Also mount at /api/services for templates endpoint
 app.use('/api/service-categories', serviceCategoryRoutes); // Service categories and specializations
+app.use('/api/routes', routesRoutes); // Google Routes API for driving distances
 
 // Error handling middleware (should be last)
 app.use(notFound);

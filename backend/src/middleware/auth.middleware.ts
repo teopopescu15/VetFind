@@ -20,7 +20,11 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
   try {
     const authHeader = req.headers.authorization;
 
+    // Debug logging
+    console.log('🔐 Auth middleware - Authorization header:', authHeader ? `Bearer ${authHeader.substring(7, 20)}...` : 'MISSING');
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('❌ No Authorization header or invalid format');
       res.status(401).json({
         success: false,
         message: 'Authentication required'
@@ -29,12 +33,15 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    console.log('🔑 Token received (first 20 chars):', token.substring(0, 20));
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
+      console.log('✅ Token verified for user:', decoded.id, decoded.email, decoded.role);
       req.user = decoded;
       next();
-    } catch (error) {
+    } catch (error: any) {
+      console.log('❌ Token verification failed:', error.message);
       res.status(401).json({
         success: false,
         message: 'Invalid or expired token'

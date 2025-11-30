@@ -25,6 +25,11 @@ import {
   CategoryWithSpecializationsApiResponse,
   SpecializationsApiResponse,
 } from '../types/company.types';
+import {
+  RouteDistance,
+  RouteDistancesResponse,
+  RouteStatusResponse,
+} from '../types/routes.types';
 
 // API Base URL Configuration
 // All services run in WSL, so we use localhost for communication
@@ -621,6 +626,72 @@ const createApiService = () => {
       } catch (error: any) {
         console.error('Get specializations by IDs error:', error);
         return [];
+      }
+    },
+
+    // ==================== Google Routes API Methods ====================
+
+    /**
+     * Get driving distances from user location to multiple companies
+     * Uses Google Routes API for accurate road distances and travel times
+     *
+     * @param userLocation - User's current GPS coordinates
+     * @param companyIds - Array of company IDs to calculate distances for
+     * @param accessToken - User's authentication token
+     * @returns Array of route distances with driving time
+     */
+    async getRouteDistances(
+      userLocation: { latitude: number; longitude: number },
+      companyIds: string[],
+      accessToken?: string
+    ): Promise<RouteDistance[]> {
+      try {
+        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+
+        if (!token) {
+          console.warn('No access token provided for getRouteDistances');
+          return [];
+        }
+
+        if (companyIds.length === 0) {
+          return [];
+        }
+
+        const response: RouteDistancesResponse = await request(
+          '/routes/distances',
+          'POST',
+          { userLocation, companyIds },
+          token
+        );
+
+        if (!response.success || !response.data) {
+          console.error('Route distances request failed:', response.error);
+          return [];
+        }
+
+        return response.data.distances;
+      } catch (error: any) {
+        console.error('Get route distances error:', error);
+        return [];
+      }
+    },
+
+    /**
+     * Check if Google Routes API is configured on the backend
+     * Useful for conditional UI rendering
+     */
+    async getRoutesApiStatus(): Promise<{ configured: boolean; message: string }> {
+      try {
+        const response: RouteStatusResponse = await request('/routes/status', 'GET');
+
+        if (!response.success || !response.data) {
+          return { configured: false, message: 'Failed to check API status' };
+        }
+
+        return response.data;
+      } catch (error: any) {
+        console.error('Get routes API status error:', error);
+        return { configured: false, message: 'Failed to check API status' };
       }
     },
   };

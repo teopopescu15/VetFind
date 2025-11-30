@@ -16,6 +16,14 @@ export type RootStackParamList = {
     companyName: string;
   };
   CompanyDashboard: undefined;
+
+  // User (Pet Owner) routes
+  UserDashboard: undefined;
+  VetCompanyDetail: {
+    companyId: number;
+  };
+
+  // Legacy routes (kept for compatibility)
   VetFinderHome: undefined;
   ClinicDetail: {
     clinicId: number;
