@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, Image, Alert, TouchableOpacity } from 'react-native';
 import { Text, Card, Button, ActivityIndicator, Chip } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { Company, CategoryWithSpecializations } from '../types/company.types';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Company, CategoryWithSpecializations, CompanyService } from '../types/company.types';
 import { ApiService } from '../services/api';
 import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '../types/navigation.types';
 import { useAuth } from '../context/AuthContext';
 import { CategoryCard } from '../components/Dashboard/CategoryCard';
 
@@ -20,13 +22,15 @@ import { CategoryCard } from '../components/Dashboard/CategoryCard';
  * - Loading states
  */
 export const CompanyDashboardScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList, 'CompanyDashboard'>>();
   const { logout } = useAuth();
   const [company, setCompany] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [categories, setCategories] = useState<CategoryWithSpecializations[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [services, setServices] = useState<CompanyService[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
 
   useEffect(() => {
     loadCompany();
@@ -36,6 +40,31 @@ export const CompanyDashboardScreen = () => {
     if (company) {
       loadCategories();
     }
+  }, [company]);
+
+  useEffect(() => {
+    const loadServices = async () => {
+      if (!company) return;
+      try {
+        setIsLoadingServices(true);
+
+        // Prefer services embedded in company payload (returned by backend) to avoid stale or cross-company data
+        const svcFromCompany = (company as any).services as any[] | undefined;
+        if (Array.isArray(svcFromCompany)) {
+          const filtered = svcFromCompany.filter(s => s && (s.company_id === company.id || s.companyId === company.id) && (s.is_active === undefined || s.is_active === true));
+          setServices(filtered);
+        } else {
+          const svc = await ApiService.getServices(company.id);
+          setServices(svc || []);
+        }
+      } catch (err) {
+        console.error('Error loading services:', err);
+      } finally {
+        setIsLoadingServices(false);
+      }
+    };
+
+    loadServices();
   }, [company]);
 
   const loadCompany = async () => {
@@ -261,6 +290,29 @@ export const CompanyDashboardScreen = () => {
           </Card.Content>
         </Card>
 
+      {/* Services preview for owner */}
+      <Card style={styles.servicesPreviewCard}>
+        <Card.Content>
+          <View style={styles.servicesHeader}>
+            <MaterialCommunityIcons name="medical-bag" size={20} color="#7c3aed" />
+            <Text variant="titleMedium" style={styles.servicesTitle}>Your Services</Text>
+          </View>
+
+          {isLoadingServices ? (
+            <ActivityIndicator size="small" color="#7c3aed" />
+          ) : services.length === 0 ? (
+            <Text style={styles.noServicesText}>No services created yet. Use Manage Services to add procedures.</Text>
+          ) : (
+            services.slice(0, 5).map(s => (
+              <View key={s.id} style={styles.serviceRow}>
+                <Text style={styles.serviceName}>{s.service_name}</Text>
+                <Text style={styles.servicePrice}>${s.price_min} - ${s.price_max}</Text>
+              </View>
+            ))
+          )}
+        </Card.Content>
+      </Card>
+
         <Card style={styles.statCard}>
           <Card.Content style={styles.statCardContent}>
             <Ionicons name="star" size={32} color="#f59e0b" />
@@ -296,7 +348,7 @@ export const CompanyDashboardScreen = () => {
           <Button
             mode="outlined"
             icon={() => <Ionicons name="list" size={24} color="#7c3aed" />}
-            onPress={() => Alert.alert('Coming Soon', 'Service management feature will be available soon')}
+            onPress={() => navigation.navigate('ManageServices')}
             style={styles.actionButton}
             labelStyle={styles.actionButtonLabel}
           >
@@ -306,7 +358,7 @@ export const CompanyDashboardScreen = () => {
           <Button
             mode="outlined"
             icon={() => <Ionicons name="pricetag" size={24} color="#7c3aed" />}
-            onPress={() => Alert.alert('Coming Soon', 'Pricing editor will be available soon')}
+            onPress={() => navigation.navigate('ManagePrices')}
             style={styles.actionButton}
             labelStyle={styles.actionButtonLabel}
           >
@@ -651,5 +703,37 @@ const styles = StyleSheet.create({
   },
   categoriesList: {
     gap: 12
+  }
+  ,
+  /* Services preview styles */
+  servicesPreviewCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    elevation: 2,
+  },
+  servicesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  servicesTitle: {
+    fontWeight: '700',
+    color: '#111827',
+  },
+  noServicesText: {
+    color: '#6b7280',
+  },
+  serviceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  serviceName: {
+    color: '#374151',
+  },
+  servicePrice: {
+    color: '#7c3aed',
+    fontWeight: '600',
   }
 });

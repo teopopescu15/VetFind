@@ -1,5 +1,7 @@
+import 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { AuthProvider } from './src/context/AuthContext';
 import { CompanyProvider } from './src/context/CompanyContext';
@@ -10,8 +12,10 @@ export default function App() {
     <PaperProvider>
       <AuthProvider>
         <CompanyProvider>
-          <AppNavigator />
-          <StatusBar style="auto" />
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <AppNavigator />
+            <StatusBar style="auto" />
+          </GestureHandlerRootView>
         </CompanyProvider>
       </AuthProvider>
     </PaperProvider>

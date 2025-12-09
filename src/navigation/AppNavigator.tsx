@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { blurActiveElementIfWeb, disableBlockingAriaHiddenOverlays } from '../utils/dom';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useAuth } from '../context/AuthContext';
@@ -19,12 +20,44 @@ import { CompanyCreatedSuccessScreen } from '../screens/CompanyCreatedSuccessScr
 import { CompanyDashboardScreen } from '../screens/CompanyDashboardScreen';
 import { UserDashboardScreen } from '../screens/UserDashboardScreen';
 import { VetCompanyDetailScreen } from '../screens/VetCompanyDetailScreen';
+import ManageServicesScreen from '../screens/ManageServicesScreen';
+import ManagePricesScreen from '../screens/ManagePricesScreen';
 
 // Stack navigators
 const Stack = createStackNavigator<RootStackParamList>();
 
 const AppNavigator: React.FC = () => {
   const { isLoading, isAuthenticated } = useAuth();
+
+  // Ensure web pages allow scrolling and remove blocking overlays when navigation changes
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    // Force html/body overflow to auto while app is mounted (fixes pages where body was set to hidden)
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    html.style.overflow = 'auto';
+    body.style.overflow = 'auto';
+
+    // Disable any blocking aria-hidden overlays on mount
+    const restoreOverlays = disableBlockingAriaHiddenOverlays();
+
+    return () => {
+      try {
+        html.style.overflow = prevHtmlOverflow;
+        body.style.overflow = prevBodyOverflow;
+      } catch (e) {
+        // ignore
+      }
+      try {
+        restoreOverlays();
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, []);
 
   // Show loading screen while checking authentication
   if (isLoading) {
@@ -36,7 +69,7 @@ const AppNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer onStateChange={() => { blurActiveElementIfWeb(); }}>
       {isAuthenticated ? (
         // Main app stack (protected routes)
         <Stack.Navigator
@@ -55,6 +88,8 @@ const AppNavigator: React.FC = () => {
             }}
           />
           <Stack.Screen name="CompanyDashboard" component={CompanyDashboardScreen} />
+          <Stack.Screen name="ManageServices" component={ManageServicesScreen} />
+          <Stack.Screen name="ManagePrices" component={ManagePricesScreen} />
           <Stack.Screen name="UserDashboard" component={UserDashboardScreen} />
           <Stack.Screen name="VetCompanyDetail" component={VetCompanyDetailScreen} />
           <Stack.Screen name="VetFinderHome" component={VetFinderHomeScreen} />

@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { blurActiveElementIfWeb } from '../utils/dom';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 
@@ -214,12 +215,18 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 visible={showRolePicker}
                 transparent={true}
                 animationType="fade"
-                onRequestClose={() => setShowRolePicker(false)}
+                onRequestClose={() => {
+                  blurActiveElementIfWeb();
+                  setShowRolePicker(false);
+                }}
               >
                 <TouchableOpacity
                   style={styles.modalOverlay}
                   activeOpacity={1}
-                  onPress={() => setShowRolePicker(false)}
+                  onPress={() => {
+                    blurActiveElementIfWeb();
+                    setShowRolePicker(false);
+                  }}
                 >
                   <View style={styles.modalContent}>
                     <Text style={styles.modalTitle}>Select Your Role</Text>
@@ -230,6 +237,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                         role === 'user' && styles.roleOptionSelected
                       ]}
                       onPress={() => {
+                        blurActiveElementIfWeb();
                         setRole('user');
                         setShowRolePicker(false);
                       }}
@@ -261,6 +269,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                         role === 'vetcompany' && styles.roleOptionSelected
                       ]}
                       onPress={() => {
+                        blurActiveElementIfWeb();
                         setRole('vetcompany');
                         setShowRolePicker(false);
                       }}
@@ -288,7 +297,10 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
                     <TouchableOpacity
                       style={styles.modalCloseButton}
-                      onPress={() => setShowRolePicker(false)}
+                      onPress={() => {
+                        blurActiveElementIfWeb();
+                        setShowRolePicker(false);
+                      }}
                     >
                       <Text style={styles.modalCloseButtonText}>Cancel</Text>
                     </TouchableOpacity>
@@ -308,7 +320,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                           style={[
                             styles.strengthFill,
                             {
-                              
+
                               width: getPasswordStrengthWidth(),
                               backgroundColor: getPasswordStrengthColor()
                             }

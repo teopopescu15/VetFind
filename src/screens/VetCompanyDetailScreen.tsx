@@ -14,12 +14,13 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   StatusBar,
   Animated,
   Linking,
+  Platform,
 } from 'react-native';
+import { ScrollView, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator, Card, Divider } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
@@ -28,6 +29,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiService } from '../services/api';
+import { blurActiveElementIfWeb, disableBlockingAriaHiddenOverlays } from '../utils/dom';
 import {
   Company,
   CompanyService,
@@ -61,8 +63,8 @@ const groupServicesByCategory = (
 /**
  * Get category icon
  */
-const getCategoryIcon = (category: string): keyof typeof MaterialCommunityIcons.glyphMap => {
-  const iconMap: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  const getCategoryIcon = (category: string): keyof typeof MaterialCommunityIcons.glyphMap => {
+  const iconMap: Record<string, any> = {
     routine_care: 'stethoscope',
     dental_care: 'tooth',
     diagnostic_services: 'microscope',
@@ -71,17 +73,27 @@ const getCategoryIcon = (category: string): keyof typeof MaterialCommunityIcons.
     grooming: 'content-cut',
     custom: 'star',
   };
-  return iconMap[category] || 'paw';
+  return (iconMap[category] || 'paw') as any;
 };
 
 /**
  * Format price range
  */
-const formatPrice = (min: number, max: number): string => {
-  if (min === max) {
-    return `$${min.toFixed(0)}`;
-  }
-  return `$${min.toFixed(0)} - $${max.toFixed(0)}`;
+const formatPrice = (min?: number | string | null, max?: number | string | null): string => {
+  // Coerce values to numbers safely
+  const nMin = typeof min === 'string' ? parseFloat(min) : (min as any);
+  const nMax = typeof max === 'string' ? parseFloat(max) : (max as any);
+
+  const isMinValid = typeof nMin === 'number' && !isNaN(nMin);
+  const isMaxValid = typeof nMax === 'number' && !isNaN(nMax);
+
+  if (!isMinValid && !isMaxValid) return '—';
+  if (isMinValid && !isMaxValid) return `$${nMin.toFixed(0)}`;
+  if (!isMinValid && isMaxValid) return `$${nMax.toFixed(0)}`;
+
+  // Both valid
+  if (nMin === nMax) return `$${nMin.toFixed(0)}`;
+  return `$${nMin.toFixed(0)} - $${nMax.toFixed(0)}`;
 };
 
 /**
@@ -154,7 +166,8 @@ const ServiceCategorySection = ({
     Animated.timing(rotateAnim, {
       toValue: isExpanded ? 1 : 0,
       duration: 200,
-      useNativeDriver: true,
+      // useNativeDriver cannot be used on web without the native animation module
+      useNativeDriver: false,
     }).start();
   }, [isExpanded]);
 
@@ -236,18 +249,14 @@ export const VetCompanyDetailScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
-  // Fetch company data
+  // Fetch company data (company now includes services returned by backend)
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         setError(null);
 
-        // Fetch company and services in parallel
-        const [companyData, servicesData] = await Promise.all([
-          ApiService.getCompanyById(companyId),
-          ApiService.getServices(companyId),
-        ]);
+        const companyData = await ApiService.getCompanyById(companyId);
 
         if (!companyData) {
           setError('Company not found');
@@ -255,10 +264,26 @@ export const VetCompanyDetailScreen = () => {
         }
 
         setCompany(companyData);
-        setServices(servicesData);
+
+        // Prefer services returned inside company object; fallback to separate endpoint
+        const rawServices = ((companyData as any).services as any[]) || (await ApiService.getServices(companyId));
+
+        // Defensive filter: ensure we only show services that belong to this company and are active
+        const serviceList = (rawServices || []).filter((s: any) => {
+          // Some older rows may not include company_id; treat those as non-matching
+          const belongs = s && (s.company_id === companyData.id || s.company_id === companyId || s.companyId === companyData.id);
+          const active = s && (s.is_active === undefined || s.is_active === true);
+          return Boolean(belongs && active);
+        });
+
+        if ((rawServices || []).length > 0 && serviceList.length === 0) {
+          console.warn('VetCompanyDetail: all services were filtered out for company', companyId, rawServices);
+        }
+
+        setServices(serviceList || []);
 
         // Auto-expand first category
-        const grouped = groupServicesByCategory(servicesData);
+        const grouped = groupServicesByCategory(serviceList || []);
         const firstCategory = Object.keys(grouped)[0];
         if (firstCategory) {
           setExpandedCategories(new Set([firstCategory]));
@@ -267,12 +292,53 @@ export const VetCompanyDetailScreen = () => {
         setError(err.message || 'Failed to load company details');
         console.error('Error fetching company:', err);
       } finally {
+        // If any element kept focus (e.g. from previous page/modal), blur it on web so it doesn't block interactions
+        blurActiveElementIfWeb();
         setIsLoading(false);
       }
     };
 
     fetchData();
   }, [companyId]);
+
+  // Defensive: disable blocking aria-hidden overlays on mount (web only)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const restore = disableBlockingAriaHiddenOverlays();
+    return () => {
+      try {
+        restore();
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, []);
+
+  // Ensure page can scroll on web: temporarily force html/body overflow to auto while this screen is mounted
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+
+    try {
+      html.style.overflow = 'auto';
+      body.style.overflow = 'auto';
+    } catch (e) {
+      // ignore
+    }
+
+    return () => {
+      try {
+        html.style.overflow = prevHtmlOverflow;
+        body.style.overflow = prevBodyOverflow;
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, []);
 
   const toggleCategory = (category: string) => {
     setExpandedCategories((prev) => {
@@ -295,6 +361,42 @@ export const VetCompanyDetailScreen = () => {
   const groupedServices = groupServicesByCategory(services);
   const todaySchedule = company ? getTodaySchedule(company.opening_hours) : null;
   const { text: hoursText, isOpen } = formatOpeningHours(todaySchedule);
+
+  /**
+   * Render full weekly schedule. Expects company.opening_hours with keys sunday..saturday
+   */
+  const renderWeekSchedule = (openingHours?: OpeningHours) => {
+    if (!openingHours) return null;
+
+    const days: { key: keyof OpeningHours; label: string }[] = [
+      { key: 'sunday', label: 'Sunday' },
+      { key: 'monday', label: 'Monday' },
+      { key: 'tuesday', label: 'Tuesday' },
+      { key: 'wednesday', label: 'Wednesday' },
+      { key: 'thursday', label: 'Thursday' },
+      { key: 'friday', label: 'Friday' },
+      { key: 'saturday', label: 'Saturday' },
+    ];
+
+    return (
+      <View style={styles.scheduleContainer}>
+        {days.map(d => {
+          const sched = openingHours[d.key] as DaySchedule | undefined | null;
+          const isClosed = !sched || sched.closed || !sched.open || !sched.close;
+          const hoursText = isClosed ? 'Closed' : `${sched!.open} - ${sched!.close}`;
+          return (
+            <View key={d.key} style={styles.dayRow}>
+              <Text style={styles.dayName}>{d.label}</Text>
+              <View style={styles.dayRight}>
+                <View style={[styles.dayOpenDot, isClosed ? styles.dotClosed : styles.dotOpen]} />
+                <Text style={[styles.dayHours, isClosed ? styles.closedText : styles.openText]}>{hoursText}</Text>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
 
   // Mock rating (can be added to Company type later)
   const rating = 4.8;
@@ -342,7 +444,14 @@ export const VetCompanyDetailScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+  <GestureHandlerRootView style={Platform.OS === 'web' ? { flex: 1, overflow: 'scroll' } : { flex: 1 }}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={{ paddingBottom: 32 }}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={true}
+          showsVerticalScrollIndicator={true}
+        >
         {/* Photo Banner */}
         <View style={styles.bannerContainer}>
           <LinearGradient
@@ -372,6 +481,14 @@ export const VetCompanyDetailScreen = () => {
               {ClinicTypeLabels[company.clinic_type]}
             </Text>
           </View>
+
+          {/* Description (moved higher so pet owners see it near the top) */}
+          {company.description && (
+            <View style={styles.descriptionSection}>
+              <Text style={styles.sectionTitle}>About</Text>
+              <Text style={styles.descriptionText}>{company.description}</Text>
+            </View>
+          )}
 
           {/* Contact Info Card */}
           <Card style={styles.contactCard}>
@@ -406,16 +523,10 @@ export const VetCompanyDetailScreen = () => {
                   <Text style={styles.hoursText}>{hoursText}</Text>
                 </View>
               </View>
+              {/* Weekly schedule visible to pet owners */}
+              {company && renderWeekSchedule(company.opening_hours)}
             </Card.Content>
           </Card>
-
-          {/* Description */}
-          {company.description && (
-            <View style={styles.descriptionSection}>
-              <Text style={styles.sectionTitle}>About</Text>
-              <Text style={styles.descriptionText}>{company.description}</Text>
-            </View>
-          )}
 
           {/* Services Section */}
           <View style={styles.servicesSection}>
@@ -445,7 +556,8 @@ export const VetCompanyDetailScreen = () => {
 
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
-      </ScrollView>
+        </ScrollView>
+      </GestureHandlerRootView>
     </SafeAreaView>
   );
 };
@@ -503,7 +615,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   scrollView: {
-    flex: 1,
+    // avoid forcing full-height on web; let contentContainerStyle control scrolling
   },
   bannerContainer: {
     position: 'relative',
@@ -614,6 +726,48 @@ const styles = StyleSheet.create({
   hoursText: {
     fontSize: 15,
     color: '#6b7280',
+  },
+  scheduleContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 12,
+    marginBottom: 16,
+    elevation: 1,
+  },
+  dayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  dayName: {
+    fontSize: 15,
+    color: '#374151',
+    fontWeight: '600',
+  },
+  dayRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dayOpenDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  dayHours: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  closedText: {
+    color: '#9ca3af',
+  },
+  openText: {
+    color: '#059669',
   },
   descriptionSection: {
     marginBottom: 24,

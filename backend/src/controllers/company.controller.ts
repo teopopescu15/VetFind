@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { CompanyModel } from '../models/company.model';
+import { CompanyServiceModel } from '../models/companyService.model';
 import { CreateCompanyDTO, UpdateCompanyDTO, CompanySearchFilters } from '../types/company.types';
 
 // Extended Request with user from auth middleware
@@ -168,9 +169,15 @@ export const createCompanyController = () => {
           return;
         }
 
+        // Include services (treatments) offered by the company when returning company details
+        const services = await CompanyServiceModel.findByCompanyId(company.id);
+
         res.status(200).json({
           success: true,
-          data: company,
+          data: {
+            ...company,
+            services,
+          },
         });
       } catch (error: any) {
         console.error('Error fetching company:', error);
@@ -205,9 +212,15 @@ export const createCompanyController = () => {
           return;
         }
 
+        // Include services (treatments) offered by the company so public users can see them
+        const services = await CompanyServiceModel.findByCompanyId(companyId);
+
         res.status(200).json({
           success: true,
-          data: company,
+          data: {
+            ...company,
+            services,
+          },
         });
       } catch (error: any) {
         console.error('Error fetching company by ID:', error);

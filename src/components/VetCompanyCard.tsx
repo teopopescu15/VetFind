@@ -120,7 +120,8 @@ export const VetCompanyCard = ({ company, distance, routeDistance, onPress }: Ve
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.98,
-      useNativeDriver: true,
+      // useNativeDriver is not available in web's native animated module; use JS driver
+      useNativeDriver: false,
       speed: 50,
       bounciness: 4,
     }).start();
@@ -129,7 +130,8 @@ export const VetCompanyCard = ({ company, distance, routeDistance, onPress }: Ve
   const handlePressOut = () => {
     Animated.spring(scaleAnim, {
       toValue: 1,
-      useNativeDriver: true,
+      // useNativeDriver is not available in web's native animated module; use JS driver
+      useNativeDriver: false,
       speed: 50,
       bounciness: 4,
     }).start();
