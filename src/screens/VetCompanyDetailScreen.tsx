@@ -398,9 +398,9 @@ export const VetCompanyDetailScreen = () => {
     );
   };
 
-  // Mock rating (can be added to Company type later)
-  const rating = 4.8;
-  const reviewCount = 124;
+  // Use rating info from company if available
+  const rating = company?.avg_rating ? company.avg_rating : 0;
+  const reviewCount = company?.review_count ? company.review_count : 0;
 
   if (isLoading) {
     return (
@@ -440,11 +440,10 @@ export const VetCompanyDetailScreen = () => {
           onPress={() => navigation.goBack()}
         >
           <Ionicons name="arrow-back" size={24} color="#ffffff" />
-          <Text style={styles.headerBackText}>Back to clinics</Text>
         </TouchableOpacity>
       </View>
 
-  <GestureHandlerRootView style={Platform.OS === 'web' ? { flex: 1, overflow: 'scroll' } : { flex: 1 }}>
+  <GestureHandlerRootView style={{ flex: 1 }}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={{ paddingBottom: 32 }}

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { blurActiveElementIfWeb, disableBlockingAriaHiddenOverlays } from '../utils/dom';
 import { NavigationContainer } from '@react-navigation/native';
@@ -59,6 +59,66 @@ const AppNavigator: React.FC = () => {
     };
   }, []);
 
+  // Track a per-entry history index (vfIdx) so we can detect back navigation vs forward.
+  // We attach vfIdx to each history entry via replaceState after navigation changes.
+  const vfIdxRef = useRef<number>(Date.now());
+
+  // Initialize current history state with vfIdx if missing
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const st = window.history.state || {};
+      if (typeof st.vfIdx !== 'number') {
+        window.history.replaceState({ ...st, vfIdx: vfIdxRef.current }, '');
+      } else {
+        vfIdxRef.current = st.vfIdx;
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  // Listen for popstate and reload only when navigating back (vfIdx decreases)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const onPopState = (e: PopStateEvent) => {
+      const newIdx = e.state && typeof e.state.vfIdx === 'number' ? e.state.vfIdx : null;
+      if (newIdx !== null) {
+        // if newIdx < current -> user went back
+        if (newIdx < vfIdxRef.current) {
+          setTimeout(() => {
+            try {
+              window.location.reload();
+            } catch (err) {
+              // ignore
+            }
+          }, 0);
+        }
+        // update ref with the current entry's idx
+        vfIdxRef.current = newIdx;
+      } else {
+        // no vfIdx available on the popped state: fallback to full reload
+        setTimeout(() => {
+          try {
+            window.location.reload();
+          } catch (err) {
+            // ignore
+          }
+        }, 0);
+      }
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      try {
+        window.removeEventListener('popstate', onPopState);
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, []);
+
   // Show loading screen while checking authentication
   if (isLoading) {
     return (
@@ -67,9 +127,46 @@ const AppNavigator: React.FC = () => {
       </View>
     );
   }
+  // Configure web deep links so screens map to readable URLs (e.g. /company/:companyId)
+  const linking = typeof window !== 'undefined' ? {
+    prefixes: [window.location.origin],
+    config: {
+      screens: {
+        // main
+        Dashboard: 'dashboard',
+        UserDashboard: 'dashboard/user',
+        // company detail
+        VetCompanyDetail: 'company/:companyId',
+        // other routes - keep defaults
+        CreateCompany: 'company/create',
+        CompanyCreatedSuccess: 'company/created',
+        CompanyDashboard: 'company/dashboard',
+        VetFinderHome: '',
+        ClinicDetail: 'clinic/:clinicId',
+        BookAppointment: 'book/:clinicId',
+        MyAppointments: 'appointments',
+      },
+    },
+  } : undefined;
 
   return (
-    <NavigationContainer onStateChange={() => { blurActiveElementIfWeb(); }}>
+    <NavigationContainer
+      linking={linking}
+        onStateChange={() => {
+          blurActiveElementIfWeb();
+          // Whenever navigation state changes we attach a new vfIdx to the current history entry
+          // so subsequent popstate events include it and we can detect back/forward.
+          if (typeof window !== 'undefined') {
+            try {
+              vfIdxRef.current = (vfIdxRef.current || 0) + 1;
+              const st = window.history.state || {};
+              window.history.replaceState({ ...st, vfIdx: vfIdxRef.current }, '');
+            } catch (e) {
+              // ignore
+            }
+          }
+        }}
+    >
       {isAuthenticated ? (
         // Main app stack (protected routes)
         <Stack.Navigator
