@@ -57,11 +57,15 @@ const getCategoryIcon = (category: string): keyof typeof MaterialCommunityIcons.
 /**
  * Format price range
  */
-const formatPrice = (min: number, max: number): string => {
-  if (min === max) {
-    return `$${min.toFixed(0)}`;
+const formatPrice = (min: number | null | undefined, max: number | null | undefined): string => {
+  // Convert to numbers and handle null/undefined
+  const minPrice = Number(min) || 0;
+  const maxPrice = Number(max) || minPrice;
+
+  if (minPrice === maxPrice) {
+    return `$${minPrice.toFixed(0)}`;
   }
-  return `$${min.toFixed(0)} - $${max.toFixed(0)}`;
+  return `$${minPrice.toFixed(0)} - $${maxPrice.toFixed(0)}`;
 };
 
 /**

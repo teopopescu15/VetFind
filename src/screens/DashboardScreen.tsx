@@ -155,7 +155,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
 
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => navigation.navigate('VetFinderHome')}
+              onPress={() => navigation.navigate('UserDashboard')}
               activeOpacity={0.8}
             >
               <Text style={styles.actionButtonText}>Find Clinics</Text>

@@ -11,7 +11,6 @@ import AuthNavigator from './AuthNavigator';
 
 // Screens
 import DashboardScreen from '../screens/DashboardScreen';
-import VetFinderHomeScreen from '../screens/VetFinderHomeScreen';
 import ClinicDetailScreen from '../screens/ClinicDetailScreen';
 import BookAppointmentScreen from '../screens/BookAppointmentScreen';
 import MyAppointmentsScreen from '../screens/MyAppointmentsScreen';
@@ -141,7 +140,6 @@ const AppNavigator: React.FC = () => {
         CreateCompany: 'company/create',
         CompanyCreatedSuccess: 'company/created',
         CompanyDashboard: 'company/dashboard',
-        VetFinderHome: '',
         ClinicDetail: 'clinic/:clinicId',
         BookAppointment: 'book/:clinicId',
         MyAppointments: 'appointments',
@@ -189,7 +187,6 @@ const AppNavigator: React.FC = () => {
           <Stack.Screen name="ManagePrices" component={ManagePricesScreen} />
           <Stack.Screen name="UserDashboard" component={UserDashboardScreen} />
           <Stack.Screen name="VetCompanyDetail" component={VetCompanyDetailScreen} />
-          <Stack.Screen name="VetFinderHome" component={VetFinderHomeScreen} />
           <Stack.Screen name="ClinicDetail" component={ClinicDetailScreen} />
           <Stack.Screen name="BookAppointment" component={BookAppointmentScreen} />
           <Stack.Screen name="MyAppointments" component={MyAppointmentsScreen} />

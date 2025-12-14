@@ -208,7 +208,7 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
           </Text>
           <TouchableOpacity
             style={styles.exploreButton}
-            onPress={() => navigation.navigate('VetFinderHome')}
+            onPress={() => navigation.navigate('UserDashboard')}
           >
             <Text style={styles.exploreButtonText}>Find a Clinic</Text>
           </TouchableOpacity>

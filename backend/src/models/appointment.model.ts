@@ -191,7 +191,7 @@ export const createAppointmentModel = () => {
         SELECT a.*, cs.duration_minutes
         FROM appointments a
         LEFT JOIN company_services cs ON a.service_id = cs.id
-        WHERE a.clinic_id = $1
+        WHERE a.company_id = $1
           AND a.appointment_date >= $2
           AND a.appointment_date < $3
           AND a.status IN ('confirmed', 'pending')

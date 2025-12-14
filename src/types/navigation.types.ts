@@ -37,7 +37,6 @@ export type RootStackParamList = {
   MyAppointments: undefined;
 
   // Legacy routes (kept for compatibility)
-  VetFinderHome: undefined;
   ClinicDetail: {
     clinicId: number;
   };
