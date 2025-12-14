@@ -21,12 +21,13 @@ import {
   Platform,
 } from 'react-native';
 import { ScrollView, GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Text, ActivityIndicator, Card, Divider } from 'react-native-paper';
+import { Text, ActivityIndicator, Card, Divider, FAB } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ServiceSelectionSheet from '../components/ServiceSelectionSheet';
 
 import { ApiService } from '../services/api';
 import { blurActiveElementIfWeb, disableBlockingAriaHiddenOverlays } from '../utils/dom';
@@ -248,6 +249,7 @@ export const VetCompanyDetailScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [serviceSheetVisible, setServiceSheetVisible] = useState(false);
 
   // Fetch company data (company now includes services returned by backend)
   useEffect(() => {
@@ -356,6 +358,16 @@ export const VetCompanyDetailScreen = () => {
     if (company?.phone) {
       Linking.openURL(`tel:${company.phone}`);
     }
+  };
+
+  const handleServiceSelect = (service: CompanyService) => {
+    setServiceSheetVisible(false);
+    // Navigate to BookAppointmentScreen with complete service and company data
+    navigation.navigate('BookAppointment', {
+      companyId,
+      companyName: company?.name || '',
+      service, // Pass the complete service object
+    });
   };
 
   const groupedServices = groupServicesByCategory(services);
@@ -557,6 +569,26 @@ export const VetCompanyDetailScreen = () => {
         <View style={styles.bottomPadding} />
         </ScrollView>
       </GestureHandlerRootView>
+
+      {/* Floating Action Button for Booking */}
+      {services.length > 0 && (
+        <FAB
+          icon="calendar-plus"
+          label="Book Appointment"
+          style={styles.fab}
+          onPress={() => setServiceSheetVisible(true)}
+          color="#ffffff"
+        />
+      )}
+
+      {/* Service Selection Bottom Sheet */}
+      <ServiceSelectionSheet
+        visible={serviceSheetVisible}
+        services={services}
+        companyName={company?.name || ''}
+        onDismiss={() => setServiceSheetVisible(false)}
+        onSelectService={handleServiceSelect}
+      />
     </SafeAreaView>
   );
 };
@@ -891,7 +923,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
   },
   bottomPadding: {
-    height: 32,
+    height: 100, // Extra padding for FAB
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#7c3aed',
+    borderRadius: 16,
   },
 });
 

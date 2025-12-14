@@ -30,6 +30,16 @@ import {
   RouteDistancesResponse,
   RouteStatusResponse,
 } from '../types/routes.types';
+import {
+  Appointment,
+  CreateAppointmentDTO,
+  TimeSlot,
+  DayAvailability,
+  AvailabilityResponse,
+  CreateAppointmentResponse,
+  UserAppointmentsResponse,
+  CancelAppointmentResponse,
+} from '../types/appointment.types';
 
 // API Base URL Configuration
 // All services run in WSL, so we use localhost for communication
@@ -692,6 +702,146 @@ const createApiService = () => {
       } catch (error: any) {
         console.error('Get routes API status error:', error);
         return { configured: false, message: 'Failed to check API status' };
+      }
+    },
+
+    // ==================== Appointment Booking Methods ====================
+
+    /**
+     * Get available time slots for a service
+     * @param companyId - Company ID
+     * @param serviceId - Service ID
+     * @param startDate - Start date (YYYY-MM-DD)
+     * @param endDate - End date (YYYY-MM-DD), optional
+     */
+    async getAvailableSlots(
+      companyId: number,
+      serviceId: number,
+      startDate: string,
+      endDate?: string
+    ): Promise<DayAvailability[]> {
+      try {
+        const queryParams = new URLSearchParams({ startDate });
+        if (endDate) {
+          queryParams.append('endDate', endDate);
+        }
+
+        const response: AvailabilityResponse = await request(
+          `/appointments/availability/${companyId}/${serviceId}?${queryParams.toString()}`,
+          'GET'
+        );
+
+        if (!response.success || !response.data) {
+          return [];
+        }
+
+        return response.data;
+      } catch (error: any) {
+        console.error('Get available slots error:', error);
+        return [];
+      }
+    },
+
+    /**
+     * Create a new appointment with instant confirmation
+     * @param data - Appointment data
+     * @param accessToken - User's authentication token
+     */
+    async createAppointment(data: CreateAppointmentDTO, accessToken?: string): Promise<Appointment> {
+      try {
+        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+
+        if (!token) {
+          throw new Error('Authentication required to book appointments');
+        }
+
+        const response: CreateAppointmentResponse = await request('/appointments', 'POST', data, token);
+
+        if (!response.success || !response.data) {
+          throw new Error(response.message || 'Failed to create appointment');
+        }
+
+        return response.data;
+      } catch (error: any) {
+        throw new Error(error.message || 'Failed to create appointment');
+      }
+    },
+
+    /**
+     * Get user's appointments
+     * @param accessToken - User's authentication token
+     * @param status - Optional filter by status
+     */
+    async getUserAppointments(accessToken?: string, status?: string): Promise<Appointment[]> {
+      try {
+        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+
+        if (!token) {
+          throw new Error('Authentication required to view appointments');
+        }
+
+        const queryParams = status ? `?status=${status}` : '';
+        const response: UserAppointmentsResponse = await request(
+          `/appointments/user${queryParams}`,
+          'GET',
+          undefined,
+          token
+        );
+
+        if (!response.success || !response.data) {
+          return [];
+        }
+
+        return response.data;
+      } catch (error: any) {
+        console.error('Get user appointments error:', error);
+        return [];
+      }
+    },
+
+    /**
+     * Cancel an appointment
+     * @param appointmentId - Appointment ID
+     * @param accessToken - User's authentication token
+     */
+    async cancelAppointment(appointmentId: number, accessToken?: string): Promise<boolean> {
+      try {
+        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+
+        if (!token) {
+          throw new Error('Authentication required to cancel appointments');
+        }
+
+        const response: CancelAppointmentResponse = await request(
+          `/appointments/${appointmentId}/cancel`,
+          'PATCH',
+          undefined,
+          token
+        );
+
+        return response.success;
+      } catch (error: any) {
+        console.error('Cancel appointment error:', error);
+        return false;
+      }
+    },
+
+    /**
+     * Get single service by ID (with company details)
+     * @param serviceId - Service ID
+     */
+    async getServiceById(serviceId: number): Promise<any | null> {
+      try {
+        const response = await request(`/services/${serviceId}`, 'GET');
+
+        if (!response.success || !response.data) {
+          return null;
+        }
+
+        return response.data;
+      } catch (error: any) {
+        console.error('Get service by ID error:', error);
+        return null;
       }
     },
   };

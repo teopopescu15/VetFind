@@ -25,14 +25,20 @@ export type RootStackParamList = {
     companyId: number;
   };
 
+  // Appointment booking routes
+  BookAppointment: {
+    companyId: number;
+    serviceId: number;
+    companyName: string;
+    serviceName: string;
+    serviceDuration: number;
+    servicePrice: { min: number; max: number };
+  };
+  MyAppointments: undefined;
+
   // Legacy routes (kept for compatibility)
   VetFinderHome: undefined;
   ClinicDetail: {
     clinicId: number;
   };
-  BookAppointment: {
-    clinicId: number;
-    clinicName: string;
-  };
-  MyAppointments: undefined;
 };
