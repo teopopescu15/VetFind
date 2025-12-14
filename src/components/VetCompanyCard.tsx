@@ -213,10 +213,12 @@ export const VetCompanyCard = ({ company, distance, routeDistance, matchedServic
 
           {/* Company Info Section */}
           <Card.Content style={styles.cardContent}>
-            {/* Company Name */}
-            <Text variant="titleMedium" style={styles.companyName} numberOfLines={1}>
-              {company.name}
-            </Text>
+              {/* Header row: company name */}
+              <View style={styles.headerRow}>
+                <Text variant="titleMedium" style={styles.companyName} numberOfLines={1}>
+                  {company.name}
+                </Text>
+              </View>
 
             {/* Matched service price (when user searched for a service) */}
             {matchedService && (
@@ -356,6 +358,14 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     paddingHorizontal: 16,
   },
+  /* header & sort button styles */
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+
   companyName: {
     fontWeight: '700',
     fontSize: 18,

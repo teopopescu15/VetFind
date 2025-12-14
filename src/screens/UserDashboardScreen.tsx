@@ -72,6 +72,7 @@ export const UserDashboardScreen = () => {
   const [selectedDistance, setSelectedDistance] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearching, setIsSearching] = useState(false);
+  const [sortMode, setSortMode] = useState<'none' | 'min_asc' | 'max_desc'>('none');
 
   /**
    * Fetch all companies from API
@@ -203,12 +204,27 @@ export const UserDashboardScreen = () => {
           }
         });
 
-        // Sort matches by distance when available
+        // Sort matches by distance when available by default
         matches.sort((a, b) => {
           if (a.distance === undefined) return 1;
           if (b.distance === undefined) return -1;
           return a.distance - b.distance;
         });
+
+        // Apply user-selected sort over the matched service price
+        if (sortMode === 'min_asc') {
+          matches.sort((a, b) => {
+            const pa = a.matchedService?.price_min ?? Number.POSITIVE_INFINITY;
+            const pb = b.matchedService?.price_min ?? Number.POSITIVE_INFINITY;
+            return pa - pb;
+          });
+        } else if (sortMode === 'max_desc') {
+          matches.sort((a, b) => {
+            const pa = a.matchedService?.price_max ?? Number.NEGATIVE_INFINITY;
+            const pb = b.matchedService?.price_max ?? Number.NEGATIVE_INFINITY;
+            return pb - pa;
+          });
+        }
 
         setFilteredCompanies(matches.map((m) => m.company));
         setCompaniesWithDistance(matches.map((m) => ({ company: m.company, distance: m.distance, matchedService: m.matchedService })));
@@ -290,6 +306,29 @@ export const UserDashboardScreen = () => {
   };
 
   /**
+   * Handle sort requests coming from the card buttons.
+   * dir: 'asc' => sort by matchedService.price_min ascending
+   * dir: 'desc' => sort by matchedService.price_max descending
+   */
+  const handleSortPrice = (dir: 'asc' | 'desc') => {
+    const mode = dir === 'asc' ? 'min_asc' : 'max_desc';
+    setSortMode(mode);
+
+    // If we have a current search with matchedService info, re-sort those results
+    const matches = companiesWithDistance.filter((c) => c.matchedService) as Array<{ company: Company; distance?: number; matchedService: any }>;
+    if (matches.length === 0) return;
+
+    if (mode === 'min_asc') {
+      matches.sort((a, b) => (a.matchedService?.price_min ?? Number.POSITIVE_INFINITY) - (b.matchedService?.price_min ?? Number.POSITIVE_INFINITY));
+    } else if (mode === 'max_desc') {
+      matches.sort((a, b) => (b.matchedService?.price_max ?? Number.NEGATIVE_INFINITY) - (a.matchedService?.price_max ?? Number.NEGATIVE_INFINITY));
+    }
+
+    setFilteredCompanies(matches.map((m) => m.company));
+    setCompaniesWithDistance(matches);
+  };
+
+  /**
    * Handle user logout
    */
   const handleLogout = async () => {
@@ -354,6 +393,21 @@ export const UserDashboardScreen = () => {
                 style={styles.searchInput}
                 right={isSearching ? <TextInput.Icon icon={() => <ActivityIndicator size={16} color="#7c3aed" />} /> : undefined}
               />
+              {/* Sort controls for search results (price sort chips) */}
+              <View style={styles.sortControls}>
+                <TouchableOpacity
+                  style={[styles.sortChip, sortMode === 'min_asc' && styles.sortChipActive]}
+                  onPress={() => handleSortPrice('asc')}
+                >
+                  <Text style={styles.sortChipText}>Preț min ↑</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.sortChip, sortMode === 'max_desc' && styles.sortChipActive]}
+                  onPress={() => handleSortPrice('desc')}
+                >
+                  <Text style={styles.sortChipText}>Preț max ↓</Text>
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity
                 onPress={handleLogout}
                 style={styles.logoutButton}
@@ -579,6 +633,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  sortControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 8,
+  },
+  sortChip: {
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  sortChipActive: {
+    backgroundColor: '#7c3aed',
+    borderColor: '#7c3aed',
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+  },
+  sortChipText: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '600',
   },
   distanceChip: {
     paddingHorizontal: 16,
