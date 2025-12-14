@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { vetApi } from '../services/vetApi';
 import type { Clinic, Service, Review } from '../types/vet.types';
+import { FacilityLabels, PaymentMethodLabels } from '../types/company.types';
 
 interface ClinicDetailScreenProps {
   route: any;
@@ -118,6 +119,24 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
         </View>
       </View>
 
+      {/* Facilities */}
+      <View style={styles.infoSection}>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>🏥 Available Facilities:</Text>
+          <View style={styles.chipsRow}>
+            {clinic.facilities && clinic.facilities.length > 0 ? (
+              clinic.facilities.map((f) => (
+                <View key={f} style={styles.chip}>
+                  <Text style={styles.chipText}>{FacilityLabels[f]}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.infoText}>Not specified</Text>
+            )}
+          </View>
+        </View>
+      </View>
+
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, selectedTab === 'services' && styles.activeTab]}
@@ -212,7 +231,28 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
           )}
         </View>
       )}
+
+      {/* Payment methods - visible to all pet owners at the end of the page */}
+      <PaymentMethodsSection clinic={clinic} />
     </ScrollView>
+  );
+};
+const PaymentMethodsSection: React.FC<{ clinic: Clinic }> = ({ clinic }) => {
+  return (
+    <View style={[styles.infoSection, { marginBottom: 30 }]}>
+      <Text style={styles.infoLabel}>💳 Payment Methods:</Text>
+      <View style={styles.chipsRow}>
+        {clinic.payment_methods && clinic.payment_methods.length > 0 ? (
+          clinic.payment_methods.map((p) => (
+            <View key={p} style={styles.chip}>
+              <Text style={styles.chipText}>{PaymentMethodLabels[p]}</Text>
+            </View>
+          ))
+        ) : (
+          <Text style={styles.infoText}>Not specified</Text>
+        )}
+      </View>
+    </View>
   );
 };
 
@@ -448,6 +488,24 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     color: '#999999'
+  }
+  ,
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 5
+  },
+  chip: {
+    backgroundColor: '#EFEFEF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 8
+  },
+  chipText: {
+    fontSize: 14,
+    color: '#333333'
   }
 });
 

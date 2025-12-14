@@ -20,7 +20,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { Text, ActivityIndicator, Chip } from 'react-native-paper';
+import { Text, ActivityIndicator, Chip, TextInput } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -64,12 +64,14 @@ export const UserDashboardScreen = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
   const [companiesWithDistance, setCompaniesWithDistance] = useState<
-    Array<{ company: Company; distance?: number }>
+    Array<{ company: Company; distance?: number; matchedService?: any }>
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDistance, setSelectedDistance] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isSearching, setIsSearching] = useState(false);
 
   /**
    * Fetch all companies from API
@@ -157,6 +159,75 @@ export const UserDashboardScreen = () => {
     setFilteredCompanies(withDistances.map((item) => item.company));
     setCompaniesWithDistance(withDistances);
   }, [companies, selectedDistance, location]);
+
+  /**
+   * Search companies for a given service name and attach matched service/pricing
+   */
+  const searchCompaniesByService = useCallback(
+    async (query: string) => {
+      const q = query.trim().toLowerCase();
+      if (!q) {
+        // Clear search - restore previous filteredCompanies state
+        // Recompute companiesWithDistance from filteredCompanies
+        const base = filteredCompanies.length ? filteredCompanies : companies;
+        setFilteredCompanies(base);
+        setCompaniesWithDistance(base.map((company) => ({ company })));
+        setIsSearching(false);
+        return;
+      }
+
+      setIsSearching(true);
+
+      try {
+        // Base list respects distance filter when active
+        const baseList = selectedDistance === null ? companies : filteredCompanies.length ? filteredCompanies : companies;
+
+        // Fetch services for each company in parallel (safe with Promise.allSettled)
+        const promises = baseList.map((c) => ApiService.getServices(c.id).then((s) => ({ company: c, services: s })));
+        const results = await Promise.allSettled(promises);
+
+        const matches: Array<{ company: Company; matchedService: any; distance?: number }> = [];
+
+        results.forEach((res) => {
+          if (res.status === 'fulfilled') {
+            const { company, services } = res.value as { company: Company; services: any[] };
+            const found = (services || []).find((svc) => svc && svc.service_name && svc.service_name.toLowerCase().includes(q));
+            if (found) {
+              // calculate haversine distance if location is available
+              let d: number | undefined = undefined;
+              if (location && company.latitude && company.longitude) {
+                d = calculateDistance(location.latitude, location.longitude, company.latitude, company.longitude);
+              }
+              matches.push({ company, matchedService: found, distance: d });
+            }
+          }
+        });
+
+        // Sort matches by distance when available
+        matches.sort((a, b) => {
+          if (a.distance === undefined) return 1;
+          if (b.distance === undefined) return -1;
+          return a.distance - b.distance;
+        });
+
+        setFilteredCompanies(matches.map((m) => m.company));
+        setCompaniesWithDistance(matches.map((m) => ({ company: m.company, distance: m.distance, matchedService: m.matchedService })));
+      } catch (err) {
+        console.error('Service search error:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [companies, filteredCompanies, location, selectedDistance]
+  );
+
+  // Debounce search queries
+  useEffect(() => {
+    const t = setTimeout(() => {
+      searchCompaniesByService(searchQuery);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchQuery, searchCompaniesByService]);
 
   /**
    * Fetch route distances when location filter is active and companies are loaded
@@ -274,6 +345,15 @@ export const UserDashboardScreen = () => {
                 <Text style={styles.titleMain}>Find Your Perfect</Text>
                 <Text style={styles.titleHighlight}>Vet Clinic</Text>
               </View>
+              {/* Compact service search - appears to the left of logout */}
+              <TextInput
+                mode="flat"
+                placeholder="Cauta serviciu..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                style={styles.searchInput}
+                right={isSearching ? <TextInput.Icon icon={() => <ActivityIndicator size={16} color="#7c3aed" />} /> : undefined}
+              />
               <TouchableOpacity
                 onPress={handleLogout}
                 style={styles.logoutButton}
@@ -388,12 +468,13 @@ export const UserDashboardScreen = () => {
         {/* Company Cards List */}
         {!error && filteredCompanies.length > 0 && (
           <View style={styles.cardsContainer}>
-            {companiesWithDistance.map(({ company, distance }) => (
+            {companiesWithDistance.map(({ company, distance, matchedService }) => (
               <VetCompanyCard
                 key={company.id}
                 company={company}
                 distance={selectedDistance !== null ? distance : undefined}
                 routeDistance={selectedDistance !== null ? getDistance(String(company.id)) : undefined}
+                matchedService={matchedService}
                 onPress={() => handleCompanyPress(company.id)}
               />
             ))}
@@ -443,6 +524,15 @@ const styles = StyleSheet.create({
   },
   titleTextContainer: {
     flex: 1,
+  },
+  searchInput: {
+    width: SCREEN_WIDTH * 0.38,
+    height: 38,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    marginRight: 8,
+    paddingHorizontal: 8,
+    elevation: 2,
   },
   titleMain: {
     fontSize: 24,

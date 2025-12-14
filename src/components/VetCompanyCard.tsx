@@ -22,7 +22,7 @@ import {
 import { Text, Card } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import { Company, ClinicTypeLabels, OpeningHours, DaySchedule } from '../types/company.types';
+import { Company, ClinicTypeLabels, OpeningHours, DaySchedule, CompanyService } from '../types/company.types';
 import { RouteDistance } from '../types/routes.types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -31,6 +31,7 @@ interface VetCompanyCardProps {
   company: Company;
   distance?: number; // Haversine distance in km (fallback)
   routeDistance?: RouteDistance; // Google Routes driving distance (preferred)
+  matchedService?: CompanyService; // Optional service matched by a search, used to display price
   onPress: () => void;
 }
 
@@ -111,7 +112,7 @@ const getClinicTypeIcon = (clinicType: string): keyof typeof MaterialCommunityIc
   return iconMap[clinicType] || 'hospital-building';
 };
 
-export const VetCompanyCard = ({ company, distance, routeDistance, onPress }: VetCompanyCardProps) => {
+export const VetCompanyCard = ({ company, distance, routeDistance, matchedService, onPress }: VetCompanyCardProps) => {
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
   const todaySchedule = getTodaySchedule(company.opening_hours);
@@ -216,6 +217,18 @@ export const VetCompanyCard = ({ company, distance, routeDistance, onPress }: Ve
             <Text variant="titleMedium" style={styles.companyName} numberOfLines={1}>
               {company.name}
             </Text>
+
+            {/* Matched service price (when user searched for a service) */}
+            {matchedService && (
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>{matchedService.service_name}</Text>
+                <View style={styles.priceBadgeSmall}>
+                  <Text style={styles.priceBadgeTextLarge}>
+                    ${Number(matchedService.price_min).toFixed(0)}{matchedService.price_max && matchedService.price_max !== matchedService.price_min ? ` - ${Number(matchedService.price_max).toFixed(0)}` : ''}
+                  </Text>
+                </View>
+              </View>
+            )}
 
             {/* Address */}
             <View style={styles.infoRow}>
@@ -348,6 +361,33 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#1f2937',
     marginBottom: 12,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  priceLabel: {
+    color: '#6b7280',
+    fontSize: 13,
+    flex: 1,
+  },
+  priceBadgeSmall: {
+    backgroundColor: '#eef2ff',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  priceBadgeText: {
+    color: '#4f46e5',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  priceBadgeTextLarge: {
+    color: '#111827',
+    fontWeight: '800',
+    fontSize: 18,
   },
   infoRow: {
     flexDirection: 'row',
