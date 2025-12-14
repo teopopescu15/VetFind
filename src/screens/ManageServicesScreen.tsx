@@ -107,14 +107,21 @@ export const ManageServicesScreen: React.FC = () => {
 
   const renderItem = ({ item }: { item: CompanyService }) => (
     <Card style={styles.card}>
-      <Card.Title
-        title={item.service_name}
-        subtitle={`${item.price_min} - ${item.price_max} ${item.duration_minutes ? `· ${item.duration_minutes}min` : ''}`}
-        right={() => (
+      <View style={styles.cardRow}>
+        <View style={styles.cardLeft}>
+          <Text style={styles.serviceName}>{item.service_name}</Text>
+          <Text style={styles.serviceMeta}>{ServiceCategoryLabels[item.category as ServiceCategoryType] || item.category}</Text>
+          {item.description ? <Text style={styles.cardDescription}>{item.description}</Text> : null}
+        </View>
+
+        <View style={styles.cardRight}>
+          <View style={styles.priceBadge}>
+            <Text style={styles.priceText}>${Number(item.price_min).toFixed(0)}{item.price_max && item.price_max !== item.price_min ? ` - ${Number(item.price_max).toFixed(0)}` : ''}</Text>
+            {item.duration_minutes ? <Text style={styles.durationSmall}>{item.duration_minutes}m</Text> : null}
+          </View>
           <IconButton icon="delete" onPress={() => handleDelete(item.id)} />
-        )}
-      />
-      {item.description ? <Card.Content><Text>{item.description}</Text></Card.Content> : null}
+        </View>
+      </View>
     </Card>
   );
 
@@ -122,12 +129,22 @@ export const ManageServicesScreen: React.FC = () => {
     <View style={styles.container}>
       <Text style={styles.title}>Manage Services</Text>
 
-      {isLoading ? <ActivityIndicator size="large" color="#7c3aed" /> : (
+      {isLoading ? (
+        <ActivityIndicator size="large" color="#7c3aed" />
+      ) : (
         <FlatList
           data={services}
           keyExtractor={(s) => String(s.id)}
           renderItem={renderItem}
-          ListEmptyComponent={<Text>No services yet</Text>}
+          ListEmptyComponent={
+            <Card style={styles.emptyCard}>
+              <Card.Content>
+                <Text style={styles.emptyTitle}>No services yet</Text>
+                <Text style={styles.emptySubtitle}>Add your first service below to make it visible to pet owners.</Text>
+              </Card.Content>
+            </Card>
+          }
+          contentContainerStyle={services.length === 0 ? { paddingVertical: 8 } : undefined}
         />
       )}
 
@@ -135,33 +152,47 @@ export const ManageServicesScreen: React.FC = () => {
         <Card.Content>
           <Text style={styles.formTitle}>Add Service</Text>
           <TextInput placeholder="Service name" value={name} onChangeText={setName} style={styles.input} />
-          {/* Category picker using react-native-paper Menu to enforce valid enums */}
-          <Menu
-            visible={menuVisible}
-            onDismiss={() => setMenuVisible(false)}
-            anchor={
-              <Button mode="outlined" onPress={() => setMenuVisible(true)} style={styles.input}>
-                {ServiceCategoryLabels[category] || category}
-              </Button>
-            }
-          >
-            {Object.entries(ServiceCategoryLabels).map(([key, label]) => (
-              <Menu.Item
-                key={key}
-                onPress={() => {
-                  setCategory(key as ServiceCategoryType);
-                  setMenuVisible(false);
-                }}
-                title={label}
-              />
-            ))}
-          </Menu>
-          <TextInput placeholder="Min price" keyboardType="numeric" value={priceMin} onChangeText={setPriceMin} style={styles.input} />
-          <TextInput placeholder="Max price" keyboardType="numeric" value={priceMax} onChangeText={setPriceMax} style={styles.input} />
-          <TextInput placeholder="Duration minutes" keyboardType="numeric" value={duration} onChangeText={setDuration} style={styles.input} />
+
+          <View style={styles.row}>
+            <View style={styles.flexItem}>
+              <Menu
+                visible={menuVisible}
+                onDismiss={() => setMenuVisible(false)}
+                anchor={
+                  <Button mode="outlined" onPress={() => setMenuVisible(true)} style={styles.pickerButton}>
+                    {ServiceCategoryLabels[category] || category}
+                  </Button>
+                }
+              >
+                {Object.entries(ServiceCategoryLabels).map(([key, label]) => (
+                  <Menu.Item
+                    key={key}
+                    onPress={() => {
+                      setCategory(key as ServiceCategoryType);
+                      setMenuVisible(false);
+                    }}
+                    title={label}
+                  />
+                ))}
+              </Menu>
+            </View>
+            <View style={[styles.flexItem, { marginLeft: 8 }]}>
+              <TextInput placeholder="Duration (min)" keyboardType="numeric" value={duration} onChangeText={setDuration} style={styles.input} />
+            </View>
+          </View>
+
+          <View style={styles.row}>
+            <View style={styles.flexItem}>
+              <TextInput placeholder="Min price" keyboardType="numeric" value={priceMin} onChangeText={setPriceMin} style={styles.input} />
+            </View>
+            <View style={[styles.flexItem, { marginLeft: 8 }]}>
+              <TextInput placeholder="Max price" keyboardType="numeric" value={priceMax} onChangeText={setPriceMax} style={styles.input} />
+            </View>
+          </View>
+
           <TextInput placeholder="Description" value={description} onChangeText={setDescription} style={styles.input} />
 
-          <Button mode="contained" onPress={handleAdd} style={{ marginTop: 12 }}>
+          <Button mode="contained" onPress={handleAdd} style={styles.addButton}>
             Add Service
           </Button>
         </Card.Content>
@@ -171,12 +202,29 @@ export const ManageServicesScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#f9fafb' },
-  title: { fontSize: 20, fontWeight: '700', marginBottom: 12 },
-  card: { marginBottom: 12 },
-  formCard: { marginTop: 12 },
-  formTitle: { fontWeight: '700', marginBottom: 8 },
-  input: { borderWidth: 1, borderColor: '#e5e7eb', padding: 8, borderRadius: 8, marginBottom: 8 },
+  container: { flex: 1, padding: 18, backgroundColor: '#f3f4f6' },
+  title: { fontSize: 22, fontWeight: '800', marginBottom: 6, color: '#111827' },
+  subtitle: { fontSize: 13, color: '#6b7280', marginBottom: 12 },
+  card: { marginBottom: 12, borderRadius: 12, elevation: 2, overflow: 'hidden' },
+  cardRow: { flexDirection: 'row', padding: 12, alignItems: 'center' },
+  cardLeft: { flex: 1 },
+  cardRight: { alignItems: 'flex-end', justifyContent: 'space-between' },
+  serviceName: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  serviceMeta: { fontSize: 12, color: '#6b7280', marginTop: 4 },
+  cardDescription: { marginTop: 8, color: '#374151' },
+  priceBadge: { backgroundColor: '#eef2ff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, marginBottom: 6 },
+  priceText: { color: '#4f46e5', fontWeight: '700' },
+  durationSmall: { fontSize: 12, color: '#6b7280', marginTop: 4 },
+  formCard: { marginTop: 14, borderRadius: 12, elevation: 2 },
+  formTitle: { fontWeight: '800', marginBottom: 10, fontSize: 16 },
+  input: { borderWidth: 1, borderColor: '#e6e9ef', padding: 10, borderRadius: 10, marginBottom: 10, backgroundColor: '#fff' },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  flexItem: { flex: 1 },
+  pickerButton: { justifyContent: 'flex-start' },
+  addButton: { marginTop: 10, borderRadius: 10 },
+  emptyCard: { marginVertical: 12, borderRadius: 12, elevation: 1 },
+  emptyTitle: { fontWeight: '700', marginBottom: 6 },
+  emptySubtitle: { color: '#6b7280' },
 });
 
 export default ManageServicesScreen;

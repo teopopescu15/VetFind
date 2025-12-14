@@ -39,6 +39,7 @@ import {
   ServiceCategoryType,
   DaySchedule,
   OpeningHours,
+  PaymentMethodLabels,
 } from '../types/company.types';
 import { RootStackParamList } from '../types/navigation.types';
 
@@ -564,6 +565,23 @@ export const VetCompanyDetailScreen = () => {
             )}
           </View>
         </View>
+        {/* Payment Methods (visible to all pet owners) */}
+        <Card style={[styles.contactCard, styles.paymentCard]}>
+          <Card.Content>
+            <Text style={styles.sectionTitle}>Payment Methods</Text>
+            <View style={styles.chipsRow}>
+              {company.payment_methods && company.payment_methods.length > 0 ? (
+                company.payment_methods.map((p) => (
+                  <View key={p} style={styles.chip}>
+                    <Text style={styles.chipText}>{PaymentMethodLabels[p]}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.contactText}>Not specified</Text>
+              )}
+            </View>
+          </Card.Content>
+        </Card>
 
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
@@ -932,6 +950,28 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: '#7c3aed',
     borderRadius: 16,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+  },
+  chip: {
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  chipText: {
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  paymentCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
   },
 });
 

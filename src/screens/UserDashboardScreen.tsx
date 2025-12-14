@@ -20,7 +20,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { Text, ActivityIndicator, Chip } from 'react-native-paper';
+import { Text, ActivityIndicator, Chip, TextInput } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -64,12 +64,15 @@ export const UserDashboardScreen = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
   const [companiesWithDistance, setCompaniesWithDistance] = useState<
-    Array<{ company: Company; distance?: number }>
+    Array<{ company: Company; distance?: number; matchedService?: any }>
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDistance, setSelectedDistance] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [sortMode, setSortMode] = useState<'none' | 'min_asc' | 'max_desc'>('none');
 
   /**
    * Fetch all companies from API
@@ -159,6 +162,90 @@ export const UserDashboardScreen = () => {
   }, [companies, selectedDistance, location]);
 
   /**
+   * Search companies for a given service name and attach matched service/pricing
+   */
+  const searchCompaniesByService = useCallback(
+    async (query: string) => {
+      const q = query.trim().toLowerCase();
+      if (!q) {
+        // Clear search - restore previous filteredCompanies state
+        // Recompute companiesWithDistance from filteredCompanies
+        const base = filteredCompanies.length ? filteredCompanies : companies;
+        setFilteredCompanies(base);
+        setCompaniesWithDistance(base.map((company) => ({ company })));
+        setIsSearching(false);
+        return;
+      }
+
+      setIsSearching(true);
+
+      try {
+        // Base list respects distance filter when active
+        const baseList = selectedDistance === null ? companies : filteredCompanies.length ? filteredCompanies : companies;
+
+        // Fetch services for each company in parallel (safe with Promise.allSettled)
+        const promises = baseList.map((c) => ApiService.getServices(c.id).then((s) => ({ company: c, services: s })));
+        const results = await Promise.allSettled(promises);
+
+        const matches: Array<{ company: Company; matchedService: any; distance?: number }> = [];
+
+        results.forEach((res) => {
+          if (res.status === 'fulfilled') {
+            const { company, services } = res.value as { company: Company; services: any[] };
+            const found = (services || []).find((svc) => svc && svc.service_name && svc.service_name.toLowerCase().includes(q));
+            if (found) {
+              // calculate haversine distance if location is available
+              let d: number | undefined = undefined;
+              if (location && company.latitude && company.longitude) {
+                d = calculateDistance(location.latitude, location.longitude, company.latitude, company.longitude);
+              }
+              matches.push({ company, matchedService: found, distance: d });
+            }
+          }
+        });
+
+        // Sort matches by distance when available by default
+        matches.sort((a, b) => {
+          if (a.distance === undefined) return 1;
+          if (b.distance === undefined) return -1;
+          return a.distance - b.distance;
+        });
+
+        // Apply user-selected sort over the matched service price
+        if (sortMode === 'min_asc') {
+          matches.sort((a, b) => {
+            const pa = a.matchedService?.price_min ?? Number.POSITIVE_INFINITY;
+            const pb = b.matchedService?.price_min ?? Number.POSITIVE_INFINITY;
+            return pa - pb;
+          });
+        } else if (sortMode === 'max_desc') {
+          matches.sort((a, b) => {
+            const pa = a.matchedService?.price_max ?? Number.NEGATIVE_INFINITY;
+            const pb = b.matchedService?.price_max ?? Number.NEGATIVE_INFINITY;
+            return pb - pa;
+          });
+        }
+
+        setFilteredCompanies(matches.map((m) => m.company));
+        setCompaniesWithDistance(matches.map((m) => ({ company: m.company, distance: m.distance, matchedService: m.matchedService })));
+      } catch (err) {
+        console.error('Service search error:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [companies, filteredCompanies, location, selectedDistance]
+  );
+
+  // Debounce search queries
+  useEffect(() => {
+    const t = setTimeout(() => {
+      searchCompaniesByService(searchQuery);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchQuery, searchCompaniesByService]);
+
+  /**
    * Fetch route distances when location filter is active and companies are loaded
    * This provides actual driving distances from Google Routes API
    */
@@ -219,6 +306,29 @@ export const UserDashboardScreen = () => {
   };
 
   /**
+   * Handle sort requests coming from the card buttons.
+   * dir: 'asc' => sort by matchedService.price_min ascending
+   * dir: 'desc' => sort by matchedService.price_max descending
+   */
+  const handleSortPrice = (dir: 'asc' | 'desc') => {
+    const mode = dir === 'asc' ? 'min_asc' : 'max_desc';
+    setSortMode(mode);
+
+    // If we have a current search with matchedService info, re-sort those results
+    const matches = companiesWithDistance.filter((c) => c.matchedService) as Array<{ company: Company; distance?: number; matchedService: any }>;
+    if (matches.length === 0) return;
+
+    if (mode === 'min_asc') {
+      matches.sort((a, b) => (a.matchedService?.price_min ?? Number.POSITIVE_INFINITY) - (b.matchedService?.price_min ?? Number.POSITIVE_INFINITY));
+    } else if (mode === 'max_desc') {
+      matches.sort((a, b) => (b.matchedService?.price_max ?? Number.NEGATIVE_INFINITY) - (a.matchedService?.price_max ?? Number.NEGATIVE_INFINITY));
+    }
+
+    setFilteredCompanies(matches.map((m) => m.company));
+    setCompaniesWithDistance(matches);
+  };
+
+  /**
    * Handle user logout
    */
   const handleLogout = async () => {
@@ -273,6 +383,30 @@ export const UserDashboardScreen = () => {
               <View style={styles.titleTextContainer}>
                 <Text style={styles.titleMain}>Find Your Perfect</Text>
                 <Text style={styles.titleHighlight}>Vet Clinic</Text>
+              </View>
+              {/* Compact service search - appears to the left of logout */}
+              <TextInput
+                mode="flat"
+                placeholder="Cauta serviciu..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                style={styles.searchInput}
+                right={isSearching ? <TextInput.Icon icon={() => <ActivityIndicator size={16} color="#7c3aed" />} /> : undefined}
+              />
+              {/* Sort controls for search results (price sort chips) */}
+              <View style={styles.sortControls}>
+                <TouchableOpacity
+                  style={[styles.sortChip, sortMode === 'min_asc' && styles.sortChipActive]}
+                  onPress={() => handleSortPrice('asc')}
+                >
+                  <Text style={styles.sortChipText}>Preț min ↑</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.sortChip, sortMode === 'max_desc' && styles.sortChipActive]}
+                  onPress={() => handleSortPrice('desc')}
+                >
+                  <Text style={styles.sortChipText}>Preț max ↓</Text>
+                </TouchableOpacity>
               </View>
               <TouchableOpacity
                 onPress={handleLogout}
@@ -388,12 +522,13 @@ export const UserDashboardScreen = () => {
         {/* Company Cards List */}
         {!error && filteredCompanies.length > 0 && (
           <View style={styles.cardsContainer}>
-            {companiesWithDistance.map(({ company, distance }) => (
+            {companiesWithDistance.map(({ company, distance, matchedService }) => (
               <VetCompanyCard
                 key={company.id}
                 company={company}
                 distance={selectedDistance !== null ? distance : undefined}
                 routeDistance={selectedDistance !== null ? getDistance(String(company.id)) : undefined}
+                matchedService={matchedService}
                 onPress={() => handleCompanyPress(company.id)}
               />
             ))}
@@ -444,6 +579,15 @@ const styles = StyleSheet.create({
   titleTextContainer: {
     flex: 1,
   },
+  searchInput: {
+    width: SCREEN_WIDTH * 0.38,
+    height: 38,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    marginRight: 8,
+    paddingHorizontal: 8,
+    elevation: 2,
+  },
   titleMain: {
     fontSize: 24,
     fontWeight: '300',
@@ -489,6 +633,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  sortControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 8,
+  },
+  sortChip: {
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  sortChipActive: {
+    backgroundColor: '#7c3aed',
+    borderColor: '#7c3aed',
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+  },
+  sortChipText: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '600',
   },
   distanceChip: {
     paddingHorizontal: 16,
