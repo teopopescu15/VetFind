@@ -3,6 +3,8 @@
 ## Overview
 Comprehensive vet company detail page with service-based appointment booking system featuring instant confirmation and Material Design 3 styling.
 
+**⚠️ DESIGN AUTHORITY**: All UI/UX styling, colors, and responsive design MUST follow **`/docs/Redesign.md`** specifications (warm professional blue/terracotta palette). This document covers functional requirements only.
+
 ## User Requirements Summary
 - **Navigation**: Click on company card → redirect to detailed company info page
 - **Company Details**: Display name, specializations, services, facilities, opening hours
@@ -307,33 +309,69 @@ export interface Appointment {
 
 ### Phase 5: UI/UX Polish & Material Design 3
 
-#### 5.1 Design System Enhancement
-**File**: `src/theme/colors.ts` (NEW or enhance existing theme)
+#### 5.1 Design System Integration (Per Redesign.md)
+**CRITICAL**: All styling MUST use the warm professional design system from `/docs/Redesign.md`
 
-**Material Design 3 Color Palette**:
-- Primary: Purple (#7c3aed) - matches existing VetCompanyCard
-- Secondary: Blue (#3b82f6) - for distance badges
-- Tertiary: Green (#10b981) - for success/open states
-- Error: Red (#ef4444) - for closed/error states
-- Surface: Cards with elevation
-- Background: Light gray (#f9fafb)
+**Required Implementation**:
+- ✅ **Import and use `useTheme()` hook** in ALL appointment screens
+- ✅ **Use `theme.colors.*` tokens** - NO hardcoded hex values
+- ✅ **Use `responsive.*` utilities** - NO hardcoded dimensions (SCREEN_WIDTH, etc.)
+- ✅ **Reference Redesign.md** for complete color palette and spacing
 
-#### 5.2 Component Styling
+**Color Palette (from Redesign.md)**:
+- **Primary**: Blue `#2563eb` (professional trust) - ALL primary buttons, focus states
+- **Accent/CTA**: Terracotta `#ea580c` - Call-to-action buttons, important highlights
+- **Success**: Green `#10b981` - Confirmations, available slots, open status
+- **Error**: Red `#ef4444` - Errors, closed status, cancellations
+- **Backgrounds**: Warm cream `#fafaf9` (main), Light cream `#f5f5f4` (cards)
+- **Text**: Dark `#44403c` (primary), Gray `#6b7280` (secondary)
+
+**❌ DEPRECATED**: Purple `#7c3aed` theme - See Redesign.md for migration
+
+#### 5.2 Component Styling (Material Design 3 with Redesign Theme)
 **Files to Style**:
 - All screens with Material Design 3 components from React Native Paper:
-  - Surface, Card, Button, FAB, Chip, SegmentedButtons
-  - Modal, Portal for bottom sheets
-  - TextInput for notes
-  - Badge for status indicators
-  - Divider for section separation
+  - **Surface, Card**: Use `theme.colors.surface.card` backgrounds with warm cream
+  - **Button, FAB**: Primary = `theme.colors.primary.main` (blue), CTA = `theme.colors.accent.main` (terracotta)
+  - **Chip, SegmentedButtons**: Follow theme token system
+  - **Modal, Portal**: Bottom sheets with warm backgrounds
+  - **TextInput**: Blue focus borders `theme.colors.primary.main`, terracotta error borders
+  - **Badge**: Status badges using semantic colors from theme
+  - **Divider**: Subtle dividers with warm neutral tones
 
-#### 5.3 Animations & Interactions
-- Animated scale on button press (already in VetCompanyCard)
-- Bottom sheet slide-in animation
-- Calendar date selection animation
-- Success checkmark animation on confirmation
-- Skeleton loaders for async content
-- Pull-to-refresh indicators
+**Theme Integration Pattern**:
+```typescript
+import { useTheme } from '../hooks/useTheme';
+
+const MyScreen = () => {
+  const { theme, responsive } = useTheme();
+
+  return (
+    <Button
+      buttonColor={theme.colors.primary.main}  // Blue #2563eb
+      style={{ padding: responsive.padding() }} // Adaptive padding
+    >
+      Book Now
+    </Button>
+  );
+};
+```
+
+#### 5.3 Responsive Design Integration (Per Redesign Phase 2)
+**Critical Fixes Required**:
+- ❌ **Remove `SCREEN_WIDTH`** calculations - Use `responsive.getValue(phone, tablet, desktop)`
+- ✅ **Time slot grid**: Use `responsive.timeSlotColumns()` - Returns 3/4/5 columns based on device
+- ✅ **Date cards**: Use `responsive.getValue(68, 80, 92)` for adaptive sizing
+- ✅ **Padding**: Use `responsive.padding()` - Returns 16/24/32px based on device
+- ✅ **Safe areas**: Use `responsive.safePadding()` for notch handling
+
+#### 5.4 Animations & Interactions
+- Animated scale on button press (1 → 0.95 → 1, 150ms)
+- Bottom sheet slide-in animation with fade
+- Calendar date selection with subtle scale
+- Success checkmark animation on confirmation (terracotta accent)
+- Skeleton loaders with warm neutral backgrounds (1.5s pulse)
+- Pull-to-refresh with terracotta indicator color
 
 ## Critical Files to Modify/Create
 
@@ -361,9 +399,13 @@ export interface Appointment {
 12. 📝 `src/navigation/AppNavigator.tsx` - Register new screens
 
 ### Supporting Files
-1. ✨ `src/theme/colors.ts` - Material Design 3 palette
-2. ✨ `src/utils/dateHelpers.ts` - Date formatting utilities
-3. ✨ `src/utils/slotGenerator.ts` - Slot generation logic
+1. ✅ `src/theme/index.ts` - **USE EXISTING** theme from Redesign.md (warm professional palette)
+2. ✅ `src/theme/responsive.ts` - **USE EXISTING** responsive utilities from Redesign Phase 2
+3. ✅ `src/hooks/useTheme.ts` - **USE EXISTING** theme hook from Redesign Phase 2
+4. ✨ `src/utils/dateHelpers.ts` - Date formatting utilities (NEW)
+5. ✨ `src/utils/slotGenerator.ts` - Slot generation logic (NEW)
+
+**⚠️ DO NOT CREATE**: `src/theme/colors.ts` with old purple palette - Theme already exists from Redesign.md!
 
 ## Implementation Order
 
@@ -395,12 +437,14 @@ export interface Appointment {
 4. Add calendar export
 5. Add directions integration
 
-### Sprint 5: Polish & Testing
-1. Apply Material Design 3 styling
-2. Add animations and transitions
-3. Test with Playwright (web) and Detox (mobile)
-4. Handle edge cases and errors
-5. Add loading states and empty states
+### Sprint 5: Design System Integration & Testing
+1. **Migrate to Redesign.md theme** - Replace all purple colors with blue/terracotta palette
+2. **Integrate useTheme() hook** - Remove all hardcoded colors, use theme tokens
+3. **Apply responsive utilities** - Remove SCREEN_WIDTH, use responsive.*
+4. Add animations and transitions (per Redesign.md Phase 5 specs)
+5. Test with Playwright (web) for responsive breakpoints (375px, 768px, 1024px)
+6. Handle edge cases and errors with user-friendly messages
+7. Add skeleton loaders and empty states (warm neutral backgrounds)
 
 ## Code Style Compliance
 
@@ -427,3 +471,37 @@ export interface Appointment {
 **Total Estimated Files**: ~25 files (12 new, 13 modified)
 **Complexity**: High (full booking system with slot management)
 **Timeline**: 4-5 sprints for complete implementation
+
+---
+
+## Design System Migration Guide
+
+### From Purple Theme → Warm Professional (Redesign.md)
+
+**Color Replacements**:
+```typescript
+// OLD (DEPRECATED)          →  NEW (Redesign.md)
+#7c3aed (purple)            →  #2563eb (blue) - Primary buttons, icons
+#3b82f6 (blue secondary)    →  #ea580c (terracotta) - CTAs, accents
+#f9fafb (light gray bg)     →  #fafaf9 (warm cream) - Backgrounds
+#ffffff (white cards)       →  #f5f5f4 (light cream) - Cards
+```
+
+**Implementation Checklist**:
+- [ ] Import `useTheme()` hook in all appointment screens
+- [ ] Replace ALL hardcoded hex colors with `theme.colors.*` tokens
+- [ ] Remove `SCREEN_WIDTH` - Use `responsive.getValue()` or `responsive.*` utilities
+- [ ] Update all button colors to blue primary or terracotta accent
+- [ ] Apply warm neutral backgrounds to all cards and surfaces
+- [ ] Update loading indicators to use terracotta color
+- [ ] Test responsive layouts at 375px (phone), 768px (tablet), 1024px (desktop)
+- [ ] Verify color contrast meets WCAG AA standards (per Redesign Phase 6)
+
+**Files Requiring Migration** (Already implemented with old colors):
+1. `src/screens/BookAppointmentScreen.tsx` - 12 purple color instances
+2. `src/screens/VetCompanyDetailScreen.tsx` - Purple gradients and icons
+3. `src/screens/MyAppointmentsScreen.tsx` - Status badge colors
+4. `src/components/ServiceSelectionSheet.tsx` - Purple accents
+5. `src/components/VetCompanyCard.tsx` - Purple gradient and badges
+
+**See**: `/docs/Redesign.md` for complete color palette, responsive utilities, and implementation examples.

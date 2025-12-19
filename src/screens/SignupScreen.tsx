@@ -139,9 +139,19 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.contentWrapper}>
+              {/* Decorative Floating Paw Prints */}
+              <View style={styles.floatingPawsContainer}>
+                <Ionicons name="paw" size={30} color="rgba(139, 92, 246, 0.1)" style={styles.floatingPaw1} />
+                <Ionicons name="paw" size={24} color="rgba(167, 139, 250, 0.12)" style={styles.floatingPaw2} />
+                <Ionicons name="paw" size={36} color="rgba(139, 92, 246, 0.08)" style={styles.floatingPaw3} />
+                <Ionicons name="paw" size={28} color="rgba(167, 139, 250, 0.1)" style={styles.floatingPaw4} />
+                <Ionicons name="paw" size={32} color="rgba(139, 92, 246, 0.09)" style={styles.floatingPaw5} />
+                <Ionicons name="paw" size={26} color="rgba(167, 139, 250, 0.11)" style={styles.floatingPaw6} />
+              </View>
+
               <View style={styles.cardContainer}>
                 <View style={styles.content}>
-              {/* Logo */}
+              {/* Logo with Paw Icon */}
               <View style={styles.logoContainer}>
                 <LinearGradient
                   colors={['#8b5cf6', '#a78bfa']}
@@ -149,13 +159,16 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <Ionicons name="sparkles" size={40} color="#ffffff" />
+                  <Ionicons name="paw" size={44} color="#ffffff" />
                 </LinearGradient>
+                {/* Small decorative paws around logo */}
+                <Ionicons name="paw" size={16} color="rgba(139, 92, 246, 0.3)" style={styles.decorativePaw1} />
+                <Ionicons name="paw" size={14} color="rgba(167, 139, 250, 0.3)" style={styles.decorativePaw2} />
               </View>
 
               {/* Title */}
               <Text style={styles.title}>Create Account</Text>
-              <Text style={styles.subtitle}>Find the best vet for your beloved animal!</Text>
+              <Text style={styles.subtitle}>🐾 Find the best vet for your beloved animal! 🐾</Text>
 
               {/* Full Name Input */}
               <View style={styles.inputContainer}>
@@ -466,6 +479,52 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  floatingPawsContainer: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  floatingPaw1: {
+    position: 'absolute',
+    top: '8%',
+    left: '10%',
+    transform: [{ rotate: '-15deg' }],
+  },
+  floatingPaw2: {
+    position: 'absolute',
+    top: '12%',
+    right: '10%',
+    transform: [{ rotate: '25deg' }],
+  },
+  floatingPaw3: {
+    position: 'absolute',
+    top: '40%',
+    left: '6%',
+    transform: [{ rotate: '10deg' }],
+  },
+  floatingPaw4: {
+    position: 'absolute',
+    bottom: '25%',
+    left: '8%',
+    transform: [{ rotate: '-20deg' }],
+  },
+  floatingPaw5: {
+    position: 'absolute',
+    top: '55%',
+    right: '7%',
+    transform: [{ rotate: '15deg' }],
+  },
+  floatingPaw6: {
+    position: 'absolute',
+    bottom: '18%',
+    right: '12%',
+    transform: [{ rotate: '-10deg' }],
   },
   cardContainer: {
     backgroundColor: '#ffffff',
@@ -477,6 +536,7 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     width: '100%',
     marginHorizontal: 20,
+    zIndex: 10,
   },
   content: {
     paddingHorizontal: 30,
@@ -485,6 +545,19 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
     marginBottom: 25,
+    position: 'relative',
+  },
+  decorativePaw1: {
+    position: 'absolute',
+    top: -10,
+    right: 80,
+    transform: [{ rotate: '-25deg' }],
+  },
+  decorativePaw2: {
+    position: 'absolute',
+    top: -8,
+    left: 82,
+    transform: [{ rotate: '20deg' }],
   },
   logoGradient: {
     width: 80,

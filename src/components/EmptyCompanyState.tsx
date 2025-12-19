@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { theme } from '../theme';
 
 export interface EmptyCompanyStateProps {
   onCreatePress: () => void;
@@ -15,7 +16,7 @@ export interface EmptyCompanyStateProps {
  * - Engaging paw icon and imagery
  * - Clear call-to-action button
  * - Estimated completion time
- * - Purple gradient theme
+ * - Blue/terracotta gradient theme (Phase 4 redesign)
  * - Encourages profile creation
  */
 export const EmptyCompanyState = ({ onCreatePress }: EmptyCompanyStateProps) => {
@@ -25,11 +26,11 @@ export const EmptyCompanyState = ({ onCreatePress }: EmptyCompanyStateProps) => 
         {/* Icon Section */}
         <View style={styles.iconContainer}>
           <View style={styles.iconCircle}>
-            <Ionicons name="paw" size={64} color="#7c3aed" />
+            <Ionicons name="paw" size={64} color={theme.colors.primary.main} />
           </View>
           <View style={styles.decorativeIcons}>
-            <Ionicons name="medical" size={32} color="#a855f7" style={[styles.decorativeIcon, { top: -10, right: -10 }]} />
-            <Ionicons name="heart" size={28} color="#c084fc" style={[styles.decorativeIcon, { bottom: -10, left: -10 }]} />
+            <Ionicons name="medical" size={32} color={theme.colors.accent.main} style={[styles.decorativeIcon, { top: -10, right: -10 }]} />
+            <Ionicons name="heart" size={28} color={theme.colors.accent.light} style={[styles.decorativeIcon, { bottom: -10, left: -10 }]} />
           </View>
         </View>
 
@@ -81,7 +82,7 @@ export const EmptyCompanyState = ({ onCreatePress }: EmptyCompanyStateProps) => 
           style={styles.button}
           labelStyle={styles.buttonLabel}
           icon={() => <Ionicons name="add-circle-outline" size={24} color="#fff" />}
-          buttonColor="#7c3aed"
+          buttonColor={theme.colors.primary.main}
         >
           Create Company Profile
         </Button>
@@ -96,7 +97,7 @@ export const EmptyCompanyState = ({ onCreatePress }: EmptyCompanyStateProps) => 
 
         {/* Decorative Background Gradient */}
         <LinearGradient
-          colors={['rgba(124, 58, 237, 0.05)', 'rgba(168, 85, 247, 0.05)']}
+          colors={[`${theme.colors.primary.main}10`, `${theme.colors.accent.main}10`]}
           style={styles.backgroundGradient}
         />
       </View>
@@ -129,11 +130,11 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#f3e8ff',
+    backgroundColor: theme.colors.primary[100],
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#e9d5ff'
+    borderColor: theme.colors.primary[300]
   },
   decorativeIcons: {
     position: 'absolute',

@@ -21,6 +21,7 @@ import { UserDashboardScreen } from '../screens/UserDashboardScreen';
 import { VetCompanyDetailScreen } from '../screens/VetCompanyDetailScreen';
 import ManageServicesScreen from '../screens/ManageServicesScreen';
 import ManagePricesScreen from '../screens/ManagePricesScreen';
+import { ManagePhotosScreen } from '../screens/ManagePhotosScreen';
 
 // Stack navigators
 const Stack = createStackNavigator<RootStackParamList>();
@@ -140,6 +141,7 @@ const AppNavigator: React.FC = () => {
         CreateCompany: 'company/create',
         CompanyCreatedSuccess: 'company/created',
         CompanyDashboard: 'company/dashboard',
+        ManagePhotos: 'company/photos',
         ClinicDetail: 'clinic/:clinicId',
         BookAppointment: 'book/:clinicId',
         MyAppointments: 'appointments',
@@ -185,6 +187,7 @@ const AppNavigator: React.FC = () => {
           <Stack.Screen name="CompanyDashboard" component={CompanyDashboardScreen} />
           <Stack.Screen name="ManageServices" component={ManageServicesScreen} />
           <Stack.Screen name="ManagePrices" component={ManagePricesScreen} />
+          <Stack.Screen name="ManagePhotos" component={ManagePhotosScreen} />
           <Stack.Screen name="UserDashboard" component={UserDashboardScreen} />
           <Stack.Screen name="VetCompanyDetail" component={VetCompanyDetailScreen} />
           <Stack.Screen name="ClinicDetail" component={ClinicDetailScreen} />

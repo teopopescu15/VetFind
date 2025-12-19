@@ -3,6 +3,8 @@ import {
   createAppointment,
   getAvailableSlots,
   getUserAppointments,
+  getCompanyAppointments,
+  updateAppointment,
   cancelAppointment,
 } from '../controllers/appointments';
 import { authMiddleware } from '../middleware/auth.middleware';
@@ -17,6 +19,12 @@ router.get('/availability/:companyId/:serviceId', getAvailableSlots);
 
 // GET /api/appointments/user - Get user's appointments (requires auth)
 router.get('/user', authMiddleware, getUserAppointments);
+
+// GET /api/appointments/company - Get company's appointments (requires auth)
+router.get('/company', authMiddleware, getCompanyAppointments);
+
+// PATCH /api/appointments/:id - Update appointment (requires auth)
+router.patch('/:id', authMiddleware, updateAppointment);
 
 // PATCH /api/appointments/:id/cancel - Cancel appointment (requires auth)
 router.patch('/:id/cancel', authMiddleware, cancelAppointment);

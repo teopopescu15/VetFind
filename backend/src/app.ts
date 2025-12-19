@@ -75,6 +75,14 @@ app.use(morgan('dev')); // HTTP request logger
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
+// ===========================
+// STATIC FILE SERVING
+// ===========================
+
+// Serve uploads directory for photo access
+// Example: http://localhost:5000/uploads/companies/1/photo_1735654321.jpg
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({

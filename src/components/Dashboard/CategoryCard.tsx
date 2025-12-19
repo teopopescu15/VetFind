@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Card, Chip } from 'react-native-paper';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { CategoryWithSpecializations } from '../../types/company.types';
+import { useTheme } from '../../hooks/useTheme';
 
 /**
  * CategoryCard - Expandable category card showing specializations
@@ -20,6 +22,7 @@ interface CategoryCardProps {
 }
 
 export const CategoryCard = ({ category }: CategoryCardProps) => {
+  const { colors, responsive } = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const toggleExpanded = () => {
@@ -54,18 +57,26 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
   };
 
   return (
-    <Card style={styles.card}>
-      <TouchableOpacity onPress={toggleExpanded} activeOpacity={0.7}>
+    <Card style={styles.card} elevation={3}>
+      <TouchableOpacity onPress={toggleExpanded} activeOpacity={0.8}>
         <Card.Content style={styles.cardContent}>
           <View style={styles.headerRow}>
-            {/* Icon */}
-            <View style={styles.iconContainer}>
+            {/* Icon with Gradient */}
+            <LinearGradient
+              colors={[colors.primary.main, colors.primary.light]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.iconContainer, {
+                width: responsive.getValue(56, 64, 72),
+                height: responsive.getValue(56, 64, 72),
+              }]}
+            >
               <MaterialCommunityIcons
                 name={getCategoryIcon(category.name)}
-                size={32}
-                color="#7c3aed"
+                size={responsive.getValue(30, 34, 38)}
+                color="#ffffff"
               />
-            </View>
+            </LinearGradient>
 
             {/* Category Info */}
             <View style={styles.categoryInfo}>
@@ -117,39 +128,43 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                   Services Offered:
                 </Text>
 
-                {category.specializations.map((specialization) => (
+                {category.specializations.map((specialization, index) => (
                   <View key={specialization.id} style={styles.specializationItem}>
-                    <View style={styles.specializationHeader}>
-                      <MaterialCommunityIcons
-                        name="circle-small"
-                        size={24}
-                        color="#7c3aed"
-                      />
-                      <Text variant="bodyMedium" style={styles.specializationName}>
-                        {specialization.name}
-                      </Text>
-                      {specialization.suggested_duration_minutes && (
-                        <Chip
-                          style={styles.durationChip}
-                          textStyle={styles.durationChipText}
-                          compact
-                          icon={() => (
-                            <Ionicons name="time-outline" size={12} color="#6b7280" />
-                          )}
+                    <View style={styles.specializationCard}>
+                      <View style={styles.specializationHeader}>
+                        <View style={styles.bulletPoint}>
+                          <MaterialCommunityIcons
+                            name="check-circle"
+                            size={20}
+                            color={colors.primary.main}
+                          />
+                        </View>
+                        <Text variant="bodyMedium" style={styles.specializationName}>
+                          {specialization.name}
+                        </Text>
+                        {specialization.suggested_duration_minutes && (
+                          <Chip
+                            style={styles.durationChip}
+                            textStyle={styles.durationChipText}
+                            compact
+                            icon={() => (
+                              <Ionicons name="time-outline" size={12} color="#ffffff" />
+                            )}
+                          >
+                            {formatDuration(specialization.suggested_duration_minutes)}
+                          </Chip>
+                        )}
+                      </View>
+
+                      {specialization.description && (
+                        <Text
+                          variant="bodySmall"
+                          style={styles.specializationDescription}
                         >
-                          {formatDuration(specialization.suggested_duration_minutes)}
-                        </Chip>
+                          {specialization.description}
+                        </Text>
                       )}
                     </View>
-
-                    {specialization.description && (
-                      <Text
-                        variant="bodySmall"
-                        style={styles.specializationDescription}
-                      >
-                        {specialization.description}
-                      </Text>
-                    )}
                   </View>
                 ))}
               </View>
@@ -163,24 +178,34 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 12,
-    elevation: 2,
+    marginBottom: 16,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 99, 235, 0.1)',
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
   },
   cardContent: {
-    paddingVertical: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: '#f3e8ff',
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   categoryInfo: {
     flex: 1,
@@ -188,76 +213,103 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
-    gap: 8,
+    marginBottom: 6,
+    gap: 10,
   },
   categoryName: {
     fontWeight: '700',
     color: '#111827',
     flex: 1,
+    fontSize: 18,
   },
   countChip: {
-    backgroundColor: '#e9d5ff',
-    borderRadius: 12,
-    height: 24,
+    backgroundColor: '#2563eb',
+    borderRadius: 14,
+    height: 28,
   },
   countChipText: {
-    color: '#7c3aed',
-    fontSize: 12,
-    fontWeight: '600',
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   description: {
     color: '#6b7280',
-    lineHeight: 18,
+    lineHeight: 20,
+    fontSize: 14,
   },
   chevron: {
-    marginLeft: 8,
+    marginLeft: 12,
   },
   expandedContent: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 2,
+    borderTopColor: 'rgba(37, 99, 235, 0.1)',
   },
   fullDescription: {
     color: '#6b7280',
-    marginBottom: 16,
-    lineHeight: 20,
+    marginBottom: 20,
+    lineHeight: 22,
+    fontSize: 14,
   },
   specializationsContainer: {
-    gap: 12,
+    gap: 10,
   },
   specializationsTitle: {
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#111827',
-    marginBottom: 8,
+    marginBottom: 12,
+    fontSize: 16,
   },
   specializationItem: {
-    paddingLeft: 8,
+    marginBottom: 8,
+  },
+  specializationCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   specializationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
-    gap: 4,
+    marginBottom: 6,
+    gap: 8,
+  },
+  bulletPoint: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   specializationName: {
     flex: 1,
-    fontWeight: '500',
-    color: '#374151',
+    fontWeight: '600',
+    color: '#1f2937',
+    fontSize: 15,
   },
   durationChip: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    height: 22,
+    backgroundColor: '#2563eb',
+    borderRadius: 10,
+    height: 26,
   },
   durationChipText: {
-    color: '#6b7280',
-    fontSize: 11,
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   specializationDescription: {
     color: '#6b7280',
-    paddingLeft: 28,
-    lineHeight: 18,
+    paddingLeft: 32,
+    lineHeight: 20,
+    fontSize: 13,
   },
 });

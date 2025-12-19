@@ -3,6 +3,7 @@ import { View, StyleSheet, BackHandler, Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button, ActivityIndicator } from 'react-native-paper';
 import { ProgressIndicator } from '../components/ProgressIndicator';
+import { EnhancedProgressIndicator } from '../components/FormComponents/EnhancedProgressIndicator';
 import { Step1BasicInfo } from './CreateCompany/Step1BasicInfo';
 import { Step2Location } from './CreateCompany/Step2Location';
 import { Step3Services } from './CreateCompany/Step3Services';
@@ -62,6 +63,7 @@ export const CreateCompanyScreen = () => {
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
 
   const stepLabels = [
     'Basic Info',
@@ -323,6 +325,11 @@ export const CreateCompanyScreen = () => {
     }
 
     if (isValid) {
+      // Mark current step as completed (0-indexed for EnhancedProgressIndicator)
+      const stepIndex = currentStep - 1;
+      if (!completedSteps.includes(stepIndex)) {
+        setCompletedSteps([...completedSteps, stepIndex]);
+      }
       setCurrentStep(currentStep + 1);
       setErrors({}); // Clear errors when moving to next step
     }
@@ -555,15 +562,16 @@ export const CreateCompanyScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Progress Indicator */}
-      <ProgressIndicator
-        currentStep={currentStep}
+      {/* Enhanced Progress Indicator (Phase 3 Redesign) */}
+      <EnhancedProgressIndicator
+        currentStep={currentStep - 1} // Convert to 0-indexed
         totalSteps={4}
         stepLabels={stepLabels}
-        onStepClick={(step) => {
+        completedSteps={completedSteps}
+        onStepPress={(stepIndex) => {
           // Allow navigation to completed steps only
-          if (step < currentStep) {
-            setCurrentStep(step);
+          if (completedSteps.includes(stepIndex) && stepIndex !== currentStep - 1) {
+            setCurrentStep(stepIndex + 1); // Convert back to 1-indexed
             setErrors({});
           }
         }}

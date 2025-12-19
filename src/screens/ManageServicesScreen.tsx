@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, TextInput, Alert } from 'react-native';
-import { Text, Button, Card, ActivityIndicator, IconButton, Menu } from 'react-native-paper';
+import { View, StyleSheet, FlatList, TextInput, Alert, ScrollView } from 'react-native';
+import { Text, Button, Card, ActivityIndicator, IconButton, Menu, Surface, Chip, Divider } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCompany } from '../context/CompanyContext';
 import { ApiService } from '../services/api';
 import { CompanyService, ServiceCategoryLabels, ServiceCategoryType } from '../types/company.types';
@@ -106,52 +107,118 @@ export const ManageServicesScreen: React.FC = () => {
   };
 
   const renderItem = ({ item }: { item: CompanyService }) => (
-    <Card style={styles.card}>
-      <View style={styles.cardRow}>
-        <View style={styles.cardLeft}>
-          <Text style={styles.serviceName}>{item.service_name}</Text>
-          <Text style={styles.serviceMeta}>{ServiceCategoryLabels[item.category as ServiceCategoryType] || item.category}</Text>
-          {item.description ? <Text style={styles.cardDescription}>{item.description}</Text> : null}
+    <Card style={styles.card} mode="elevated" elevation={2}>
+      <Card.Content>
+        <View style={styles.cardHeader}>
+          <View style={styles.iconContainer}>
+            <MaterialCommunityIcons name="medical-bag" size={24} color="#7c3aed" />
+          </View>
+          <View style={styles.cardHeaderText}>
+            <Text style={styles.serviceName}>{item.service_name}</Text>
+            <View style={styles.metaRow}>
+              <Chip
+                mode="outlined"
+                compact
+                style={styles.categoryChip}
+                textStyle={styles.categoryChipText}
+              >
+                {ServiceCategoryLabels[item.category as ServiceCategoryType] || item.category}
+              </Chip>
+              {item.duration_minutes ? (
+                <Chip
+                  icon={() => <MaterialCommunityIcons name="clock-outline" size={14} color="#6b7280" />}
+                  compact
+                  style={styles.durationChip}
+                  textStyle={styles.durationChipText}
+                >
+                  {item.duration_minutes}m
+                </Chip>
+              ) : null}
+            </View>
+          </View>
         </View>
 
-        <View style={styles.cardRight}>
-          <View style={styles.priceBadge}>
-            <Text style={styles.priceText}>${Number(item.price_min).toFixed(0)}{item.price_max && item.price_max !== item.price_min ? ` - ${Number(item.price_max).toFixed(0)}` : ''}</Text>
-            {item.duration_minutes ? <Text style={styles.durationSmall}>{item.duration_minutes}m</Text> : null}
+        {item.description ? (
+          <>
+            <Divider style={styles.cardDivider} />
+            <Text style={styles.cardDescription}>{item.description}</Text>
+          </>
+        ) : null}
+
+        <Divider style={styles.cardDivider} />
+
+        <View style={styles.cardFooter}>
+          <View style={styles.priceContainer}>
+            <MaterialCommunityIcons name="currency-usd" size={20} color="#059669" />
+            <Text style={styles.priceText}>
+              ${Number(item.price_min).toFixed(0)}
+              {item.price_max && item.price_max !== item.price_min ? ` - $${Number(item.price_max).toFixed(0)}` : ''}
+            </Text>
           </View>
-          <IconButton icon="delete" onPress={() => handleDelete(item.id)} />
+          <IconButton
+            icon="delete"
+            iconColor="#ef4444"
+            size={20}
+            onPress={() => handleDelete(item.id)}
+            style={styles.deleteButton}
+          />
         </View>
-      </View>
+      </Card.Content>
     </Card>
   );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Manage Services</Text>
+      {/* Header Section */}
+      <Surface style={styles.headerSection} elevation={0}>
+        <View style={styles.headerContent}>
+          <MaterialCommunityIcons name="clipboard-text" size={28} color="#7c3aed" />
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.title}>Manage Services</Text>
+            <Text style={styles.subtitle}>Add, edit, and organize your clinic services</Text>
+          </View>
+        </View>
+      </Surface>
 
-      {isLoading ? (
-        <ActivityIndicator size="large" color="#7c3aed" />
-      ) : (
-        <FlatList
-          data={services}
-          keyExtractor={(s) => String(s.id)}
-          renderItem={renderItem}
-          ListEmptyComponent={
-            <Card style={styles.emptyCard}>
-              <Card.Content>
-                <Text style={styles.emptyTitle}>No services yet</Text>
-                <Text style={styles.emptySubtitle}>Add your first service below to make it visible to pet owners.</Text>
-              </Card.Content>
-            </Card>
-          }
-          contentContainerStyle={services.length === 0 ? { paddingVertical: 8 } : undefined}
-        />
-      )}
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Services List */}
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#7c3aed" />
+            <Text style={styles.loadingText}>Loading services...</Text>
+          </View>
+        ) : services.length === 0 ? (
+          <Card style={styles.emptyCard} mode="outlined">
+            <Card.Content style={styles.emptyContent}>
+              <MaterialCommunityIcons name="clipboard-outline" size={64} color="#d1d5db" />
+              <Text style={styles.emptyTitle}>No services yet</Text>
+              <Text style={styles.emptySubtitle}>Add your first service below to make it visible to pet owners.</Text>
+            </Card.Content>
+          </Card>
+        ) : (
+          <View style={styles.servicesContainer}>
+            {services.map((item) => (
+              <View key={item.id}>{renderItem({ item })}</View>
+            ))}
+          </View>
+        )}
 
-      <Card style={styles.formCard}>
-        <Card.Content>
-          <Text style={styles.formTitle}>Add Service</Text>
-          <TextInput placeholder="Service name" value={name} onChangeText={setName} style={styles.input} />
+        {/* Add Service Form */}
+        <Surface style={styles.formSection} elevation={3}>
+          <View style={styles.formHeader}>
+            <MaterialCommunityIcons name="plus-circle" size={24} color="#7c3aed" />
+            <Text style={styles.formTitle}>Add New Service</Text>
+          </View>
+
+          <Divider style={styles.formDivider} />
+
+          <TextInput
+            placeholder="Service name (e.g., Vaccination, Surgery)"
+            value={name}
+            onChangeText={setName}
+            style={styles.input}
+            placeholderTextColor="#9ca3af"
+          />
 
           <View style={styles.row}>
             <View style={styles.flexItem}>
@@ -159,7 +226,12 @@ export const ManageServicesScreen: React.FC = () => {
                 visible={menuVisible}
                 onDismiss={() => setMenuVisible(false)}
                 anchor={
-                  <Button mode="outlined" onPress={() => setMenuVisible(true)} style={styles.pickerButton}>
+                  <Button
+                    mode="outlined"
+                    onPress={() => setMenuVisible(true)}
+                    style={styles.pickerButton}
+                    icon="format-list-bulleted"
+                  >
                     {ServiceCategoryLabels[category] || category}
                   </Button>
                 }
@@ -176,55 +248,286 @@ export const ManageServicesScreen: React.FC = () => {
                 ))}
               </Menu>
             </View>
-            <View style={[styles.flexItem, { marginLeft: 8 }]}>
-              <TextInput placeholder="Duration (min)" keyboardType="numeric" value={duration} onChangeText={setDuration} style={styles.input} />
+            <View style={[styles.flexItem, { marginLeft: 12 }]}>
+              <TextInput
+                placeholder="Duration (min)"
+                keyboardType="numeric"
+                value={duration}
+                onChangeText={setDuration}
+                style={styles.input}
+                placeholderTextColor="#9ca3af"
+              />
             </View>
           </View>
 
           <View style={styles.row}>
             <View style={styles.flexItem}>
-              <TextInput placeholder="Min price" keyboardType="numeric" value={priceMin} onChangeText={setPriceMin} style={styles.input} />
+              <TextInput
+                placeholder="Min price ($)"
+                keyboardType="numeric"
+                value={priceMin}
+                onChangeText={setPriceMin}
+                style={styles.input}
+                placeholderTextColor="#9ca3af"
+              />
             </View>
-            <View style={[styles.flexItem, { marginLeft: 8 }]}>
-              <TextInput placeholder="Max price" keyboardType="numeric" value={priceMax} onChangeText={setPriceMax} style={styles.input} />
+            <View style={[styles.flexItem, { marginLeft: 12 }]}>
+              <TextInput
+                placeholder="Max price ($)"
+                keyboardType="numeric"
+                value={priceMax}
+                onChangeText={setPriceMax}
+                style={styles.input}
+                placeholderTextColor="#9ca3af"
+              />
             </View>
           </View>
 
-          <TextInput placeholder="Description" value={description} onChangeText={setDescription} style={styles.input} />
+          <TextInput
+            placeholder="Description (optional)"
+            value={description}
+            onChangeText={setDescription}
+            style={[styles.input, styles.descriptionInput]}
+            multiline
+            numberOfLines={3}
+            placeholderTextColor="#9ca3af"
+          />
 
-          <Button mode="contained" onPress={handleAdd} style={styles.addButton}>
+          <Button
+            mode="contained"
+            onPress={handleAdd}
+            style={styles.addButton}
+            buttonColor="#7c3aed"
+            icon="plus"
+            contentStyle={styles.addButtonContent}
+          >
             Add Service
           </Button>
-        </Card.Content>
-      </Card>
+        </Surface>
+      </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 18, backgroundColor: '#f3f4f6' },
-  title: { fontSize: 22, fontWeight: '800', marginBottom: 6, color: '#111827' },
-  subtitle: { fontSize: 13, color: '#6b7280', marginBottom: 12 },
-  card: { marginBottom: 12, borderRadius: 12, elevation: 2, overflow: 'hidden' },
-  cardRow: { flexDirection: 'row', padding: 12, alignItems: 'center' },
-  cardLeft: { flex: 1 },
-  cardRight: { alignItems: 'flex-end', justifyContent: 'space-between' },
-  serviceName: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  serviceMeta: { fontSize: 12, color: '#6b7280', marginTop: 4 },
-  cardDescription: { marginTop: 8, color: '#374151' },
-  priceBadge: { backgroundColor: '#eef2ff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, marginBottom: 6 },
-  priceText: { color: '#4f46e5', fontWeight: '700' },
-  durationSmall: { fontSize: 12, color: '#6b7280', marginTop: 4 },
-  formCard: { marginTop: 14, borderRadius: 12, elevation: 2 },
-  formTitle: { fontWeight: '800', marginBottom: 10, fontSize: 16 },
-  input: { borderWidth: 1, borderColor: '#e6e9ef', padding: 10, borderRadius: 10, marginBottom: 10, backgroundColor: '#fff' },
-  row: { flexDirection: 'row', alignItems: 'center' },
-  flexItem: { flex: 1 },
-  pickerButton: { justifyContent: 'flex-start' },
-  addButton: { marginTop: 10, borderRadius: 10 },
-  emptyCard: { marginVertical: 12, borderRadius: 12, elevation: 1 },
-  emptyTitle: { fontWeight: '700', marginBottom: 6 },
-  emptySubtitle: { color: '#6b7280' },
+  container: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+  },
+  headerSection: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginBottom: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  servicesContainer: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  card: {
+    marginBottom: 12,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    overflow: 'hidden',
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 12,
+  },
+  iconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: '#f3e8ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  cardHeaderText: {
+    flex: 1,
+  },
+  serviceName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  categoryChip: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#3b82f6',
+    height: 28,
+  },
+  categoryChipText: {
+    fontSize: 12,
+    color: '#3b82f6',
+    fontWeight: '600',
+  },
+  durationChip: {
+    backgroundColor: '#f3f4f6',
+    height: 28,
+  },
+  durationChipText: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  cardDivider: {
+    marginVertical: 12,
+  },
+  cardDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    lineHeight: 20,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#d1fae5',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  priceText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  deleteButton: {
+    margin: 0,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  emptyCard: {
+    margin: 16,
+    borderRadius: 16,
+    borderColor: '#e5e7eb',
+  },
+  emptyContent: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+  formSection: {
+    margin: 16,
+    marginTop: 24,
+    padding: 24,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  formHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  formTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  formDivider: {
+    marginBottom: 16,
+  },
+  input: {
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    backgroundColor: '#ffffff',
+    fontSize: 15,
+    color: '#111827',
+  },
+  descriptionInput: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  flexItem: {
+    flex: 1,
+  },
+  pickerButton: {
+    justifyContent: 'flex-start',
+    borderRadius: 12,
+    borderColor: '#e5e7eb',
+    borderWidth: 1.5,
+  },
+  addButton: {
+    marginTop: 8,
+    borderRadius: 12,
+  },
+  addButtonContent: {
+    paddingVertical: 6,
+  },
 });
 
 export default ManageServicesScreen;

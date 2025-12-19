@@ -21,6 +21,7 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
+import { a11yProps, a11yLabels, touchTarget } from '../utils/accessibility';
 import {
   Text,
   Card,
@@ -253,35 +254,58 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header Section */}
         <Surface style={styles.headerSection} elevation={1}>
+          {/* Back Button */}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            {...a11yProps.button('Go back', 'Navigate back to previous screen')}
+          >
+            <Ionicons name="arrow-back" size={24} color="#1f2937" />
+          </TouchableOpacity>
+
           <View style={styles.headerContent}>
             <View style={styles.companyInfo}>
-              <MaterialCommunityIcons name="office-building" size={24} color="#7c3aed" />
+              <MaterialCommunityIcons name="office-building" size={24} color="#2563eb" />
               <View style={styles.companyTextContainer}>
-                <Text style={styles.companyName}>{companyName}</Text>
+                <Text
+                  style={styles.companyName}
+                  {...a11yProps.header(companyName, 1)}
+                >
+                  {companyName}
+                </Text>
                 <Text style={styles.headerLabel}>Booking Appointment</Text>
               </View>
             </View>
           </View>
 
           {/* Selected Service Card */}
-          <Card style={styles.serviceCard} mode="outlined">
+          <Card style={styles.serviceCard} mode="elevated" elevation={3}>
             <Card.Content>
-              <View style={styles.serviceHeader}>
-                <MaterialCommunityIcons name="medical-bag" size={20} color="#7c3aed" />
-                <Text style={styles.serviceLabel}>Selected Service</Text>
+              <View style={styles.serviceHeaderRow}>
+                <View style={styles.serviceIconContainer}>
+                  <MaterialCommunityIcons name="medical-bag" size={28} color="#7c3aed" />
+                </View>
+                <View style={styles.serviceInfoContainer}>
+                  <Text style={styles.serviceLabel}>Selected Service</Text>
+                  <Text style={styles.serviceName}>{service.service_name}</Text>
+                </View>
               </View>
-              <Text style={styles.serviceName}>{service.service_name}</Text>
+              <Divider style={styles.serviceCardDivider} />
               <View style={styles.serviceDetails}>
                 {service.duration_minutes && (
                   <Chip
-                    icon={() => <Ionicons name="time-outline" size={14} color="#6b7280" />}
+                    icon={() => <Ionicons name="time-outline" size={16} color="#059669" />}
                     style={styles.detailChip}
                     textStyle={styles.chipText}
                   >
                     {formatDuration(service.duration_minutes)}
                   </Chip>
                 )}
-                <Chip style={styles.priceChip} textStyle={styles.priceChipText}>
+                <Chip
+                  icon={() => <MaterialCommunityIcons name="currency-usd" size={16} color="#059669" />}
+                  style={styles.priceChip}
+                  textStyle={styles.priceChipText}
+                >
                   {formatPrice(service.price_min, service.price_max)}
                 </Chip>
               </View>
@@ -301,6 +325,8 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
               const isSelected = selectedDate && formatDate(selectedDate) === formatDate(date);
               const isAvailable = hasAvailableSlots(date);
               const isPast = date < today;
+              const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              const dayName = getDayName(date);
 
               return (
                 <TouchableOpacity
@@ -313,6 +339,11 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                   onPress={() => handleDateSelect(date)}
                   disabled={!isAvailable || isPast}
                   activeOpacity={0.7}
+                  {...a11yProps.button(
+                    a11yLabels.datePicker(dateStr, dayName, isAvailable),
+                    isAvailable ? 'Select this date to view available appointment times' : 'No appointments available on this date',
+                    !isAvailable || isPast
+                  )}
                 >
                   <Text
                     style={[
@@ -321,7 +352,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                       !isAvailable && styles.dateTextDisabled,
                     ]}
                   >
-                    {getDayName(date)}
+                    {dayName}
                   </Text>
                   <Text
                     style={[
@@ -349,8 +380,11 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
             </Text>
 
             {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#7c3aed" />
+              <View
+                style={styles.loadingContainer}
+                {...a11yProps.header(a11yLabels.loading('available appointment slots'), 2)}
+              >
+                <ActivityIndicator size="large" color="#2563eb" />
                 <Text style={styles.loadingText}>Loading available slots...</Text>
               </View>
             ) : slots.length === 0 ? (
@@ -363,6 +397,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
               <View style={styles.slotsGrid}>
                 {slots.map((slot, index) => {
                   const isSelected = selectedSlot?.time === slot.time;
+                  const formattedTime = formatTime12Hour(slot.time);
                   return (
                     <TouchableOpacity
                       key={index}
@@ -374,6 +409,11 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                       onPress={() => handleSlotSelect(slot)}
                       disabled={!slot.available}
                       activeOpacity={0.7}
+                      {...a11yProps.button(
+                        a11yLabels.timeSlot(formattedTime, slot.available),
+                        slot.available ? 'Book appointment at this time' : 'Time slot not available',
+                        !slot.available
+                      )}
                     >
                       <Text
                         style={[
@@ -382,7 +422,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                           !slot.available && styles.slotTextDisabled,
                         ]}
                       >
-                        {formatTime12Hour(slot.time)}
+                        {formattedTime}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -404,8 +444,9 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
               multiline
               numberOfLines={4}
               style={styles.notesInput}
-              outlineColor="#e5e7eb"
-              activeOutlineColor="#7c3aed"
+              outlineColor="#e7e5e4"
+              activeOutlineColor="#2563eb"
+              {...a11yProps.textInput('Additional notes for veterinarian', false, 'Optional information about your pet or special requests')}
             />
           </View>
         )}
@@ -428,7 +469,11 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
               style={styles.bookButton}
               contentStyle={styles.bookButtonContent}
               labelStyle={styles.bookButtonLabel}
-              buttonColor="#7c3aed"
+              buttonColor="#ea580c"
+              {...a11yProps.button(
+                'Confirm booking',
+                'Proceed to confirm your appointment booking'
+              )}
             >
               Confirm Booking
             </Button>
@@ -516,9 +561,18 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     backgroundColor: '#ffffff',
-    paddingTop: Platform.OS === 'web' ? 20 : 50,
+    paddingTop: 20, // Safe area handled by SafeAreaView in parent
     paddingHorizontal: 20,
     paddingBottom: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   headerContent: {
     marginBottom: 16,
@@ -542,45 +596,74 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   serviceCard: {
-    backgroundColor: '#f3e8ff',
-    borderColor: '#7c3aed',
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
   },
-  serviceHeader: {
+  serviceHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    gap: 12,
+    marginBottom: 12,
+  },
+  serviceIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 18,
+    backgroundColor: '#f3e8ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  serviceInfoContainer: {
+    flex: 1,
   },
   serviceLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '700',
+    color: '#7c3aed',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
   serviceName: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#1f2937',
+  },
+  serviceCardDivider: {
     marginBottom: 12,
   },
   serviceDetails: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
+    flexWrap: 'wrap',
   },
   detailChip: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#d1fae5',
+    height: 36,
   },
   chipText: {
-    fontSize: 12,
-    color: '#6b7280',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#059669',
   },
   priceChip: {
-    backgroundColor: '#7c3aed',
+    backgroundColor: '#d1fae5',
+    height: 36,
   },
   priceChipText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#ffffff',
+    color: '#059669',
   },
   section: {
     padding: 20,
@@ -595,24 +678,37 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   dateCard: {
-    width: 60,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 12,
+    minWidth: 68,
+    minHeight: 92,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 18,
     backgroundColor: '#ffffff',
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#e5e7eb',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
   dateCardSelected: {
     backgroundColor: '#7c3aed',
     borderColor: '#7c3aed',
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
   },
   dateCardDisabled: {
     backgroundColor: '#f9fafb',
     borderColor: '#f3f4f6',
     opacity: 0.5,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   dateDayName: {
     fontSize: 12,
@@ -669,23 +765,39 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   slotChip: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 22,
+    minHeight: 52,
+    borderRadius: 14,
     backgroundColor: '#ffffff',
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#e5e7eb',
-    minWidth: (SCREEN_WIDTH - 64) / 3,
+    flex: 1,
+    minWidth: '30%', // Responsive: will adapt to container width
+    maxWidth: '32%', // Allows 3 columns with gap
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 3,
   },
   slotChipSelected: {
     backgroundColor: '#7c3aed',
     borderColor: '#7c3aed',
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 7,
   },
   slotChipDisabled: {
     backgroundColor: '#f9fafb',
     borderColor: '#f3f4f6',
     opacity: 0.4,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   slotText: {
     fontSize: 14,
@@ -704,9 +816,13 @@ const styles = StyleSheet.create({
   bottomBar: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
   bottomBarContent: {
     flexDirection: 'row',

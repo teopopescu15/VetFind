@@ -1,7 +1,27 @@
 # VetFinder Design System - Material Design 3
 
-## Overview
+## ⚠️ DEPRECATION NOTICE
+
+**This document is OUTDATED and superseded by `/docs/Redesign.md`**
+
+**Status**: ❌ DEPRECATED (as of Dec 2024)
+**Replacement**: ✅ **Use `/docs/Redesign.md`** for current design system
+
+**What Changed**:
+- **Old**: Purple theme (`#7c3aed`) → **New**: Blue theme (`#2563eb`)
+- **Old**: White backgrounds → **New**: Warm cream backgrounds (`#fafaf9`)
+- **New**: Terracotta accent color (`#ea580c`) for CTAs
+- **New**: Responsive design utilities (`responsive.*`)
+- **New**: Theme hook system (`useTheme()`)
+
+**Migration Status**: Redesign.md implementation is 50% complete (Phases 1-3 done)
+
+---
+
+## Historical Overview (For Reference Only)
 VetFinder uses Material Design 3 (Material You) principles with React Native Paper for a modern, bold, and accessible UI.
+
+**⚠️ NOTE**: The color specifications below are OUTDATED. See Redesign.md for current palette.
 
 ---
 

@@ -827,6 +827,73 @@ const createApiService = () => {
     },
 
     /**
+     * Get company's appointments (for vet companies)
+     * @param accessToken - Company user's authentication token
+     * @param status - Optional filter by status
+     */
+    async getCompanyAppointments(accessToken?: string, status?: string): Promise<Appointment[]> {
+      try {
+        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+
+        if (!token) {
+          throw new Error('Authentication required to view company appointments');
+        }
+
+        const queryParams = status ? `?status=${status}` : '';
+        const response: UserAppointmentsResponse = await request(
+          `/appointments/company${queryParams}`,
+          'GET',
+          undefined,
+          token
+        );
+
+        if (!response.success || !response.data) {
+          return [];
+        }
+
+        return response.data;
+      } catch (error: any) {
+        console.error('Get company appointments error:', error);
+        return [];
+      }
+    },
+
+    /**
+     * Update an appointment (for vet companies)
+     * @param appointmentId - Appointment ID
+     * @param data - Updated appointment data
+     * @param accessToken - Company user's authentication token
+     */
+    async updateAppointment(
+      appointmentId: number,
+      data: Partial<CreateAppointmentDTO>,
+      accessToken?: string
+    ): Promise<Appointment> {
+      try {
+        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+
+        if (!token) {
+          throw new Error('Authentication required to update appointments');
+        }
+
+        const response: CreateAppointmentResponse = await request(
+          `/appointments/${appointmentId}`,
+          'PATCH',
+          data,
+          token
+        );
+
+        if (!response.success || !response.data) {
+          throw new Error(response.message || 'Failed to update appointment');
+        }
+
+        return response.data;
+      } catch (error: any) {
+        throw new Error(error.message || 'Failed to update appointment');
+      }
+    },
+
+    /**
      * Get single service by ID (with company details)
      * @param serviceId - Service ID
      */
@@ -842,6 +909,82 @@ const createApiService = () => {
       } catch (error: any) {
         console.error('Get service by ID error:', error);
         return null;
+      }
+    },
+
+    // ==================== Photo Upload Methods ====================
+
+    /**
+     * Upload company photo
+     * POST /api/companies/:id/photos
+     * @param companyId - Company ID
+     * @param formData - FormData with photo file
+     * @param accessToken - User's authentication token
+     */
+    async uploadCompanyPhoto(companyId: number, formData: FormData, accessToken?: string): Promise<any> {
+      try {
+        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+
+        if (!token) {
+          throw new Error('Authentication required to upload photos');
+        }
+
+        const response = await fetch(`${baseUrl}/companies/${companyId}/photos`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            // Don't set Content-Type - let browser set it with boundary for multipart/form-data
+          },
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Upload failed');
+        }
+
+        return data;
+      } catch (error: any) {
+        console.error('Upload photo error:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * Delete company photo
+     * DELETE /api/companies/:id/photos
+     * @param companyId - Company ID
+     * @param photoUrl - Photo URL to delete
+     * @param accessToken - User's authentication token
+     */
+    async deleteCompanyPhoto(companyId: number, photoUrl: string, accessToken?: string): Promise<any> {
+      try {
+        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+
+        if (!token) {
+          throw new Error('Authentication required to delete photos');
+        }
+
+        const response = await fetch(`${baseUrl}/companies/${companyId}/photos`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ photo_url: photoUrl }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Delete failed');
+        }
+
+        return data;
+      } catch (error: any) {
+        console.error('Delete photo error:', error);
+        throw error;
       }
     },
   };

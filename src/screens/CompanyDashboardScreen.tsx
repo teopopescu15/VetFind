@@ -10,6 +10,10 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '../types/navigation.types';
 import { useAuth } from '../context/AuthContext';
 import { CategoryCard } from '../components/Dashboard/CategoryCard';
+import { ManageAppointmentsSection } from '../components/Dashboard/ManageAppointmentsSection';
+import { QuickActions } from '../components/Dashboard/QuickActions';
+import { StatCard } from '../components/Dashboard/StatCard';
+import { theme } from '../theme';
 
 /**
  * CompanyDashboardScreen - Main dashboard for vet company users
@@ -133,7 +137,7 @@ export const CompanyDashboardScreen = () => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#7c3aed" />
+        <ActivityIndicator size="large" color={theme.colors.primary.main} />
         <Text variant="bodyLarge" style={styles.loadingText}>
           Loading your company profile...
         </Text>
@@ -151,7 +155,7 @@ export const CompanyDashboardScreen = () => {
         <Button
           mode="contained"
           onPress={loadCompany}
-          buttonColor="#7c3aed"
+          buttonColor={theme.colors.primary.main}
           style={styles.retryButton}
         >
           Retry
@@ -162,19 +166,33 @@ export const CompanyDashboardScreen = () => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Header */}
+      {/* Compact Header */}
       <LinearGradient
-        colors={['#7c3aed', '#a855f7']}
+        colors={[theme.colors.primary.main, theme.colors.accent.main]}
         style={styles.header}
       >
         <View style={styles.headerContent}>
-          <View>
-            <Text variant="headlineMedium" style={styles.headerTitle}>
-              Welcome back!
-            </Text>
-            <Text variant="bodyLarge" style={styles.headerSubtitle}>
-              {company.name}
-            </Text>
+          <View style={styles.headerLeft}>
+            {company.logo_url ? (
+              <Image source={{ uri: company.logo_url }} style={styles.headerLogo} />
+            ) : (
+              <View style={styles.headerLogoPlaceholder}>
+                <Ionicons name="business" size={24} color="#FFFFFF" />
+              </View>
+            )}
+            <View>
+              <Text variant="titleMedium" style={styles.headerTitle}>
+                {company.name}
+              </Text>
+              {company.is_verified && (
+                <View style={styles.verifiedBadgeHeader}>
+                  <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" />
+                  <Text variant="bodySmall" style={styles.verifiedTextHeader}>
+                    Verified
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
           <TouchableOpacity
             onPress={handleLogout}
@@ -182,208 +200,51 @@ export const CompanyDashboardScreen = () => {
             activeOpacity={0.7}
           >
             <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
-            <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      {/* Company Info Card */}
-      <Card style={styles.companyCard}>
-        <Card.Content>
-          <View style={styles.companyHeader}>
-            {/* Logo */}
-            <View style={styles.logoContainer}>
-              {company.logo_url ? (
-                <Image source={{ uri: company.logo_url }} style={styles.logo} />
-              ) : (
-                <View style={styles.logoPlaceholder}>
-                  <Ionicons name="business" size={40} color="#7c3aed" />
-                </View>
-              )}
-            </View>
-
-            {/* Company Info */}
-            <View style={styles.companyInfo}>
-              <Text variant="titleLarge" style={styles.companyName}>
-                {company.name}
-              </Text>
-
-              {company.is_verified && (
-                <View style={styles.verifiedBadge}>
-                  <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
-                  <Text variant="bodySmall" style={styles.verifiedText}>
-                    Verified
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.addressRow}>
-                <Ionicons name="location" size={16} color="#6b7280" />
-                <Text variant="bodyMedium" style={styles.addressText}>
-                  {company.address}, {company.city}, {company.state}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Profile Completion */}
-          <View style={styles.profileCompletionContainer}>
-            <View style={styles.profileCompletionHeader}>
-              <Text variant="titleMedium" style={styles.profileCompletionTitle}>
-                Profile Status
-              </Text>
-              {company.company_completed ? (
-                <Chip
-                  icon={() => <Ionicons name="checkmark-circle" size={16} color="#22c55e" />}
-                  style={styles.completedChip}
-                  textStyle={styles.completedChipText}
-                >
-                  Complete
-                </Chip>
-              ) : (
-                <Chip
-                  icon={() => <Ionicons name="alert-circle" size={16} color="#f59e0b" />}
-                  style={styles.incompleteChip}
-                  textStyle={styles.incompleteChipText}
-                >
-                  Incomplete
-                </Chip>
-              )}
-            </View>
-
-            <View style={styles.progressBarBackground}>
-              <View
-                style={[
-                  styles.progressBarFill,
-                  {
-                    width: `${profileCompletion}%`,
-                    backgroundColor: profileCompletion === 100 ? '#22c55e' : '#7c3aed'
-                  }
-                ]}
-              />
-            </View>
-
-            <Text variant="bodySmall" style={styles.profileCompletionPercentage}>
-              {profileCompletion}% Complete
-            </Text>
-
-            {profileCompletion < 100 && (
-              <Text variant="bodySmall" style={styles.profileCompletionHint}>
-                Complete your profile to attract more clients
-              </Text>
-            )}
-          </View>
-        </Card.Content>
-      </Card>
-
-      {/* Quick Stats */}
-      <View style={styles.statsContainer}>
-        <Card style={styles.statCard}>
-          <Card.Content style={styles.statCardContent}>
-            <Ionicons name="calendar" size={32} color="#3b82f6" />
-            <Text variant="headlineSmall" style={styles.statNumber}>
-              --
-            </Text>
-            <Text variant="bodySmall" style={styles.statLabel}>
-              Today's Appointments
-            </Text>
-          </Card.Content>
-        </Card>
-
-      {/* Services preview for owner */}
-      <Card style={styles.servicesPreviewCard}>
-        <Card.Content>
-          <View style={styles.servicesHeader}>
-            <MaterialCommunityIcons name="medical-bag" size={20} color="#7c3aed" />
-            <Text variant="titleMedium" style={styles.servicesTitle}>Your Services</Text>
-          </View>
-
-          {isLoadingServices ? (
-            <ActivityIndicator size="small" color="#7c3aed" />
-          ) : services.length === 0 ? (
-            <Text style={styles.noServicesText}>No services created yet. Use Manage Services to add procedures.</Text>
-          ) : (
-            services.slice(0, 5).map(s => (
-              <View key={s.id} style={styles.serviceRow}>
-                <Text style={styles.serviceName}>{s.service_name}</Text>
-                <Text style={styles.servicePrice}>${s.price_min} - ${s.price_max}</Text>
-              </View>
-            ))
-          )}
-        </Card.Content>
-      </Card>
-
-        <Card style={styles.statCard}>
-          <Card.Content style={styles.statCardContent}>
-            <Ionicons name="star" size={32} color="#f59e0b" />
-            <Text variant="headlineSmall" style={styles.statNumber}>
-              --
-            </Text>
-            <Text variant="bodySmall" style={styles.statLabel}>
-              Average Rating
-            </Text>
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.statCard}>
-          <Card.Content style={styles.statCardContent}>
-            <Ionicons name="people" size={32} color="#22c55e" />
-            <Text variant="headlineSmall" style={styles.statNumber}>
-              --
-            </Text>
-            <Text variant="bodySmall" style={styles.statLabel}>
-              Total Reviews
-            </Text>
-          </Card.Content>
-        </Card>
+      {/* 1. Manage Appointments (TOP - Primary) */}
+      <View style={styles.appointmentsSection}>
+        <ManageAppointmentsSection onRefresh={loadCompany} />
       </View>
 
-      {/* Quick Actions */}
-      <View style={styles.quickActionsContainer}>
-        <Text variant="titleLarge" style={styles.sectionTitle}>
-          Quick Actions
-        </Text>
+      {/* 2. Quick Actions (MIDDLE) */}
+      <View style={styles.quickActionsSection}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <QuickActions
+          onNewAppointment={() => Alert.alert('Coming Soon', 'New appointment booking')}
+          onManageServices={() => navigation.navigate('ManageServices')}
+          onUpdatePrices={() => navigation.navigate('ManagePrices')}
+          onAddPhotos={() => navigation.navigate('ManagePhotos')}
+        />
+      </View>
 
-        <View style={styles.actionsGrid}>
-          <Button
-            mode="outlined"
-            icon={() => <Ionicons name="list" size={24} color="#7c3aed" />}
-            onPress={() => navigation.navigate('ManageServices')}
-            style={styles.actionButton}
-            labelStyle={styles.actionButtonLabel}
-          >
-            Manage Services
-          </Button>
-
-          <Button
-            mode="outlined"
-            icon={() => <Ionicons name="pricetag" size={24} color="#7c3aed" />}
-            onPress={() => navigation.navigate('ManagePrices')}
-            style={styles.actionButton}
-            labelStyle={styles.actionButtonLabel}
-          >
-            Update Prices
-          </Button>
-
-          <Button
-            mode="outlined"
-            icon={() => <Ionicons name="images" size={24} color="#7c3aed" />}
-            onPress={() => Alert.alert('Coming Soon', 'Photo gallery manager will be available soon')}
-            style={styles.actionButton}
-            labelStyle={styles.actionButtonLabel}
-          >
-            Add Photos
-          </Button>
-
-          <Button
-            mode="outlined"
-            icon={() => <Ionicons name="create" size={24} color="#7c3aed" />}
-            onPress={() => Alert.alert('Coming Soon', 'Profile editor will be available soon')}
-            style={styles.actionButton}
-            labelStyle={styles.actionButtonLabel}
-          >
-            Edit Profile
-          </Button>
+      {/* 3. Stats (BOTTOM - Secondary) */}
+      <View style={styles.statsSection}>
+        <Text style={styles.sectionTitle}>Performance Overview</Text>
+        <View style={styles.statsGrid}>
+          <StatCard
+            icon="calendar"
+            iconColor={theme.colors.primary.main}
+            value="--"
+            label="Weekly Appointments"
+            isLoading={false}
+          />
+          <StatCard
+            icon="star"
+            iconColor={theme.colors.warning.main}
+            value="--"
+            label="Average Rating"
+            isLoading={false}
+          />
+          <StatCard
+            icon="trending-up"
+            iconColor={theme.colors.success.main}
+            value="--"
+            label="Growth Rate"
+            isLoading={false}
+          />
         </View>
       </View>
 
@@ -405,7 +266,7 @@ export const CompanyDashboardScreen = () => {
 
           {isLoadingCategories ? (
             <View style={styles.categoriesLoading}>
-              <ActivityIndicator size="small" color="#7c3aed" />
+              <ActivityIndicator size="small" color={theme.colors.primary.main} />
               <Text variant="bodyMedium" style={styles.categoriesLoadingText}>
                 Loading services...
               </Text>
@@ -442,223 +303,131 @@ export const CompanyDashboardScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb'
+    backgroundColor: theme.colors.neutral[100],  // Warm beige instead of gray
   },
   contentContainer: {
-    paddingBottom: 32
+    paddingBottom: theme.spacing['3xl'],
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff'
+    backgroundColor: theme.colors.neutral[50],
   },
   loadingText: {
-    marginTop: 16,
-    color: '#6b7280'
+    marginTop: theme.spacing.lg,
+    color: theme.colors.neutral[600],
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 24
+    backgroundColor: theme.colors.neutral[50],
+    padding: theme.spacing['2xl'],
   },
   errorText: {
-    marginTop: 16,
-    marginBottom: 24,
-    color: '#ef4444',
-    textAlign: 'center'
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing['2xl'],
+    color: theme.colors.error.main,
+    textAlign: 'center',
   },
   retryButton: {
-    paddingHorizontal: 24
+    paddingHorizontal: theme.spacing['2xl'],
   },
   header: {
-    padding: 24,
-    paddingTop: 40,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24
-  },
-  headerTitle: {
-    color: '#fff',
-    fontWeight: '700',
-    marginBottom: 4
-  },
-  headerSubtitle: {
-    color: 'rgba(255, 255, 255, 0.9)'
+    padding: 16,
+    paddingTop: 32,
+    paddingBottom: 20
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center'
   },
-  logoutButton: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    flex: 1
+  },
+  headerLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)'
+  },
+  headerLogoPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6
-  },
-  logoutText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600'
-  },
-  companyCard: {
-    margin: 16,
-    marginTop: -24,
-    elevation: 4
-  },
-  companyHeader: {
-    flexDirection: 'row',
-    marginBottom: 24
-  },
-  logoContainer: {
-    marginRight: 16
-  },
-  logo: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    backgroundColor: '#f3f4f6'
-  },
-  logoPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    backgroundColor: '#f3e8ff',
     justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#e9d5ff'
+    alignItems: 'center'
   },
-  companyInfo: {
-    flex: 1,
-    justifyContent: 'center'
-  },
-  companyName: {
+  headerTitle: {
+    color: '#FFFFFF',
     fontWeight: '700',
-    color: '#111827',
-    marginBottom: 4
+    fontSize: 18
   },
-  verifiedBadge: {
+  verifiedBadgeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginBottom: 8
+    marginTop: 2
   },
-  verifiedText: {
-    color: '#22c55e',
-    fontWeight: '600'
+  verifiedTextHeader: {
+    color: '#FFFFFF',
+    opacity: 0.9,
+    fontSize: 12
   },
-  addressRow: {
+  logoutButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  // Phase 4: New layout sections
+  appointmentsSection: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing['2xl'],
+  },
+  quickActionsSection: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing['2xl'],
+    gap: theme.spacing.lg,
+  },
+  statsSection: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing['2xl'],
+    gap: theme.spacing.lg,
+  },
+  statsGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4
-  },
-  addressText: {
-    color: '#6b7280',
-    flex: 1
-  },
-  profileCompletionContainer: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb'
-  },
-  profileCompletionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8
-  },
-  profileCompletionTitle: {
-    fontWeight: '600',
-    color: '#111827'
-  },
-  profileCompletionPercentage: {
-    marginTop: 8,
-    color: '#6b7280'
-  },
-  completedChip: {
-    backgroundColor: '#dcfce7',
-    borderColor: '#22c55e'
-  },
-  completedChipText: {
-    color: '#166534',
-    fontWeight: '600'
-  },
-  incompleteChip: {
-    backgroundColor: '#fef3c7',
-    borderColor: '#f59e0b'
-  },
-  incompleteChipText: {
-    color: '#92400e',
-    fontWeight: '600'
-  },
-  progressBarBackground: {
-    height: 8,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginTop: 12
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 4
-  },
-  profileCompletionHint: {
-    marginTop: 8,
-    color: '#6b7280',
-    fontStyle: 'italic'
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 12,
-    marginBottom: 24
-  },
-  statCard: {
-    flex: 1,
-    elevation: 2
-  },
-  statCardContent: {
-    alignItems: 'center',
-    paddingVertical: 16
-  },
-  statNumber: {
-    fontWeight: '700',
-    color: '#111827',
-    marginTop: 8,
-    marginBottom: 4
-  },
-  statLabel: {
-    color: '#6b7280',
-    textAlign: 'center'
+    flexWrap: 'wrap',
+    gap: theme.spacing.md,
   },
   quickActionsContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 24
+    paddingHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing['2xl'],
   },
   sectionTitle: {
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 16
+    ...theme.typography.h3,
+    marginBottom: theme.spacing.lg,
   },
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12
+    gap: theme.spacing.md,
   },
   actionButton: {
     flex: 1,
     minWidth: '45%',
-    borderColor: '#7c3aed'
+    borderColor: theme.colors.primary.main,
   },
   actionButtonLabel: {
-    color: '#7c3aed'
+    color: theme.colors.primary.main,
   },
   specializationsContainer: {
     paddingHorizontal: 16,
@@ -670,7 +439,7 @@ const styles = StyleSheet.create({
     gap: 8
   },
   chip: {
-    borderColor: '#7c3aed'
+    borderColor: theme.colors.primary.main,
   },
   categoriesContainer: {
     paddingHorizontal: 16,
@@ -683,13 +452,13 @@ const styles = StyleSheet.create({
     marginBottom: 16
   },
   totalServicesChip: {
-    backgroundColor: '#f3e8ff',
-    borderColor: '#7c3aed'
+    backgroundColor: theme.colors.primary[100],
+    borderColor: theme.colors.primary[300],
   },
   totalServicesChipText: {
-    color: '#7c3aed',
+    color: theme.colors.primary[700],
     fontWeight: '600',
-    fontSize: 12
+    fontSize: 12,
   },
   categoriesLoading: {
     flexDirection: 'row',
@@ -733,7 +502,7 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   servicePrice: {
-    color: '#7c3aed',
+    color: theme.colors.primary.main,
     fontWeight: '600',
-  }
+  },
 });

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { createCompanyController } from '../controllers/company.controller';
 import { authMiddleware, requireRole } from '../middleware/auth.middleware';
+import { uploadPhoto, optimizeImage } from '../middleware/upload';
 
 const router = Router();
 const companyController = createCompanyController();
@@ -21,8 +22,20 @@ router.route('/:id')
   .put(authMiddleware, companyController.update) // Protected: Update company
   .delete(authMiddleware, companyController.delete); // Protected: Delete company
 
-// Photo management routes
-router.post('/:id/photos', authMiddleware, companyController.uploadPhoto); // Upload photo
-router.delete('/:id/photos', authMiddleware, companyController.deletePhoto); // Delete photo
+// ===========================
+// PHOTO MANAGEMENT ROUTES
+// ===========================
+
+// Upload photo (NEW: with multer and sharp middleware)
+router.post(
+  '/:id/photos',
+  authMiddleware,                // 1. Authenticate user
+  uploadPhoto.single('photo'),   // 2. Handle file upload (field name: 'photo')
+  optimizeImage,                 // 3. Optimize image with Sharp
+  companyController.uploadPhoto  // 4. Save to database
+);
+
+// Delete photo (unchanged)
+router.delete('/:id/photos', authMiddleware, companyController.deletePhoto);
 
 export default router;

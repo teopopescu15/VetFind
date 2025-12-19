@@ -2,7 +2,7 @@ import { pool } from '../config/database';
 
 export interface Appointment {
   id?: number;
-  clinic_id: number;
+  company_id: number;
   user_id: number;
   service_id?: number;
   appointment_date: Date;
@@ -18,12 +18,12 @@ export const createAppointmentModel = () => {
     // Create a new appointment
     async create(appointment: Appointment): Promise<number> {
       const query = `
-        INSERT INTO appointments (clinic_id, user_id, service_id, appointment_date, status, notes)
+        INSERT INTO appointments (company_id, user_id, service_id, appointment_date, status, notes)
         VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id
       `;
       const values = [
-        appointment.clinic_id,
+        appointment.company_id,
         appointment.user_id,
         appointment.service_id || null,
         appointment.appointment_date,
@@ -41,11 +41,11 @@ export const createAppointmentModel = () => {
         SELECT a.*,
                c.name as clinic_name, c.address as clinic_address, c.phone as clinic_phone,
                u.name as user_name, u.email as user_email,
-               s.name as service_name, s.price as service_price
+               s.service_name as service_name, s.price_min as service_price_min, s.price_max as service_price_max
         FROM appointments a
-        JOIN companies c ON a.clinic_id = c.id
+        JOIN companies c ON a.company_id = c.id
         JOIN users u ON a.user_id = u.id
-        LEFT JOIN services s ON a.service_id = s.id
+        LEFT JOIN company_services s ON a.service_id = s.id
         WHERE a.id = $1
       `;
 
@@ -58,10 +58,10 @@ export const createAppointmentModel = () => {
       let query = `
         SELECT a.*,
                c.name as clinic_name, c.address as clinic_address, c.phone as clinic_phone,
-               s.name as service_name, s.price as service_price
+               s.service_name as service_name, s.price_min as service_price_min, s.price_max as service_price_max
         FROM appointments a
-        JOIN companies c ON a.clinic_id = c.id
-        LEFT JOIN services s ON a.service_id = s.id
+        JOIN companies c ON a.company_id = c.id
+        LEFT JOIN company_services s ON a.service_id = s.id
         WHERE a.user_id = $1
       `;
       const params: any[] = [userId];
@@ -82,11 +82,11 @@ export const createAppointmentModel = () => {
       let query = `
         SELECT a.*,
                u.name as user_name, u.email as user_email,
-               s.name as service_name, s.price as service_price
+               s.service_name as service_name, s.price_min as service_price_min, s.price_max as service_price_max
         FROM appointments a
         JOIN users u ON a.user_id = u.id
-        LEFT JOIN services s ON a.service_id = s.id
-        WHERE a.clinic_id = $1
+        LEFT JOIN company_services s ON a.service_id = s.id
+        WHERE a.company_id = $1
       `;
       const params: any[] = [clinicId];
 
@@ -106,10 +106,10 @@ export const createAppointmentModel = () => {
       const query = `
         SELECT a.*,
                c.name as clinic_name, c.address as clinic_address, c.phone as clinic_phone,
-               s.name as service_name, s.price as service_price
+               s.service_name as service_name, s.price_min as service_price_min, s.price_max as service_price_max
         FROM appointments a
-        JOIN companies c ON a.clinic_id = c.id
-        LEFT JOIN services s ON a.service_id = s.id
+        JOIN companies c ON a.company_id = c.id
+        LEFT JOIN company_services s ON a.service_id = s.id
         WHERE a.user_id = $1 AND a.appointment_date >= NOW() AND a.status != 'cancelled'
         ORDER BY a.appointment_date ASC
       `;
@@ -123,10 +123,10 @@ export const createAppointmentModel = () => {
       const query = `
         SELECT a.*,
                c.name as clinic_name, c.address as clinic_address, c.phone as clinic_phone,
-               s.name as service_name, s.price as service_price
+               s.service_name as service_name, s.price_min as service_price_min, s.price_max as service_price_max
         FROM appointments a
-        JOIN companies c ON a.clinic_id = c.id
-        LEFT JOIN services s ON a.service_id = s.id
+        JOIN companies c ON a.company_id = c.id
+        LEFT JOIN company_services s ON a.service_id = s.id
         WHERE a.user_id = $1 AND a.appointment_date < NOW()
         ORDER BY a.appointment_date DESC
       `;

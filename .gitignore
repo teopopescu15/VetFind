@@ -151,8 +151,8 @@ credentials.txt
 .mcp.json
 .serena/
 
-# Config files (usually local)
-metro.config.js
+# Config files that should be ignored (metro.config.js is actually needed)
+# metro.config.js (commented out - this is needed for React Native)
 
 # Screenshots and images (usually examples)
 *.png
@@ -161,3 +161,44 @@ metro.config.js
 
 # PDFs (unless documentation)
 *.pdf
+
+# ========================
+# Office Documents
+# ========================
+*.docx
+*.xlsx
+*.pptx
+*.doc
+*.xls
+*.ppt
+
+# ========================
+# Temporary & Misc Files
+# ========================
+x.txt
+*.txt.backup
+*.txt.old
+*.bak
+
+# ========================
+# Backend Utility Scripts (database management)
+# ========================
+backend/check-*.js
+backend/delete-*.js
+backend/compare-*.js
+backend/*-legacy-*.js
+
+# ========================
+# Test Files in Root (should be in tests/ folder)
+# ========================
+test-*.spec.ts
+test-*.html
+*.spec.ts.snap
+
+# ========================
+# Playwright & Testing
+# ========================
+playwright-report/
+test-results/
+screenshots/
+.playwright/

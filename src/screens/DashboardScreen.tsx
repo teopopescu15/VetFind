@@ -14,6 +14,7 @@ import EmptyCompanyState from '../components/EmptyCompanyState';
 import { CompanyDashboardScreen } from './CompanyDashboardScreen';
 import { UserDashboardScreen } from './UserDashboardScreen';
 import * as api from '../services/api';
+import { theme } from '../theme';
 const ApiService = api.ApiService;
 
 interface DashboardScreenProps {
@@ -67,11 +68,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   if (isCheckingCompany) {
     return (
       <LinearGradient
-        colors={['#667eea', '#764ba2']}
+        colors={[theme.colors.primary.main, theme.colors.accent.main]}
         style={styles.container}
       >
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FFFFFF" />
+          <ActivityIndicator size="large" color={theme.colors.white} />
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
       </LinearGradient>
@@ -82,7 +83,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   if (user?.role === 'vetcompany' && !hasCompany) {
     return (
       <LinearGradient
-        colors={['#667eea', '#764ba2']}
+        colors={[theme.colors.primary.main, theme.colors.accent.main]}
         style={styles.container}
       >
         <StatusBar barStyle="light-content" />
@@ -115,7 +116,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   // Fallback for any other case (admin, etc.)
   return (
     <LinearGradient
-      colors={['#667eea', '#764ba2']}
+      colors={[theme.colors.primary.main, theme.colors.accent.main]}
       style={styles.container}
     >
       <StatusBar barStyle="light-content" />
@@ -221,7 +222,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: 20, // TODO Phase 2: Use responsive.padding() (16/24/32 based on device)
     justifyContent: 'center',
   },
   header: {

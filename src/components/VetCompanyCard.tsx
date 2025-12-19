@@ -11,21 +11,20 @@
  * - Press animation and navigation
  */
 
-import React from 'react';
+import React, { memo } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Dimensions,
 } from 'react-native';
+import { memo as performanceMemo } from '../utils/performance';
 import { Text, Card } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { Company, ClinicTypeLabels, OpeningHours, DaySchedule, CompanyService } from '../types/company.types';
 import { RouteDistance } from '../types/routes.types';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { useTheme } from '../hooks/useTheme';
 
 interface VetCompanyCardProps {
   company: Company;
@@ -112,7 +111,12 @@ const getClinicTypeIcon = (clinicType: string): keyof typeof MaterialCommunityIc
   return iconMap[clinicType] || 'hospital-building';
 };
 
-export const VetCompanyCard = ({ company, distance, routeDistance, matchedService, onPress }: VetCompanyCardProps) => {
+/**
+ * VetCompanyCard Component - Memoized for performance
+ * Only re-renders when props actually change
+ */
+const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedService, onPress }: VetCompanyCardProps) => {
+  const { colors, borderRadius, responsive } = useTheme();
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
   const todaySchedule = getTodaySchedule(company.opening_hours);
@@ -143,31 +147,38 @@ export const VetCompanyCard = ({ company, distance, routeDistance, matchedServic
   const hasRating = true;
 
   return (
-    <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
+    <Animated.View style={[styles.container, {
+      transform: [{ scale: scaleAnim }],
+      marginHorizontal: responsive.padding,
+      marginBottom: responsive.getValue(12, 16, 20),
+    }]}>
       <TouchableOpacity
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         activeOpacity={1}
       >
-        <Card style={styles.card}>
+        <Card style={[styles.card, {
+          backgroundColor: colors.neutral[50],
+          borderRadius: borderRadius.lg,
+        }]}>
           {/* Photo Section */}
-          <View style={styles.photoContainer}>
+          <View style={[styles.photoContainer, { height: responsive.getValue(120, 140, 160) }]}>
             {company.photos && company.photos.length > 0 ? (
               // TODO: Add actual image when photos are available
               <LinearGradient
-                colors={['#e9d5ff', '#c4b5fd']}
+                colors={[colors.primary.lightest, colors.primary.light]}
                 style={styles.photoPlaceholder}
               >
-                <MaterialCommunityIcons name="camera" size={40} color="#9333ea" />
-                <Text style={styles.photoPlaceholderText}>Photo</Text>
+                <MaterialCommunityIcons name="camera" size={40} color={colors.primary.main} />
+                <Text style={[styles.photoPlaceholderText, { color: colors.primary.main }]}>Photo</Text>
               </LinearGradient>
             ) : (
               <LinearGradient
-                colors={['#e9d5ff', '#c4b5fd']}
+                colors={[colors.primary.lightest, colors.primary.light]}
                 style={styles.photoPlaceholder}
               >
-                <MaterialCommunityIcons name="hospital-building" size={48} color="#9333ea" />
+                <MaterialCommunityIcons name="hospital-building" size={48} color={colors.primary.main} />
               </LinearGradient>
             )}
 
@@ -186,9 +197,9 @@ export const VetCompanyCard = ({ company, distance, routeDistance, matchedServic
                 <MaterialCommunityIcons
                   name={getClinicTypeIcon(company.clinic_type)}
                   size={14}
-                  color="#7c3aed"
+                  color={colors.primary.main}
                 />
-                <Text style={styles.clinicTypeBadgeText}>
+                <Text style={[styles.clinicTypeBadgeText, { color: colors.primary.main }]}>
                   {ClinicTypeLabels[company.clinic_type]}
                 </Text>
               </View>
@@ -267,14 +278,29 @@ export const VetCompanyCard = ({ company, distance, routeDistance, matchedServic
   );
 };
 
+/**
+ * Memoized VetCompanyCard with custom comparison
+ * Only re-renders if company.id, distance, or matchedService changes
+ */
+export const VetCompanyCard = memo(
+  VetCompanyCardComponent,
+  (prevProps, nextProps) => {
+    // Return true if props are equal (should NOT re-render)
+    return (
+      prevProps.company.id === nextProps.company.id &&
+      prevProps.distance === nextProps.distance &&
+      prevProps.routeDistance?.distance_meters === nextProps.routeDistance?.distance_meters &&
+      prevProps.matchedService?.id === nextProps.matchedService?.id
+    );
+  }
+);
+
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 16,
-    marginBottom: 16,
+    // marginHorizontal and marginBottom set inline with responsive values
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    // backgroundColor and borderRadius set inline with theme values
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -284,7 +310,7 @@ const styles = StyleSheet.create({
   },
   photoContainer: {
     position: 'relative',
-    height: 140,
+    // height set inline with responsive values
   },
   photoPlaceholder: {
     flex: 1,
@@ -294,7 +320,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
   },
   photoPlaceholderText: {
-    color: '#9333ea',
+    // color set inline with theme
     fontSize: 12,
     marginTop: 4,
     fontWeight: '500',
@@ -335,7 +361,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   clinicTypeBadgeText: {
-    color: '#7c3aed',
+    // color set inline with colors.primary.main
     fontSize: 12,
     fontWeight: '600',
   },

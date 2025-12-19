@@ -35,6 +35,8 @@ import { VetCompanyCard } from '../components/VetCompanyCard';
 import { useLocation, calculateDistance } from '../hooks/useLocation';
 import { useRouteDistance } from '../hooks/useRouteDistance';
 import { useAuth } from '../context/AuthContext';
+import { AppointmentCard, type AppointmentData } from '../components/Dashboard/AppointmentCard';
+import { theme } from '../theme';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'UserDashboard'>;
 
@@ -345,9 +347,9 @@ export const UserDashboardScreen = () => {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <StatusBar barStyle="dark-content" backgroundColor="#f5f3ff" />
+        <StatusBar barStyle="dark-content" backgroundColor="#fafaf9" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#7c3aed" />
+          <ActivityIndicator size="large" color={theme.colors.primary.main} />
           <Text style={styles.loadingText}>Loading vet clinics...</Text>
         </View>
       </SafeAreaView>
@@ -356,7 +358,7 @@ export const UserDashboardScreen = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f5f3ff" />
+      <StatusBar barStyle="dark-content" backgroundColor="#fafaf9" />
 
       <ScrollView
         style={styles.scrollView}
@@ -366,68 +368,79 @@ export const UserDashboardScreen = () => {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={['#7c3aed']}
-            tintColor="#7c3aed"
+            colors={[theme.colors.accent.main]}
+            tintColor={theme.colors.accent.main}
           />
         }
       >
-        {/* Header Section */}
+        {/* Compact Header */}
         <LinearGradient
-          colors={['#f5f3ff', '#ffffff']}
-          style={styles.headerGradient}
+          colors={[theme.colors.primary.main, theme.colors.accent.main]}
+          style={styles.compactHeader}
         >
-          <View style={styles.header}>
-            {/* Title and Logout */}
-            <View style={styles.titleContainer}>
-              <MaterialCommunityIcons name="paw" size={32} color="#7c3aed" />
-              <View style={styles.titleTextContainer}>
-                <Text style={styles.titleMain}>Find Your Perfect</Text>
-                <Text style={styles.titleHighlight}>Vet Clinic</Text>
-              </View>
-              {/* Compact service search - appears to the left of logout */}
-              <TextInput
-                mode="flat"
-                placeholder="Cauta serviciu..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                style={styles.searchInput}
-                right={isSearching ? <TextInput.Icon icon={() => <ActivityIndicator size={16} color="#7c3aed" />} /> : undefined}
-              />
-              {/* Sort controls for search results (price sort chips) */}
-              <View style={styles.sortControls}>
-                <TouchableOpacity
-                  style={[styles.sortChip, sortMode === 'min_asc' && styles.sortChipActive]}
-                  onPress={() => handleSortPrice('asc')}
-                >
-                  <Text style={styles.sortChipText}>Preț min ↑</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.sortChip, sortMode === 'max_desc' && styles.sortChipActive]}
-                  onPress={() => handleSortPrice('desc')}
-                >
-                  <Text style={styles.sortChipText}>Preț max ↓</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                onPress={handleLogout}
-                style={styles.logoutButton}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-              </TouchableOpacity>
+          <View style={styles.compactHeaderContent}>
+            <View style={styles.headerLeft}>
+              <MaterialCommunityIcons name="paw" size={28} color="#FFFFFF" />
+              <Text style={styles.compactHeaderTitle}>VetFinder</Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleLogout}
+              style={styles.logoutButton}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+
+        {/* 1. My Appointments Section (TOP - Primary) */}
+        <View style={styles.myAppointmentsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>My Appointments</Text>
+            <TouchableOpacity style={styles.viewAllButton}>
+              <Text style={styles.viewAllButtonText}>View All</Text>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.primary.main} />
+            </TouchableOpacity>
+          </View>
+
+          {/* TODO: Replace with real appointment data from API */}
+          <View style={styles.emptyAppointments}>
+            <Ionicons name="calendar-outline" size={48} color={theme.colors.neutral[400]} />
+            <Text style={styles.emptyAppointmentsText}>No upcoming appointments</Text>
+            <TouchableOpacity style={styles.bookNowButton}>
+              <Text style={styles.bookNowButtonText}>Book Your First Appointment</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 2. Find Clinics Section (MIDDLE) */}
+        <View style={styles.findClinicsSection}>
+          <Text style={styles.sectionTitle}>Find Clinics</Text>
+
+          {/* Search Input */}
+          <View style={styles.searchContainer}>
+            <TextInput
+              mode="outlined"
+              placeholder="Search for services..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={styles.searchInput}
+              left={<TextInput.Icon icon="magnify" />}
+              right={isSearching ? <TextInput.Icon icon={() => <ActivityIndicator size={16} color={theme.colors.primary.main} />} /> : undefined}
+            />
+          </View>
+
+          {/* Location Filter Banner */}
+          <View style={styles.filterCard}>
+            <View style={styles.filterHeader}>
+              <Ionicons name="location" size={20} color={theme.colors.primary.main} />
+              <Text style={styles.filterTitle}>
+                Filter by Distance
+              </Text>
             </View>
 
-            {/* Location Filter Card */}
-            <View style={styles.filterCard}>
-              <View style={styles.filterHeader}>
-                <Ionicons name="location" size={20} color="#7c3aed" />
-                <Text style={styles.filterTitle}>
-                  Search vet companies close to you
-                </Text>
-              </View>
-
-              {/* Distance Options */}
-              <View style={styles.distanceOptions}>
+            {/* Distance Options */}
+            <View style={styles.distanceOptions}>
                 {DISTANCE_OPTIONS.map((option) => (
                   <TouchableOpacity
                     key={option.label}
@@ -461,7 +474,7 @@ export const UserDashboardScreen = () => {
 
               {selectedDistance !== null && locationLoading && (
                 <View style={styles.locationStatus}>
-                  <ActivityIndicator size="small" color="#7c3aed" />
+                  <ActivityIndicator size="small" color={theme.colors.primary.main} />
                   <Text style={styles.locationStatusText}>Getting your location...</Text>
                 </View>
               )}
@@ -473,7 +486,6 @@ export const UserDashboardScreen = () => {
                   <Text style={styles.locationStatusText}>Calculating driving distances...</Text>
                 </View>
               )}
-            </View>
 
             {/* Results Count */}
             <View style={styles.resultsContainer}>
@@ -485,7 +497,7 @@ export const UserDashboardScreen = () => {
               </Text>
             </View>
           </View>
-        </LinearGradient>
+        </View>
 
         {/* Error State */}
         {error && (
@@ -545,7 +557,7 @@ export const UserDashboardScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f3ff',
+    backgroundColor: theme.colors.neutral[100],  // Warm beige instead of purple tint
   },
   scrollView: {
     flex: 1,
@@ -580,12 +592,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchInput: {
-    width: SCREEN_WIDTH * 0.38,
+    flex: 1,
+    minWidth: 120,  // Responsive minimum width
     height: 38,
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    marginRight: 8,
-    paddingHorizontal: 8,
+    backgroundColor: theme.colors.neutral[50],
+    borderRadius: theme.borderRadius.md,
+    marginRight: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm,
     elevation: 2,
   },
   titleMain: {
@@ -596,7 +609,7 @@ const styles = StyleSheet.create({
   titleHighlight: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#7c3aed',
+    color: theme.colors.primary.main,
   },
   logoutButton: {
     width: 40,
@@ -607,12 +620,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: theme.colors.neutral[50],
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
     elevation: 3,
-    shadowColor: '#7c3aed',
+    shadowColor: theme.colors.primary.main,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -649,9 +662,9 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
   },
   sortChipActive: {
-    backgroundColor: '#7c3aed',
-    borderColor: '#7c3aed',
-    shadowColor: '#7c3aed',
+    backgroundColor: theme.colors.primary.main,
+    borderColor: theme.colors.primary.main,
+    shadowColor: theme.colors.primary.main,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
@@ -670,8 +683,8 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
   },
   distanceChipSelected: {
-    backgroundColor: '#7c3aed',
-    borderColor: '#7c3aed',
+    backgroundColor: theme.colors.primary.main,
+    borderColor: theme.colors.primary.main,
   },
   distanceChipText: {
     fontSize: 14,
@@ -714,7 +727,7 @@ const styles = StyleSheet.create({
   },
   resultsCount: {
     fontWeight: '700',
-    color: '#7c3aed',
+    color: theme.colors.primary.main,
   },
   errorContainer: {
     flex: 1,
@@ -729,10 +742,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: '#7c3aed',
-    borderRadius: 8,
+    paddingHorizontal: theme.spacing['2xl'],
+    paddingVertical: theme.spacing.md,
+    backgroundColor: theme.colors.primary.main,
+    borderRadius: theme.borderRadius.md,
   },
   retryButtonText: {
     color: '#ffffff',
@@ -757,21 +770,103 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   clearFilterButton: {
-    marginTop: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#7c3aed',
-    borderRadius: 8,
+    marginTop: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
+    backgroundColor: theme.colors.primary.main,
+    borderRadius: theme.borderRadius.md,
   },
   clearFilterButtonText: {
     color: '#ffffff',
     fontWeight: '600',
   },
   cardsContainer: {
-    paddingTop: 8,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.sm,
   },
   bottomPadding: {
     height: 32,
+  },
+  // Compact Header Styles
+  compactHeader: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+  },
+  compactHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  compactHeaderTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  // My Appointments Section Styles
+  myAppointmentsSection: {
+    paddingHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.md,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: theme.colors.neutral[700],
+  },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewAllButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.primary.main,
+  },
+  emptyAppointments: {
+    backgroundColor: theme.colors.neutral[50],
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing['2xl'],
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral[200],
+  },
+  emptyAppointmentsText: {
+    fontSize: 15,
+    color: theme.colors.neutral[600],
+    textAlign: 'center',
+  },
+  bookNowButton: {
+    marginTop: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
+    backgroundColor: theme.colors.accent.main,
+    borderRadius: theme.borderRadius.md,
+  },
+  bookNowButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  // Find Clinics Section Styles
+  findClinicsSection: {
+    paddingHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+  },
+  searchContainer: {
+    marginBottom: theme.spacing.md,
   },
 });
 

@@ -17,6 +17,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { theme } from '../theme';
 
 const { width, height } = Dimensions.get('window');
 
@@ -66,7 +67,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
   return (
     <LinearGradient
-      colors={['#f5f3ff', '#ede9fe', '#f5f3ff']}
+      colors={['#fafaf9', '#f5f5f4', '#fafaf9']}
       style={styles.container}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
@@ -82,23 +83,36 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.contentWrapper}>
+              {/* Decorative Floating Paw Prints */}
+              <View style={styles.floatingPawsContainer}>
+                <Ionicons name="paw" size={30} color="rgba(37, 99, 235, 0.1)" style={styles.floatingPaw1} />
+                <Ionicons name="paw" size={24} color="rgba(234, 88, 12, 0.12)" style={styles.floatingPaw2} />
+                <Ionicons name="paw" size={36} color="rgba(37, 99, 235, 0.08)" style={styles.floatingPaw3} />
+                <Ionicons name="paw" size={28} color="rgba(234, 88, 12, 0.1)" style={styles.floatingPaw4} />
+                <Ionicons name="paw" size={32} color="rgba(37, 99, 235, 0.09)" style={styles.floatingPaw5} />
+                <Ionicons name="paw" size={26} color="rgba(234, 88, 12, 0.11)" style={styles.floatingPaw6} />
+              </View>
+
               <View style={styles.cardContainer}>
                 <View style={styles.content}>
-              {/* Logo */}
+              {/* Logo with Paw Icon */}
               <View style={styles.logoContainer}>
                 <LinearGradient
-                  colors={['#8b5cf6', '#a78bfa']}
+                  colors={['#2563eb', '#60a5fa']}
                   style={styles.logoGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <Ionicons name="sparkles" size={40} color="#ffffff" />
+                  <Ionicons name="paw" size={44} color="#ffffff" />
                 </LinearGradient>
+                {/* Small decorative paws around logo */}
+                <Ionicons name="paw" size={16} color="rgba(37, 99, 235, 0.3)" style={styles.decorativePaw1} />
+                <Ionicons name="paw" size={14} color="rgba(234, 88, 12, 0.3)" style={styles.decorativePaw2} />
               </View>
 
               {/* Title */}
               <Text style={styles.title}>VetFinder</Text>
-              <Text style={styles.subtitle}>Welcome back! Continue your journey.</Text>
+              <Text style={styles.subtitle}>🐾 Welcome back! Continue your journey. 🐾</Text>
 
               {/* Google Sign In Button */}
               <TouchableOpacity
@@ -123,7 +137,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               {/* Email Input */}
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
-                  <Ionicons name="mail-outline" size={20} color="#8b5cf6" style={styles.inputIcon} />
+                  <Ionicons name="mail-outline" size={20} color="#2563eb" style={styles.inputIcon} />
                   <Text style={styles.inputLabel}>Email Address</Text>
                 </View>
                 <TextInput
@@ -141,7 +155,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               {/* Password Input */}
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#8b5cf6" style={styles.inputIcon} />
+                  <Ionicons name="lock-closed-outline" size={20} color="#2563eb" style={styles.inputIcon} />
                   <Text style={styles.inputLabel}>Password</Text>
                 </View>
                 <View style={styles.passwordInputContainer}>
@@ -176,7 +190,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 disabled={loading}
               >
                 <LinearGradient
-                  colors={['#8b5cf6', '#a78bfa']}
+                  colors={['#ea580c', '#fb923c']}
                   style={styles.loginButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -229,17 +243,64 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  floatingPawsContainer: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  floatingPaw1: {
+    position: 'absolute',
+    top: '10%',
+    left: '8%',
+    transform: [{ rotate: '-15deg' }],
+  },
+  floatingPaw2: {
+    position: 'absolute',
+    top: '15%',
+    right: '12%',
+    transform: [{ rotate: '25deg' }],
+  },
+  floatingPaw3: {
+    position: 'absolute',
+    top: '45%',
+    left: '5%',
+    transform: [{ rotate: '10deg' }],
+  },
+  floatingPaw4: {
+    position: 'absolute',
+    bottom: '20%',
+    left: '10%',
+    transform: [{ rotate: '-20deg' }],
+  },
+  floatingPaw5: {
+    position: 'absolute',
+    top: '50%',
+    right: '8%',
+    transform: [{ rotate: '15deg' }],
+  },
+  floatingPaw6: {
+    position: 'absolute',
+    bottom: '15%',
+    right: '15%',
+    transform: [{ rotate: '-10deg' }],
   },
   cardContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fafaf9',
     borderRadius: 24,
-    boxShadow: '0 10px 20px rgba(124, 58, 237, 0.08)',
+    boxShadow: '0 10px 20px rgba(37, 99, 235, 0.08)',
     elevation: 8,
     borderWidth: 1.5,
-    borderColor: 'rgba(139, 92, 246, 0.15)',
+    borderColor: 'rgba(37, 99, 235, 0.15)',
     maxWidth: 420,
     width: '100%',
     marginHorizontal: 20,
+    zIndex: 10,
   },
   content: {
     paddingHorizontal: 30,
@@ -248,6 +309,19 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
     marginBottom: 25,
+    position: 'relative',
+  },
+  decorativePaw1: {
+    position: 'absolute',
+    top: -10,
+    right: 80,
+    transform: [{ rotate: '-25deg' }],
+  },
+  decorativePaw2: {
+    position: 'absolute',
+    top: -8,
+    left: 82,
+    transform: [{ rotate: '20deg' }],
   },
   logoGradient: {
     width: 80,
@@ -255,13 +329,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    boxShadow: '0 4px 10px rgba(139, 92, 246, 0.3)',
+    boxShadow: '0 4px 10px rgba(37, 99, 235, 0.3)',
     elevation: 8,
   },
   title: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: '#8b5cf6',
+    color: '#2563eb',
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -354,7 +428,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderRadius: 12,
     overflow: 'hidden',
-    boxShadow: '0 4px 8px rgba(139, 92, 246, 0.3)',
+    boxShadow: '0 4px 8px rgba(234, 88, 12, 0.3)',
     elevation: 6,
   },
   loginButtonGradient: {
@@ -384,7 +458,7 @@ const styles = StyleSheet.create({
   },
   signUpLink: {
     fontSize: 14,
-    color: '#8b5cf6',
+    color: '#2563eb',
     fontWeight: 'bold',
   },
 });

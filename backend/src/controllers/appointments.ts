@@ -19,9 +19,17 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
   try {
     const appointmentData: CreateAppointmentDTO = req.body;
 
+    // Extract user_id from authenticated user (from JWT token)
+    const user_id = req.user?.id;
+
+    if (!user_id) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
     // Validate required fields
-    if (!appointmentData.clinic_id || !appointmentData.user_id || !appointmentData.appointment_date) {
-      res.status(400).json({ error: 'Missing required fields: clinic_id, user_id, appointment_date' });
+    if (!appointmentData.clinic_id || !appointmentData.appointment_date) {
+      res.status(400).json({ error: 'Missing required fields: clinic_id, appointment_date' });
       return;
     }
 
@@ -63,10 +71,10 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Create appointment with instant confirmation
+    // Create appointment with instant confirmation (using user_id from JWT token)
     const appointmentId = await appointmentModel.create({
-      clinic_id: appointmentData.clinic_id,
-      user_id: appointmentData.user_id,
+      company_id: appointmentData.clinic_id, // Map clinic_id from frontend to company_id in database
+      user_id: user_id, // Use user_id from authenticated token, not request body
       service_id: appointmentData.service_id,
       appointment_date: appointmentDate,
       status: 'confirmed', // Instant confirmation
@@ -184,6 +192,131 @@ export const getUserAppointments = async (req: Request, res: Response): Promise<
   } catch (error: any) {
     console.error('Error fetching user appointments:', error);
     res.status(500).json({ error: 'Failed to fetch appointments' });
+  }
+};
+
+/**
+ * Get company's appointments
+ * GET /api/appointments/company
+ */
+export const getCompanyAppointments = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id; // From auth middleware
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Get user's company
+    const companyResult = await pool.query('SELECT id FROM companies WHERE user_id = $1', [userId]);
+
+    if (companyResult.rows.length === 0) {
+      res.status(404).json({ error: 'Company not found' });
+      return;
+    }
+
+    const companyId = companyResult.rows[0].id;
+    const { status } = req.query;
+
+    const appointments = await appointmentModel.findByClinic(
+      companyId,
+      status as string | undefined
+    );
+
+    res.status(200).json({
+      success: true,
+      count: appointments.length,
+      data: appointments,
+    });
+  } catch (error: any) {
+    console.error('Error fetching company appointments:', error);
+    res.status(500).json({ error: 'Failed to fetch appointments' });
+  }
+};
+
+/**
+ * Update an appointment
+ * PATCH /api/appointments/:id
+ */
+export const updateAppointment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const appointmentId = parseInt(req.params.id);
+    const userId = (req as any).user?.id; // From auth middleware
+
+    if (isNaN(appointmentId)) {
+      res.status(400).json({ error: 'Invalid appointment ID' });
+      return;
+    }
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Fetch appointment to verify ownership
+    const appointment = await appointmentModel.findById(appointmentId);
+
+    if (!appointment) {
+      res.status(404).json({ error: 'Appointment not found' });
+      return;
+    }
+
+    // Get user's company to verify they own this appointment's company
+    const companyResult = await pool.query('SELECT id FROM companies WHERE user_id = $1', [userId]);
+
+    if (companyResult.rows.length === 0 || companyResult.rows[0].id !== appointment.company_id) {
+      res.status(403).json({ error: 'You can only update appointments for your own company' });
+      return;
+    }
+
+    // Extract update data from request body
+    const updateData: Partial<Appointment> = {};
+
+    if (req.body.appointment_date) {
+      const appointmentDate = new Date(req.body.appointment_date);
+      if (isNaN(appointmentDate.getTime())) {
+        res.status(400).json({ error: 'Invalid appointment_date format' });
+        return;
+      }
+      updateData.appointment_date = appointmentDate;
+    }
+
+    if (req.body.service_id !== undefined) {
+      updateData.service_id = req.body.service_id;
+    }
+
+    if (req.body.status) {
+      if (!['pending', 'confirmed', 'cancelled', 'completed'].includes(req.body.status)) {
+        res.status(400).json({ error: 'Invalid status value' });
+        return;
+      }
+      updateData.status = req.body.status;
+    }
+
+    if (req.body.notes !== undefined) {
+      updateData.notes = req.body.notes;
+    }
+
+    // Update the appointment
+    const success = await appointmentModel.update(appointmentId, updateData);
+
+    if (!success) {
+      res.status(500).json({ error: 'Failed to update appointment' });
+      return;
+    }
+
+    // Fetch updated appointment
+    const updatedAppointment = await appointmentModel.findById(appointmentId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Appointment updated successfully',
+      data: updatedAppointment,
+    });
+  } catch (error: any) {
+    console.error('Error updating appointment:', error);
+    res.status(500).json({ error: 'Failed to update appointment' });
   }
 };
 

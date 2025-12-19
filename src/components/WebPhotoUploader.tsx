@@ -1,0 +1,229 @@
+import React, { useState, useRef } from 'react';
+import { View, StyleSheet, Platform } from 'react-native';
+import { Text, Button, IconButton } from 'react-native-paper';
+import { ApiService } from '../services/api';
+import { theme } from '../theme';
+
+interface WebPhotoUploaderProps {
+  companyId: number;
+  existingPhotos?: string[];
+  maxPhotos?: number;
+  onUploadSuccess?: (photoUrl: string) => void;
+  onDeleteSuccess?: (photoUrl: string) => void;
+}
+
+export const WebPhotoUploader = ({
+  companyId,
+  existingPhotos = [],
+  maxPhotos = 10,
+  onUploadSuccess,
+  onDeleteSuccess,
+}: WebPhotoUploaderProps) => {
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [photos, setPhotos] = useState<string[]>(existingPhotos);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Only render on web
+  if (Platform.OS !== 'web') {
+    return null;
+  }
+
+  const handleFileSelect = async (event: any) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    // Check limit
+    const remainingSlots = maxPhotos - photos.length;
+    if (remainingSlots <= 0) {
+      alert(`Maximum ${maxPhotos} photos allowed`);
+      return;
+    }
+
+    const filesToUpload = Array.from(files).slice(0, remainingSlots) as File[];
+
+    setUploading(true);
+    setUploadProgress(0);
+
+    try {
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
+
+        // Create FormData
+        const formData = new FormData();
+        formData.append('photo', file);
+
+        // Upload
+        const response = await ApiService.uploadCompanyPhoto(companyId, formData);
+
+        if (response.success) {
+          const photoUrl = response.data.photo_url;
+          setPhotos(prev => [...prev, photoUrl]);
+          onUploadSuccess?.(photoUrl);
+        } else {
+          throw new Error(response.message || 'Upload failed');
+        }
+
+        setUploadProgress((i + 1) / filesToUpload.length);
+      }
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      alert(error.message || 'Failed to upload photos');
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleDelete = async (photoUrl: string) => {
+    if (!confirm('Are you sure you want to delete this photo?')) return;
+
+    try {
+      await ApiService.deleteCompanyPhoto(companyId, photoUrl);
+      setPhotos(prev => prev.filter(url => url !== photoUrl));
+      onDeleteSuccess?.(photoUrl);
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete photo');
+    }
+  };
+
+  const getPhotoSrc = (photoUrl: string) => {
+    // If URL starts with http, use it directly, otherwise prepend API URL
+    if (photoUrl.startsWith('http')) {
+      return photoUrl;
+    }
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
+    return `${apiUrl}${photoUrl}`;
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* File input (hidden) */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/jpg,image/png,image/webp"
+        multiple
+        onChange={handleFileSelect}
+        style={{ display: 'none' }}
+      />
+
+      {/* Upload button */}
+      <Button
+        mode="contained"
+        onPress={() => fileInputRef.current?.click()}
+        disabled={uploading || photos.length >= maxPhotos}
+        style={styles.uploadButton}
+        buttonColor={theme.colors.primary.main}
+      >
+        {uploading ? `Uploading ${Math.round(uploadProgress * 100)}%` : 'Choose Photos'}
+      </Button>
+
+      {/* Upload progress */}
+      {uploading && (
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${uploadProgress * 100}%` }]} />
+          </View>
+          <Text style={styles.progressText}>
+            Uploading {Math.round(uploadProgress * 100)}%
+          </Text>
+        </View>
+      )}
+
+      {/* Photo grid */}
+      {photos.length > 0 && (
+        <View style={styles.photoGrid}>
+          {photos.map((photoUrl, index) => (
+            <View key={index} style={styles.photoItem}>
+              <img
+                src={getPhotoSrc(photoUrl)}
+                alt={`Photo ${index + 1}`}
+                style={styles.photoImage as any}
+              />
+              <IconButton
+                icon="close-circle"
+                size={24}
+                onPress={() => handleDelete(photoUrl)}
+                style={styles.deleteButton}
+                iconColor="#fff"
+              />
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Info text */}
+      <Text style={styles.infoText}>
+        {photos.length} of {maxPhotos} photos
+        {photos.length >= maxPhotos && ' (Maximum reached)'}
+      </Text>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    marginVertical: 16,
+  },
+  uploadButton: {
+    marginBottom: 12,
+  },
+  progressContainer: {
+    marginBottom: 16,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: theme.colors.neutral[200],
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: theme.colors.primary.main,
+    borderRadius: 4,
+  },
+  progressText: {
+    marginTop: 8,
+    textAlign: 'center',
+    color: theme.colors.neutral[600],
+    fontSize: 14,
+  },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 16,
+  },
+  photoItem: {
+    width: 150,
+    height: 150,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: theme.colors.neutral[100],
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  infoText: {
+    marginTop: 12,
+    textAlign: 'center',
+    fontSize: 12,
+    color: theme.colors.neutral[600],
+  },
+});

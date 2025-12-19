@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { CompanyModel } from '../models/company.model';
 import { CompanyServiceModel } from '../models/companyService.model';
 import { CreateCompanyDTO, UpdateCompanyDTO, CompanySearchFilters } from '../types/company.types';
+import fs from 'fs';
 
 // Extended Request with user from auth middleware
 export interface AuthRequest extends Request {
@@ -430,13 +431,20 @@ export const createCompanyController = () => {
     /**
      * Upload company photo
      * POST /api/companies/:id/photos
-     * Requires: authentication, ownership check
+     * Requires: authentication, ownership check, multer middleware
+     *
+     * CHANGES:
+     * - OLD: Accepts { photo_url } in JSON body
+     * - NEW: Accepts multipart/form-data with 'photo' field
      */
     async uploadPhoto(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
       try {
         const userId = req.user?.id;
         const companyId = parseInt(req.params.id);
 
+        // ===========================
+        // AUTHENTICATION CHECK
+        // ===========================
         if (!userId) {
           res.status(401).json({
             success: false,
@@ -453,7 +461,9 @@ export const createCompanyController = () => {
           return;
         }
 
-        // Check ownership
+        // ===========================
+        // OWNERSHIP CHECK
+        // ===========================
         const company = await CompanyModel.findById(companyId);
         if (!company) {
           res.status(404).json({
@@ -471,18 +481,26 @@ export const createCompanyController = () => {
           return;
         }
 
-        const { photo_url } = req.body;
+        // ===========================
+        // FILE UPLOAD VALIDATION
+        // ===========================
 
-        if (!photo_url) {
+        // NEW: Check if file was uploaded by multer middleware
+        if (!req.file) {
           res.status(400).json({
             success: false,
-            message: 'Photo URL is required',
+            message: 'No file uploaded. Please select a photo.',
           });
           return;
         }
 
         // Check maximum photo limit (10)
         if (company.photos.length >= 10) {
+          // Delete the uploaded file since we're rejecting it
+          if (req.file.path && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+          }
+
           res.status(400).json({
             success: false,
             message: 'Maximum 10 photos allowed',
@@ -490,17 +508,45 @@ export const createCompanyController = () => {
           return;
         }
 
+        // ===========================
+        // GENERATE PHOTO URL
+        // ===========================
+
+        // Generate relative URL from backend root
+        // Format: /uploads/companies/{companyId}/photo_{timestamp}.jpg
+        const photoUrl = `/uploads/companies/${companyId}/${req.file.filename}`;
+
+        console.log('Photo uploaded:', {
+          originalName: req.file.originalname,
+          savedAs: req.file.filename,
+          size: req.file.size,
+          path: req.file.path,
+          url: photoUrl,
+        });
+
+        // ===========================
+        // UPDATE DATABASE
+        // ===========================
+
         // Add photo to photos array
-        const updatedPhotos = [...company.photos, photo_url];
+        const updatedPhotos = [...company.photos, photoUrl];
 
         const updatedCompany = await CompanyModel.update(companyId, {
           photos: updatedPhotos,
         });
 
+        // ===========================
+        // SUCCESS RESPONSE
+        // ===========================
+
         res.status(200).json({
           success: true,
           message: 'Photo uploaded successfully',
-          data: updatedCompany,
+          data: {
+            photo_url: photoUrl,
+            photo_count: updatedPhotos.length,
+            company: updatedCompany,
+          },
         });
       } catch (error: any) {
         console.error('Error uploading photo:', error);
