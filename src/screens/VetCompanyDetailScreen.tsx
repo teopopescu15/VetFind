@@ -19,9 +19,10 @@ import {
   Animated,
   Linking,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { ScrollView, GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Text, ActivityIndicator, Card, Divider, FAB } from 'react-native-paper';
+import { Text, ActivityIndicator, Card, Divider, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -251,6 +252,8 @@ export const VetCompanyDetailScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [serviceSheetVisible, setServiceSheetVisible] = useState(false);
+  const bookingRef = React.useRef<any>(null);
+  const [sheetOffset, setSheetOffset] = useState(0);
 
   // Fetch company data (company now includes services returned by backend)
   useEffect(() => {
@@ -367,7 +370,7 @@ export const VetCompanyDetailScreen = () => {
     navigation.navigate('BookAppointment', {
       companyId,
       companyName: company?.name || '',
-      service, // Pass the complete service object
+      selectedServices: [service], // Pass array of selected services
     });
   };
 
@@ -565,6 +568,43 @@ export const VetCompanyDetailScreen = () => {
             )}
           </View>
         </View>
+
+        {/* Booking Button (full-width, shown under Services) */}
+        {services.length > 0 && (
+          <View
+            style={styles.bookingContainer}
+            ref={bookingRef}
+            onLayout={() => {
+              // Measure the button position and compute offset from bottom
+              try {
+                // Delay measurement slightly to ensure layout is settled
+                setTimeout(() => {
+                  if (bookingRef.current && typeof bookingRef.current.measureInWindow === 'function') {
+                    bookingRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
+                      const screenHeight = Dimensions.get('window').height;
+                      const offset = Math.max(0, screenHeight - (y + h));
+                      setSheetOffset(offset);
+                    });
+                  }
+                }, 50);
+              } catch (e) {
+                // ignore measurement errors
+              }
+            }}
+          >
+            <Button
+              mode="contained"
+              icon="calendar-plus"
+              onPress={() => setServiceSheetVisible(true)}
+              style={styles.bookingButton}
+              labelStyle={styles.bookingButtonLabel}
+              uppercase={false}
+            >
+              Book Appointment
+            </Button>
+          </View>
+        )}
+
         {/* Payment Methods (visible to all pet owners) */}
         <Card style={[styles.contactCard, styles.paymentCard]}>
           <Card.Content>
@@ -588,16 +628,7 @@ export const VetCompanyDetailScreen = () => {
         </ScrollView>
       </GestureHandlerRootView>
 
-      {/* Floating Action Button for Booking */}
-      {services.length > 0 && (
-        <FAB
-          icon="calendar-plus"
-          label="Book Appointment"
-          style={styles.fab}
-          onPress={() => setServiceSheetVisible(true)}
-          color="#ffffff"
-        />
-      )}
+      {/* (Removed floating FAB; full-width booking button is shown under services) */}
 
       {/* Service Selection Bottom Sheet */}
       <ServiceSelectionSheet
@@ -605,7 +636,19 @@ export const VetCompanyDetailScreen = () => {
         services={services}
         companyName={company?.name || ''}
         onDismiss={() => setServiceSheetVisible(false)}
-        onSelectService={handleServiceSelect}
+        multiSelect={true}
+        onSelectServices={(selected) => {
+          setServiceSheetVisible(false);
+          navigation.navigate('BookAppointment', {
+            companyId,
+            companyName: company?.name || '',
+            // pass ids instead of full objects to keep web URLs clean
+            selectedServiceIds: selected.map(s => s.id),
+            // also keep objects for native navigation if needed
+            selectedServices: selected,
+          });
+        }}
+        bottomOffset={sheetOffset}
       />
     </SafeAreaView>
   );
@@ -943,13 +986,21 @@ const styles = StyleSheet.create({
   bottomPadding: {
     height: 100, // Extra padding for FAB
   },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
+  bookingContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  bookingButton: {
+    borderRadius: 10,
+    height: 48,
+    justifyContent: 'center',
     backgroundColor: '#7c3aed',
-    borderRadius: 16,
+    elevation: 2,
+  },
+  bookingButtonLabel: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 16,
   },
   chipsRow: {
     flexDirection: 'row',

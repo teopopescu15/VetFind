@@ -3,6 +3,8 @@
  * Defines all routes and their parameters for type-safe navigation
  */
 
+import { CompanyService } from './company.types';
+
 export type RootStackParamList = {
   // Auth routes
   Login: undefined;
@@ -29,11 +31,16 @@ export type RootStackParamList = {
   // Appointment booking routes
   BookAppointment: {
     companyId: number;
-    serviceId: number;
-    companyName: string;
-    serviceName: string;
-    serviceDuration: number;
-    servicePrice: { min: number; max: number };
+    companyName?: string;
+    /** Selected services (preferred) */
+    selectedServices?: CompanyService[];
+    /** Alternatively pass only service ids (better for web URLs) */
+    selectedServiceIds?: number[];
+    // Legacy single-service params (optional)
+    serviceId?: number;
+    serviceName?: string;
+    serviceDuration?: number;
+    servicePrice?: { min: number; max: number };
   };
   MyAppointments: undefined;
 

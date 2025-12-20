@@ -383,13 +383,45 @@ export const UserDashboardScreen = () => {
               <MaterialCommunityIcons name="paw" size={28} color="#FFFFFF" />
               <Text style={styles.compactHeaderTitle}>VetFinder</Text>
             </View>
-            <TouchableOpacity
-              onPress={handleLogout}
-              style={styles.logoutButton}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
+
+            {/* Right side: search + sort + logout */}
+            <View style={styles.headerRight}>
+              <View style={styles.headerSearchContainer}>
+                <TextInput
+                  mode="outlined"
+                  placeholder="Cauta serviciu"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  style={styles.searchInput}
+                  left={<TextInput.Icon icon="magnify" />}
+                  right={isSearching ? <TextInput.Icon icon={() => <ActivityIndicator size={16} color={theme.colors.primary.main} />} /> : undefined}
+                />
+              </View>
+
+              <View style={styles.sortControls}>
+                <TouchableOpacity
+                  onPress={() => handleSortPrice('asc')}
+                  style={[styles.sortChip, sortMode === 'min_asc' && styles.sortChipActive]}
+                >
+                  <Text style={[styles.sortChipText, sortMode === 'min_asc' && { color: '#ffffff' }]}>Price ↑</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => handleSortPrice('desc')}
+                  style={[styles.sortChip, sortMode === 'max_desc' && styles.sortChipActive]}
+                >
+                  <Text style={[styles.sortChipText, sortMode === 'max_desc' && { color: '#ffffff' }]}>Price ↓</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleLogout}
+                  style={styles.logoutButton}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </LinearGradient>
 
@@ -417,18 +449,7 @@ export const UserDashboardScreen = () => {
         <View style={styles.findClinicsSection}>
           <Text style={styles.sectionTitle}>Find Clinics</Text>
 
-          {/* Search Input */}
-          <View style={styles.searchContainer}>
-            <TextInput
-              mode="outlined"
-              placeholder="Search for services..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              style={styles.searchInput}
-              left={<TextInput.Icon icon="magnify" />}
-              right={isSearching ? <TextInput.Icon icon={() => <ActivityIndicator size={16} color={theme.colors.primary.main} />} /> : undefined}
-            />
-          </View>
+          {/* Search moved to top bar */}
 
           {/* Location Filter Banner */}
           <View style={styles.filterCard}>
@@ -546,6 +567,17 @@ export const UserDashboardScreen = () => {
             ))}
           </View>
         )}
+
+        {/* Full-width Book Appointment CTA under services/results */}
+        <View style={styles.fullWidthCTAContainer}>
+          <TouchableOpacity
+            style={styles.fullWidthCTA}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('BookAppointment' as any)}
+          >
+            <Text style={styles.fullWidthCTAText}>Book Appointment</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
@@ -798,6 +830,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerSearchContainer: {
+    width: 220,
+    marginRight: 8,
+  },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -867,6 +907,25 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     marginBottom: theme.spacing.md,
+  },
+  // Full-width CTA styles
+  fullWidthCTAContainer: {
+    width: SCREEN_WIDTH,
+    alignItems: 'center',
+    marginVertical: theme.spacing.md,
+    paddingHorizontal: 0,
+  },
+  fullWidthCTA: {
+    width: SCREEN_WIDTH,
+    backgroundColor: theme.colors.primary.main,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullWidthCTAText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 16,
   },
 });
 

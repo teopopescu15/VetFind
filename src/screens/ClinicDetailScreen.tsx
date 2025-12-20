@@ -54,8 +54,21 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
     navigation.navigate('BookAppointment', {
       clinicId: clinic?.id,
       clinicName: clinic?.name,
-      serviceId: service?.id,
-      serviceName: service?.name
+      selectedServiceIds: service ? [service.id] : undefined,
+      selectedServices: service ? [{
+        id: service.id,
+        company_id: clinic?.id || 0,
+        category: 'custom',
+        service_name: service.name,
+        description: service.description,
+        price_min: service.price || 0,
+        price_max: service.price || 0,
+        duration_minutes: service.duration_minutes,
+        is_custom: true,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }] : undefined,
     });
   };
 

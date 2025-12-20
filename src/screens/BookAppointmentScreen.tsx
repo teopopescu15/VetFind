@@ -37,6 +37,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { ApiService } from '../services/api';
 import { CompanyService } from '../types/company.types';
 import { DayAvailability, TimeSlot } from '../types/appointment.types';
+import { useAuth } from '../context/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -99,11 +100,48 @@ const formatPrice = (min: number | null | undefined, max: number | null | undefi
 };
 
 export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps) => {
-  const { companyId, companyName, service } = route.params as {
-    companyId: number;
-    companyName: string;
-    service: CompanyService;
+  // Support either selectedServices (multiple) or legacy single 'service'
+  const params = route.params as any;
+  const companyId: number = params.companyId;
+  const companyName: string | undefined = params.companyName;
+  const initialServices: CompanyService[] = params.selectedServices ?? (params.service ? [params.service] : []);
+
+  const [selectedServicesState, setSelectedServicesState] = useState<CompanyService[]>(initialServices);
+
+  // If only ids were provided (common on web deep links), fetch service details
+  useEffect(() => {
+    const tryLoadByIds = async () => {
+      try {
+        const ids: number[] | undefined = params.selectedServiceIds;
+        if ((!initialServices || initialServices.length === 0) && ids && ids.length > 0) {
+          // Fetch services for this company and filter by ids
+          const all = await ApiService.getServices(companyId);
+          const matched = (all || []).filter((s: CompanyService) => ids.includes(s.id));
+          if (matched.length > 0) {
+            setSelectedServicesState(matched);
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    tryLoadByIds();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Total required duration is the sum of service durations
+  const totalRequiredDuration = selectedServicesState.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) || (params.serviceDuration || 0);
+  const primaryService: CompanyService | undefined = selectedServicesState.length > 0 ? selectedServicesState[0] : (params.service ?? undefined);
+  const { user } = useAuth();
+
+  // Compute total price range across selected services
+  const computeTotalPriceRange = (services: CompanyService[]) => {
+    const minSum = services.reduce((sum, s) => sum + (Number(s.price_min) || 0), 0);
+    const maxSum = services.reduce((sum, s) => sum + (Number(s.price_max) || 0), 0);
+    return { min: minSum, max: maxSum };
   };
+  const totalPrice = computeTotalPriceRange(selectedServicesState);
 
   // State management
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -115,6 +153,10 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
 
   // Generate next 30 days for calendar
   const [calendarDates, setCalendarDates] = useState<Date[]>([]);
+
+  const removeServiceById = (id: number) => {
+    setSelectedServicesState((prev) => prev.filter((s) => s.id !== id));
+  };
 
   useEffect(() => {
     const dates: Date[] = [];
@@ -130,7 +172,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
   // Fetch available slots when component mounts
   useEffect(() => {
     loadAvailableSlots();
-  }, [companyId, service.id]);
+  }, [companyId, selectedServicesState.map((s: CompanyService) => s.id).join(','), totalRequiredDuration]);
 
   /**
    * Load available slots for the next 30 days
@@ -142,11 +184,13 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
       const endDate = new Date();
       endDate.setDate(today.getDate() + 30);
 
+  const serviceIdForQuery = selectedServicesState.length > 0 ? selectedServicesState[0].id : params.serviceId;
       const slots = await ApiService.getAvailableSlots(
         companyId,
-        service.id,
+        serviceIdForQuery,
         formatDate(today),
-        formatDate(endDate)
+        formatDate(endDate),
+        totalRequiredDuration
       );
 
       setAvailableDays(slots);
@@ -212,14 +256,28 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
     try {
       setLoading(true);
 
+      // Create a single appointment for the first selected service and include others in notes
+  const primaryServiceId = selectedServicesState.length > 0 ? selectedServicesState[0].id : params.serviceId;
+  const otherServices = selectedServicesState.length > 1 ? selectedServicesState.slice(1) : [];
+
+      if (!user || !user.id) {
+        Alert.alert('Authentication required', 'Please sign in to book an appointment.');
+        setLoading(false);
+        return;
+      }
+
       const appointmentData = {
         clinic_id: companyId,
-        service_id: service.id,
+        user_id: user.id,
+        service_id: primaryServiceId,
         appointment_date: selectedSlot.datetime,
-        notes: notes.trim() || undefined,
-      };
+        notes: [
+          notes.trim(),
+          otherServices.length > 0 ? `Also includes services: ${otherServices.map((s: CompanyService) => s.service_name).join(', ')}` : undefined,
+        ].filter(Boolean).join('\n') || undefined,
+      } as any;
 
-      await ApiService.createAppointment(appointmentData);
+      await ApiService.createAppointment(appointmentData as any);
 
       setShowConfirmModal(false);
 
@@ -269,7 +327,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
               <View style={styles.companyTextContainer}>
                 <Text
                   style={styles.companyName}
-                  {...a11yProps.header(companyName, 1)}
+                  {...a11yProps.header(companyName || '', 1)}
                 >
                   {companyName}
                 </Text>
@@ -286,19 +344,18 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                   <MaterialCommunityIcons name="medical-bag" size={28} color="#7c3aed" />
                 </View>
                 <View style={styles.serviceInfoContainer}>
-                  <Text style={styles.serviceLabel}>Selected Service</Text>
-                  <Text style={styles.serviceName}>{service.service_name}</Text>
+                  <Text style={styles.serviceLabel}>Programarea ta</Text>
                 </View>
               </View>
               <Divider style={styles.serviceCardDivider} />
               <View style={styles.serviceDetails}>
-                {service.duration_minutes && (
+                {(selectedServicesState.length > 0 || primaryService?.duration_minutes) && (
                   <Chip
                     icon={() => <Ionicons name="time-outline" size={16} color="#059669" />}
                     style={styles.detailChip}
                     textStyle={styles.chipText}
                   >
-                    {formatDuration(service.duration_minutes)}
+                    {formatDuration(totalRequiredDuration || primaryService?.duration_minutes)}
                   </Chip>
                 )}
                 <Chip
@@ -306,12 +363,34 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                   style={styles.priceChip}
                   textStyle={styles.priceChipText}
                 >
-                  {formatPrice(service.price_min, service.price_max)}
+                  {selectedServicesState.length > 0 ? formatPrice(totalPrice.min, totalPrice.max) : (primaryService ? formatPrice(primaryService.price_min, primaryService.price_max) : '—')}
                 </Chip>
               </View>
             </Card.Content>
           </Card>
         </Surface>
+
+        {/* Selected services (editable) */}
+        {selectedServicesState.length > 0 && (
+          <View style={styles.selectedServicesRow}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectedServicesScroll}>
+              {selectedServicesState.map((s) => (
+                <Chip
+                  key={s.id}
+                  onClose={() => removeServiceById(s.id)}
+                  style={styles.selectedServiceChip}
+                  closeIcon={() => <Ionicons name="close" size={14} color="#374151" />}
+                >
+                  {s.service_name}
+                </Chip>
+              ))}
+            </ScrollView>
+            <View style={styles.totalDurationContainer}>
+              <Text style={styles.totalDurationText}>{formatDuration(totalRequiredDuration)}</Text>
+              <Text style={styles.totalPriceText}>{formatPrice(totalPrice.min, totalPrice.max)}</Text>
+            </View>
+          </View>
+        )}
 
         {/* Calendar Section */}
         <View style={styles.section}>
@@ -503,8 +582,21 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                   <Text style={styles.confirmValue}>{companyName}</Text>
                 </View>
                 <View style={styles.confirmRow}>
-                  <Text style={styles.confirmLabel}>Service:</Text>
-                  <Text style={styles.confirmValue}>{service.service_name}</Text>
+                  <Text style={styles.confirmLabel}>Service(s):</Text>
+                  <View style={styles.confirmValue}>
+                    {selectedServicesState.length > 0 ? (
+                      selectedServicesState.map((s) => (
+                        <View key={s.id} style={styles.confirmServiceRow}>
+                          <Text style={styles.confirmValue}>{s.service_name}</Text>
+                          <TouchableOpacity onPress={() => removeServiceById(s.id)}>
+                            <Ionicons name="close-circle" size={18} color="#ef4444" />
+                          </TouchableOpacity>
+                        </View>
+                      ))
+                    ) : (
+                      <Text style={styles.confirmValue}>{primaryService?.service_name ?? '—'}</Text>
+                    )}
+                  </View>
                 </View>
                 <View style={styles.confirmRow}>
                   <Text style={styles.confirmLabel}>Date & Time:</Text>
@@ -521,13 +613,13 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                 <View style={styles.confirmRow}>
                   <Text style={styles.confirmLabel}>Duration:</Text>
                   <Text style={styles.confirmValue}>
-                    {formatDuration(service.duration_minutes)}
+                    {formatDuration(totalRequiredDuration)}
                   </Text>
                 </View>
                 <View style={styles.confirmRow}>
                   <Text style={styles.confirmLabel}>Price:</Text>
                   <Text style={styles.confirmValue}>
-                    {formatPrice(service.price_min, service.price_max)}
+                    {selectedServicesState.length > 0 ? formatPrice(totalPrice.min, totalPrice.max) : (primaryService ? formatPrice(primaryService.price_min, primaryService.price_max) : '—')}
                   </Text>
                 </View>
               </View>
@@ -664,6 +756,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#059669',
+  },
+  selectedServicesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 12,
+    backgroundColor: '#ffffff',
+    marginTop: 12,
+    marginHorizontal: 20,
+    borderRadius: 12,
+  },
+  selectedServicesScroll: {
+    alignItems: 'center',
+  },
+  selectedServiceChip: {
+    marginRight: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  totalDurationContainer: {
+    marginLeft: 'auto',
+    alignItems: 'flex-end',
+  },
+  totalDurationText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  totalPriceText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#7c3aed',
+    marginTop: 6,
   },
   section: {
     padding: 20,
@@ -871,6 +996,13 @@ const styles = StyleSheet.create({
   },
   confirmationDetails: {
     gap: 16,
+  },
+  confirmServiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginBottom: 6,
   },
   confirmRow: {
     flexDirection: 'row',

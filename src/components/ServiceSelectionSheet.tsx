@@ -35,14 +35,20 @@ interface ServiceSelectionSheetProps {
   services: CompanyService[];
   companyName: string;
   onDismiss: () => void;
-  onSelectService: (service: CompanyService) => void;
+  onSelectService?: (service: CompanyService) => void;
+  /** Optional offset from bottom of screen to position the sheet above a button (in px) */
+  bottomOffset?: number;
+  /** If true, allow selecting multiple services and confirm selection */
+  multiSelect?: boolean;
+  /** Callback when multiple services are selected (used when multiSelect=true) */
+  onSelectServices?: (services: CompanyService[]) => void;
 }
 
 /**
  * Get category icon
  */
-const getCategoryIcon = (category: string): keyof typeof MaterialCommunityIcons.glyphMap => {
-  const iconMap: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
+const getCategoryIcon = (category: string): string => {
+  const iconMap: Record<string, string> = {
     routine_care: 'stethoscope',
     dental_care: 'tooth',
     diagnostic_services: 'microscope',
@@ -106,8 +112,12 @@ export const ServiceSelectionSheet = ({
   companyName,
   onDismiss,
   onSelectService,
+  bottomOffset = 0,
+  multiSelect = false,
+  onSelectServices,
 }: ServiceSelectionSheetProps) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   // Filter services based on search query
   const filteredServices = useMemo(() => {
@@ -123,14 +133,16 @@ export const ServiceSelectionSheet = ({
 
   const groupedServices = groupServicesByCategory(filteredServices);
 
+  const effectiveMaxHeight = Math.min(SCREEN_HEIGHT * 0.85, SCREEN_HEIGHT - bottomOffset - 8);
+
   return (
     <Portal>
       <Modal
         visible={visible}
         onDismiss={onDismiss}
-        contentContainerStyle={styles.modalContainer}
+        contentContainerStyle={[styles.modalContainer, { marginBottom: Math.max(0, bottomOffset) }]}
       >
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { maxHeight: effectiveMaxHeight }]}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerContent}>
@@ -181,7 +193,7 @@ export const ServiceSelectionSheet = ({
                   <View style={styles.categoryHeader}>
                     <View style={styles.categoryIconContainer}>
                       <MaterialCommunityIcons
-                        name={getCategoryIcon(category)}
+                        name={getCategoryIcon(category) as any}
                         size={20}
                         color="#7c3aed"
                       />
@@ -192,14 +204,28 @@ export const ServiceSelectionSheet = ({
                   </View>
 
                   {/* Service Cards */}
-                  {categoryServices.map((service, index) => (
+                  {categoryServices.map((service, index) => {
+                    const isSelected = selectedIds.has(service.id);
+                    return (
                     <TouchableOpacity
                       key={service.id}
                       style={[
                         styles.serviceCard,
                         index === categoryServices.length - 1 && styles.serviceCardLast,
+                        isSelected && styles.serviceCardSelected,
                       ]}
-                      onPress={() => onSelectService(service)}
+                      onPress={() => {
+                        if (multiSelect) {
+                          setSelectedIds((prev) => {
+                            const s = new Set(prev);
+                            if (s.has(service.id)) s.delete(service.id);
+                            else s.add(service.id);
+                            return s;
+                          });
+                        } else {
+                          onSelectService?.(service);
+                        }
+                      }}
                       activeOpacity={0.7}
                     >
                       <View style={styles.serviceCardContent}>
@@ -234,11 +260,39 @@ export const ServiceSelectionSheet = ({
                         style={styles.chevronIcon}
                       />
                     </TouchableOpacity>
-                  ))}
+                    );
+                  })}
                 </View>
               ))
             )}
           </ScrollView>
+
+          {/* Multi-select footer */}
+          {multiSelect && (
+            <View style={styles.footer}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => {
+                  setSelectedIds(new Set());
+                  onDismiss();
+                }}
+              >
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.confirmBtn, selectedIds.size === 0 && styles.confirmBtnDisabled]}
+                disabled={selectedIds.size === 0}
+                onPress={() => {
+                  const selected = services.filter((s) => selectedIds.has(s.id));
+                  setSelectedIds(new Set());
+                  onSelectServices && onSelectServices(selected);
+                }}
+              >
+                <Text style={styles.confirmText}>Continue ({selectedIds.size})</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </Modal>
     </Portal>
@@ -406,6 +460,43 @@ const styles = StyleSheet.create({
   },
   chevronIcon: {
     marginLeft: 8,
+  },
+  serviceCardSelected: {
+    borderColor: '#7c3aed',
+    backgroundColor: '#f5f3ff',
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    backgroundColor: '#ffffff',
+  },
+  cancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  cancelText: {
+    color: '#6b7280',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmBtn: {
+    backgroundColor: '#7c3aed',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  confirmBtnDisabled: {
+    backgroundColor: '#c7b3f5',
+  },
+  confirmText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
 

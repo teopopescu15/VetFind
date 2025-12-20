@@ -718,12 +718,16 @@ const createApiService = () => {
       companyId: number,
       serviceId: number,
       startDate: string,
-      endDate?: string
+      endDate?: string,
+      durationMinutes?: number
     ): Promise<DayAvailability[]> {
       try {
         const queryParams = new URLSearchParams({ startDate });
         if (endDate) {
           queryParams.append('endDate', endDate);
+        }
+        if (durationMinutes && durationMinutes > 0) {
+          queryParams.append('duration', String(durationMinutes));
         }
 
         const response: AvailabilityResponse = await request(
