@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { createAppointmentModel } from '../models/appointment.model';
+import { createAppointmentModel, Appointment } from '../models/appointment.model';
 import { CompanyServiceModel } from '../models/companyService.model';
 import { pool } from '../config/database';
 import {
@@ -71,13 +71,13 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Create appointment with instant confirmation (using user_id from JWT token)
+    // Create appointment as pending - company must accept to confirm
     const appointmentId = await appointmentModel.create({
       company_id: appointmentData.clinic_id, // Map clinic_id from frontend to company_id in database
       user_id: user_id, // Use user_id from authenticated token, not request body
       service_id: appointmentData.service_id,
       appointment_date: appointmentDate,
-      status: 'confirmed', // Instant confirmation
+      status: 'pending', // New behavior: mark as pending so company can accept/cancel
       notes: appointmentData.notes,
     });
 

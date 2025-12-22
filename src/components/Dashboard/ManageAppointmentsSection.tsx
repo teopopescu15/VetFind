@@ -17,6 +17,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+  const [busyIds, setBusyIds] = useState<number[]>([]);
 
   useEffect(() => {
     loadAppointments();
@@ -38,6 +39,67 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
   const handleEditAppointment = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     setIsEditModalVisible(true);
+  };
+
+  const handleAccept = async (appointment: Appointment) => {
+    if (!appointment.id) return;
+
+    // Optimistic UI: mark as confirmed immediately
+    const prevStatus = appointment.status;
+    setAppointments((prev) => prev.map((a) => (a.id === appointment.id ? { ...a, status: 'confirmed' } : a)));
+    setBusyIds((b) => [...b, appointment.id!]);
+
+    try {
+  // Use the standard ApiService PATCH endpoint for appointment updates
+  await ApiService.updateAppointment(appointment.id!, { status: 'confirmed' } as any);
+      // success - reload to ensure fresh data
+      loadAppointments();
+      onRefresh?.();
+    } catch (error: any) {
+      // revert and show detailed error
+      setAppointments((prev) => prev.map((a) => (a.id === appointment.id ? { ...a, status: prevStatus } : a)));
+      console.error('Accept appointment error:', error);
+      Alert.alert('Error accepting appointment', (error && (error.message || String(error))) || 'Failed to accept appointment');
+    } finally {
+      setBusyIds((b) => b.filter((id) => id !== appointment.id));
+    }
+  };
+
+  const handleReject = async (appointment: Appointment) => {
+    if (!appointment.id) return;
+
+    const prevStatus = appointment.status;
+    setAppointments((prev) => prev.map((a) => (a.id === appointment.id ? { ...a, status: 'cancelled' } : a)));
+    setBusyIds((b) => [...b, appointment.id!]);
+
+    try {
+      // Try to update the appointment status via the standard PATCH endpoint
+      await ApiService.updateAppointment(appointment.id!, { status: 'cancelled' } as any);
+      // success - reload to ensure fresh data
+      loadAppointments();
+      onRefresh?.();
+    } catch (error: any) {
+      // If the PATCH update fails (CORS/404/network or other), try the dedicated cancel endpoint as a fallback
+      console.warn('Update to cancelled failed, attempting cancel endpoint as fallback', error);
+      try {
+        const cancelled = await ApiService.cancelAppointment(appointment.id!);
+        if (cancelled) {
+          // refresh list after successful cancel
+          loadAppointments();
+          onRefresh?.();
+          return;
+        }
+        // if cancel endpoint returned false, fallthrough to revert + alert
+        throw new Error('Cancel endpoint did not succeed');
+      } catch (fallbackError: any) {
+        // revert optimistic change
+        setAppointments((prev) => prev.map((a) => (a.id === appointment.id ? { ...a, status: prevStatus } : a)));
+        console.error('Cancel appointment error (fallback):', fallbackError);
+        Alert.alert('Error cancelling appointment', (fallbackError && (fallbackError.message || String(fallbackError))) || 'Failed to cancel appointment');
+      }
+    } finally {
+      setBusyIds((b) => b.filter((id) => id !== appointment.id));
+    }
   };
 
   const handleSaveAppointment = async (updatedData: Partial<Appointment>) => {
@@ -285,6 +347,28 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
                   >
                     Edit
                   </Button>
+                  {appointment.status === 'pending' && (
+                    <View style={styles.pendingActions}>
+                      <Button
+                        mode="contained"
+                        onPress={() => handleAccept(appointment)}
+                        style={styles.acceptButton}
+                        compact
+                        disabled={busyIds.includes(appointment.id)}
+                      >
+                        {busyIds.includes(appointment.id) ? 'Processing...' : 'Accept'}
+                      </Button>
+                      <Button
+                        mode="outlined"
+                        onPress={() => handleReject(appointment)}
+                        style={styles.rejectButton}
+                        compact
+                        disabled={busyIds.includes(appointment.id)}
+                      >
+                        {busyIds.includes(appointment.id) ? 'Processing...' : 'Cancel'}
+                      </Button>
+                    </View>
+                  )}
                 </View>
               </Card.Content>
             </Card>
@@ -327,7 +411,17 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+  },
+  pendingActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: theme.spacing.sm,
+  },
+  acceptButton: {
+    marginLeft: theme.spacing.sm,
+  },
+  rejectButton: {
+    marginLeft: theme.spacing.xs,
   },
   title: {
     fontWeight: '700',

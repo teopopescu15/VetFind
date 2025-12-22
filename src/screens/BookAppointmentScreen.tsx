@@ -38,6 +38,7 @@ import { ApiService } from '../services/api';
 import { CompanyService } from '../types/company.types';
 import { DayAvailability, TimeSlot } from '../types/appointment.types';
 import { useAuth } from '../context/AuthContext';
+import AnimatedConfirmation from '../components/AnimatedConfirmation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -108,28 +109,6 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
 
   const [selectedServicesState, setSelectedServicesState] = useState<CompanyService[]>(initialServices);
 
-  // If only ids were provided (common on web deep links), fetch service details
-  useEffect(() => {
-    const tryLoadByIds = async () => {
-      try {
-        const ids: number[] | undefined = params.selectedServiceIds;
-        if ((!initialServices || initialServices.length === 0) && ids && ids.length > 0) {
-          // Fetch services for this company and filter by ids
-          const all = await ApiService.getServices(companyId);
-          const matched = (all || []).filter((s: CompanyService) => ids.includes(s.id));
-          if (matched.length > 0) {
-            setSelectedServicesState(matched);
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-    };
-
-    tryLoadByIds();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Total required duration is the sum of service durations
   const totalRequiredDuration = selectedServicesState.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) || (params.serviceDuration || 0);
   const primaryService: CompanyService | undefined = selectedServicesState.length > 0 ? selectedServicesState[0] : (params.service ?? undefined);
@@ -150,6 +129,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showAnimatedConfirm, setShowAnimatedConfirm] = useState(false);
 
   // Generate next 30 days for calendar
   const [calendarDates, setCalendarDates] = useState<Date[]>([]);
@@ -184,16 +164,67 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
       const endDate = new Date();
       endDate.setDate(today.getDate() + 30);
 
-  const serviceIdForQuery = selectedServicesState.length > 0 ? selectedServicesState[0].id : params.serviceId;
+      // Prefer the first selected service id, then fall back to known params.serviceId or legacy params.service?.id
+      let serviceIdForQuery: number | undefined = selectedServicesState.length > 0
+        ? selectedServicesState[0].id
+        : undefined;
+
+      if (!serviceIdForQuery) {
+        serviceIdForQuery = params.serviceId ?? params.service?.id;
+      }
+
+      // Fallback: route may include selectedServiceIds as CSV or selectedServices as JSON/querystring
+      if (!serviceIdForQuery && params.selectedServiceIds) {
+        try {
+          const ids = typeof params.selectedServiceIds === 'string'
+            ? params.selectedServiceIds.split(',').map((v: string) => Number(v))
+            : params.selectedServiceIds;
+          if (Array.isArray(ids) && ids.length > 0) serviceIdForQuery = Number(ids[0]) || undefined;
+        } catch (err) {
+          // ignore
+        }
+      }
+
+      if (!serviceIdForQuery && params.selectedServices) {
+        try {
+          const arr = typeof params.selectedServices === 'string' ? JSON.parse(params.selectedServices) : params.selectedServices;
+          if (Array.isArray(arr) && arr.length > 0) {
+            serviceIdForQuery = arr[0].id ?? arr[0].service_id ?? undefined;
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+
+      // Log the query so we can debug why the API may return no availability
+      console.log('loadAvailableSlots: query', {
+        companyId,
+        serviceIdForQuery,
+        from: formatDate(today),
+        to: formatDate(endDate),
+        duration: totalRequiredDuration,
+      });
+
+      // Only pass a duration if it's greater than zero; some backends treat 0 as invalid
+      const durationParam = totalRequiredDuration && totalRequiredDuration > 0 ? totalRequiredDuration : undefined;
+
+      if (!serviceIdForQuery) {
+        console.warn('loadAvailableSlots: no serviceId available to query availability', { params });
+        setAvailableDays([]);
+        return;
+      }
+
       const slots = await ApiService.getAvailableSlots(
         companyId,
         serviceIdForQuery,
         formatDate(today),
         formatDate(endDate),
-        totalRequiredDuration
+        durationParam
       );
 
-      setAvailableDays(slots);
+      console.log('loadAvailableSlots: response slots', slots);
+
+      setAvailableDays(slots || []);
     } catch (error: any) {
       console.error('Failed to load available slots:', error);
       Alert.alert('Error', 'Failed to load available time slots. Please try again.');
@@ -281,6 +312,15 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
 
       setShowConfirmModal(false);
 
+      // If the authenticated user is a pet owner (client), send them back to their dashboard
+      // immediately after confirming the appointment.
+      if (user?.role === 'user') {
+        // Show an animated confirmation screen, then redirect to the user dashboard.
+        setShowAnimatedConfirm(true);
+        return;
+      }
+
+      // Fallback behaviour for other roles (e.g. vet companies): show the existing success alert
       Alert.alert(
         'Success!',
         'Your appointment has been confirmed.',
@@ -642,6 +682,16 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
           </Card>
         </Modal>
       </Portal>
+      {/* Animated full-screen confirmation for pet owners */}
+      <AnimatedConfirmation
+        visible={showAnimatedConfirm}
+        message="Programarea a fost trimisa. Așteaptă confirmarea clinicii."
+        onFinish={() => {
+          setShowAnimatedConfirm(false);
+          // After animation completes, navigate to the user dashboard (they'll see the appointment as Pending)
+          navigation.navigate('UserDashboard');
+        }}
+      />
     </View>
   );
 };

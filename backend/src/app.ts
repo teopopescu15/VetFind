@@ -35,7 +35,7 @@ const corsOptions = {
   origin: function (origin: string | undefined, callback: any) {
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
-    
+
     // List of allowed origins
     const allowedOrigins = [
       'http://localhost:8082',
@@ -49,14 +49,14 @@ const corsOptions = {
       /^http:\/\/172\..*/, // Allow Docker/WSL IPs
       /^http:\/\/10\..*/, // Allow private network IPs
     ];
-    
+
     const allowed = allowedOrigins.some(allowed => {
       if (allowed instanceof RegExp) {
         return allowed.test(origin);
       }
       return allowed === origin;
     });
-    
+
     if (allowed) {
       callback(null, true);
     } else {
@@ -65,7 +65,7 @@ const corsOptions = {
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 

@@ -62,9 +62,9 @@ const createApiService = () => {
       'Content-Type': 'application/json',
     };
 
-    // Add auth token if provided
+    // Add auth token if provided (cast to any to allow indexing HeadersInit)
     if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
+      (headers as any)['Authorization'] = `Bearer ${accessToken}`;
     }
 
     const config: RequestInit = {
@@ -134,7 +134,7 @@ const createApiService = () => {
       };
 
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        (headers as any)['Authorization'] = `Bearer ${token}`;
       }
 
       const response = await fetch(`${baseUrl}${endpoint}`, {
@@ -322,34 +322,35 @@ const createApiService = () => {
     /**
      * Upload company photo
      */
-    async uploadCompanyPhoto(companyId: number, photoUri: string, accessToken?: string): Promise<string> {
+    async uploadCompanyPhoto(companyId: number, photo: string | FormData, accessToken?: string): Promise<any> {
       try {
         const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
 
-        // For React Native, we'll need to use FormData
-        const formData = new FormData();
+        let formData: FormData;
 
-        // Handle base64 or file URI
-        if (photoUri.startsWith('data:')) {
-          // Base64 image
-          const blob = await fetch(photoUri).then(r => r.blob());
-          formData.append('photo', blob, 'photo.jpg');
+        if (photo instanceof FormData) {
+          formData = photo;
         } else {
-          // File URI (React Native)
-          const filename = photoUri.split('/').pop() || 'photo.jpg';
-          const match = /\.(\w+)$/.exec(filename);
-          const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-          formData.append('photo', {
-            uri: photoUri,
-            name: filename,
-            type,
-          } as any);
+          // photo is a URI or data URL
+          formData = new FormData();
+          if ((photo as string).startsWith('data:')) {
+            const blob = await fetch(photo as string).then((r) => r.blob());
+            formData.append('photo', blob, 'photo.jpg');
+          } else {
+            const filename = (photo as string).split('/').pop() || 'photo.jpg';
+            const match = /\.(\w+)$/.exec(filename);
+            const type = match ? `image/${match[1]}` : 'image/jpeg';
+            formData.append('photo', {
+              uri: photo as string,
+              name: filename,
+              type,
+            } as any);
+          }
         }
 
         const headers: HeadersInit = {};
         if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
+          (headers as any)['Authorization'] = `Bearer ${token}`;
         }
 
         const response = await fetch(`${baseUrl}/companies/${companyId}/photos`, {
@@ -916,81 +917,7 @@ const createApiService = () => {
       }
     },
 
-    // ==================== Photo Upload Methods ====================
-
-    /**
-     * Upload company photo
-     * POST /api/companies/:id/photos
-     * @param companyId - Company ID
-     * @param formData - FormData with photo file
-     * @param accessToken - User's authentication token
-     */
-    async uploadCompanyPhoto(companyId: number, formData: FormData, accessToken?: string): Promise<any> {
-      try {
-        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
-
-        if (!token) {
-          throw new Error('Authentication required to upload photos');
-        }
-
-        const response = await fetch(`${baseUrl}/companies/${companyId}/photos`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            // Don't set Content-Type - let browser set it with boundary for multipart/form-data
-          },
-          body: formData,
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Upload failed');
-        }
-
-        return data;
-      } catch (error: any) {
-        console.error('Upload photo error:', error);
-        throw error;
-      }
-    },
-
-    /**
-     * Delete company photo
-     * DELETE /api/companies/:id/photos
-     * @param companyId - Company ID
-     * @param photoUrl - Photo URL to delete
-     * @param accessToken - User's authentication token
-     */
-    async deleteCompanyPhoto(companyId: number, photoUrl: string, accessToken?: string): Promise<any> {
-      try {
-        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
-
-        if (!token) {
-          throw new Error('Authentication required to delete photos');
-        }
-
-        const response = await fetch(`${baseUrl}/companies/${companyId}/photos`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ photo_url: photoUrl }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Delete failed');
-        }
-
-        return data;
-      } catch (error: any) {
-        console.error('Delete photo error:', error);
-        throw error;
-      }
-    },
+    // (Photo upload / delete handled by uploadCompanyPhoto / deleteCompanyPhoto implemented earlier)
   };
 };
 

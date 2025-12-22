@@ -108,6 +108,11 @@ export interface Company {
   is_active: boolean;
   company_completed: boolean; // Indicates if 4-step registration is complete
 
+  // Optional analytics/aggregates
+  avg_rating?: number;
+  review_count?: number;
+  distance?: number;
+
   // Timestamps
   created_at: string | Date;
   updated_at: string | Date;

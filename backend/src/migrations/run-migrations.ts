@@ -47,6 +47,8 @@ const runMigrations = async () => {
       '008_add_company_completed.sql',
       '009_remove_legacy_clinic_system.sql',
       '010_add_category_id_to_company_services.sql',
+      // Appointments & reviews migration recreated after legacy clinic removal
+      '011_create_appointments_reviews.sql',
     ];
 
     console.log(`\n📋 Found ${migrations.length} migration files to execute\n`);
@@ -99,7 +101,10 @@ const runMigrations = async () => {
       'companies',
       'company_services',
       'service_categories',
-      'category_specializations'
+      'category_specializations',
+      // Verify appointments and reviews were created by migrations
+      'appointments',
+      'reviews'
     ];
 
     for (const table of tables) {

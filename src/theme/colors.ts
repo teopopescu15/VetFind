@@ -174,6 +174,16 @@ export const colors = {
 
   // Legacy compatibility aliases (will be removed in future)
   gray: neutral,  // Map gray to neutral for backward compatibility
+  // Back-compat text & surface tokens used across the codebase
+  text: {
+    primary: neutral[700],
+    secondary: neutral[500],
+  },
+  surface: {
+    card: common.white,
+    muted: neutral[100],
+    background: neutral[50],
+  },
 } as const;
 
 /**
