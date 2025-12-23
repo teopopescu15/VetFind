@@ -19,11 +19,12 @@ import {
   StatusBar,
   TouchableOpacity,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { Text, ActivityIndicator, Chip, TextInput } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -96,17 +97,41 @@ export const UserDashboardScreen = () => {
     }
   }, []);
 
+  // ===== User appointments (pet owner) =====
+  const [userAppointments, setUserAppointments] = useState<any[]>([]);
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
+
+  const fetchUserAppointments = useCallback(async () => {
+    try {
+      setIsLoadingAppointments(true);
+      const data = await ApiService.getUserAppointments();
+      setUserAppointments(data || []);
+    } catch (err: any) {
+      console.error('Error fetching user appointments:', err);
+      setUserAppointments([]);
+    } finally {
+      setIsLoadingAppointments(false);
+    }
+  }, []);
+
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    if (isFocused) fetchUserAppointments();
+  }, [isFocused, fetchUserAppointments]);
+
   /**
    * Initial data load
    */
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-      await fetchCompanies();
+      // load companies and user appointments in parallel
+      await Promise.all([fetchCompanies(), fetchUserAppointments()]);
       setIsLoading(false);
     };
     loadData();
-  }, [fetchCompanies]);
+  }, [fetchCompanies, fetchUserAppointments]);
 
   /**
    * Filter and calculate distances when location or distance filter changes
@@ -296,7 +321,7 @@ export const UserDashboardScreen = () => {
     setIsRefreshing(true);
     // Clear route distance cache on refresh to get fresh data
     clearRouteCache();
-    await fetchCompanies();
+    await Promise.all([fetchCompanies(), fetchUserAppointments()]);
     setIsRefreshing(false);
   };
 
@@ -305,6 +330,21 @@ export const UserDashboardScreen = () => {
    */
   const handleCompanyPress = (companyId: number) => {
     navigation.navigate('VetCompanyDetail', { companyId });
+  };
+
+  const handleUserCancel = async (appointmentId: number) => {
+    try {
+      const ok = await ApiService.cancelAppointment(appointmentId);
+      if (ok) {
+        Alert.alert('Success', 'Appointment cancelled');
+        fetchUserAppointments();
+      } else {
+        Alert.alert('Error', 'Could not cancel appointment');
+      }
+    } catch (err: any) {
+      console.error('Cancel appointment error (user):', err);
+      Alert.alert('Error', err.message || 'Failed to cancel appointment');
+    }
   };
 
   /**
@@ -435,14 +475,56 @@ export const UserDashboardScreen = () => {
             </TouchableOpacity>
           </View>
 
-          {/* TODO: Replace with real appointment data from API */}
-          <View style={styles.emptyAppointments}>
-            <Ionicons name="calendar-outline" size={48} color={theme.colors.neutral[400]} />
-            <Text style={styles.emptyAppointmentsText}>No upcoming appointments</Text>
-            <TouchableOpacity style={styles.bookNowButton}>
-              <Text style={styles.bookNowButtonText}>Book Your First Appointment</Text>
-            </TouchableOpacity>
-          </View>
+          {/* User appointments: show upcoming or empty state */}
+          {isLoadingAppointments ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary.main} />
+            </View>
+          ) : userAppointments.length === 0 ? (
+            <View style={styles.emptyAppointments}>
+              <Ionicons name="calendar-outline" size={48} color={theme.colors.neutral[400]} />
+              <Text style={styles.emptyAppointmentsText}>No upcoming appointments</Text>
+              <TouchableOpacity style={styles.bookNowButton} onPress={() => navigation.navigate('BookAppointment' as any)}>
+                <Text style={styles.bookNowButtonText}>Book Your First Appointment</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View>
+              {/** Map server appointments to AppointmentCard shape */}
+              {userAppointments
+                .slice()
+                .sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime())
+                .map((a, idx) => {
+                  const mapped: AppointmentData = {
+                    id: a.id,
+                    clinicName: a.clinic_name || a.company?.name || 'Clinic',
+                    clinicLogo: a.company?.photo_url || undefined,
+                    clinicAddress: a.clinic_address || a.company?.address || undefined,
+                    date: new Date(a.appointment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    time: new Date(a.appointment_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                    petName: a.pet_name || 'Your pet',
+                    service: a.service_name || a.service?.service_name || 'Service',
+                    status: a.status,
+                    price: a.service_price || a.service?.price_min,
+                  };
+
+                  // Determine if the appointment is in the future; show upcoming variant for future appointments
+                  const isFuture = new Date(a.appointment_date).getTime() > Date.now();
+                  const variant = isFuture ? 'upcoming' : 'past';
+
+                  return (
+                    <View key={a.id} style={{ marginBottom: theme.spacing.md }}>
+                      <AppointmentCard
+                        appointment={mapped}
+                        variant={variant as any}
+                        onPress={() => navigation.navigate('VetCompanyDetail' as any, { companyId: a.clinic_id })}
+                        onCancel={() => handleUserCancel?.(a.id)}
+                      />
+                    </View>
+                  );
+                })}
+            </View>
+          )}
         </View>
 
         {/* 2. Find Clinics Section (MIDDLE) */}
@@ -567,17 +649,6 @@ export const UserDashboardScreen = () => {
             ))}
           </View>
         )}
-
-        {/* Full-width Book Appointment CTA under services/results */}
-        <View style={styles.fullWidthCTAContainer}>
-          <TouchableOpacity
-            style={styles.fullWidthCTA}
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('BookAppointment' as any)}
-          >
-            <Text style={styles.fullWidthCTAText}>Book Appointment</Text>
-          </TouchableOpacity>
-        </View>
 
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
@@ -907,25 +978,6 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     marginBottom: theme.spacing.md,
-  },
-  // Full-width CTA styles
-  fullWidthCTAContainer: {
-    width: SCREEN_WIDTH,
-    alignItems: 'center',
-    marginVertical: theme.spacing.md,
-    paddingHorizontal: 0,
-  },
-  fullWidthCTA: {
-    width: SCREEN_WIDTH,
-    backgroundColor: theme.colors.primary.main,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fullWidthCTAText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 16,
   },
 });
 
