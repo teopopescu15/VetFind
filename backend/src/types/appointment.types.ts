@@ -37,6 +37,8 @@ export interface CreateAppointmentDTO {
   clinic_id: number;
   user_id: number;
   service_id?: number;
+  // Optional array of selected services (ids or objects) when booking multiple services
+  services?: Array<number | { id: number }>;
   appointment_date: string | Date; // ISO datetime string or Date object
   status?: AppointmentStatus; // Default: 'confirmed' for instant booking
   notes?: string;

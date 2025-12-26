@@ -270,8 +270,16 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
    * Handle slot selection
    */
   const handleSlotSelect = (slot: TimeSlot) => {
-    if (slot.available) {
-      setSelectedSlot(slot);
+    const slotKey = slot.datetime || `${slot.date}T${slot.time}`;
+    // Only allow selecting slots that we computed as valid starts (enough consecutive availability)
+    // validStartSet is computed below in render scope
+    try {
+      if ((validStartSet && validStartSet.has(slotKey)) || slot.available) {
+        setSelectedSlot(slot);
+      }
+    } catch {
+      // Fallback: if computation fails for any reason, allow selecting only if slot.available
+      if (slot.available) setSelectedSlot(slot);
     }
   };
 
@@ -297,10 +305,39 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
         return;
       }
 
+      // --- Server-side pre-check: re-validate the selected slot is still available ---
+      try {
+        const serviceIdForQuery = primaryServiceId ?? params.serviceId ?? params.service?.id;
+        const dateStr = selectedDate ? formatDate(selectedDate) : null;
+        const durationParam = totalRequiredDuration && totalRequiredDuration > 0 ? totalRequiredDuration : undefined;
+
+        if (serviceIdForQuery && dateStr) {
+          const availability = await ApiService.getAvailableSlots(companyId, serviceIdForQuery, dateStr, dateStr, durationParam);
+          const day = availability && availability.length ? availability[0] : undefined;
+
+          const matching = day?.slots?.find((s) => (s.datetime && s.datetime === selectedSlot.datetime) || (s.time === selectedSlot.time));
+
+          if (!matching || !matching.available) {
+            // Slot no longer available — refresh slots for the range and inform user
+            Alert.alert('Slot unavailable', 'The selected time slot is no longer available. Please choose another time.');
+            // Refresh all available slots (this will update UI)
+            loadAvailableSlots();
+            setSelectedSlot(null);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (precheckErr) {
+        // If precheck failed (network or API), we still attempt booking but log the issue.
+        console.warn('Slot pre-check failed, attempting booking anyway:', precheckErr);
+      }
+
       const appointmentData = {
         clinic_id: companyId,
         user_id: user.id,
         service_id: primaryServiceId,
+        // Send the full list of selected service ids so backend can snapshot prices/durations
+        services: selectedServicesState.map(s => s.id),
         appointment_date: selectedSlot.datetime,
         notes: [
           notes.trim(),
@@ -346,6 +383,73 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
   const slots = getSlotsForSelectedDate();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  /**
+   * Helpers to compute contiguous slot availability based on totalRequiredDuration
+   * We'll compute the minimum step between consecutive slots (in minutes) and
+   * require enough consecutive available slots to cover the total duration.
+   */
+  const minutesBetween = (t1: string, t2: string) => {
+    const [h1, m1] = t1.split(':').map((v) => Number(v));
+    const [h2, m2] = t2.split(':').map((v) => Number(v));
+    return (h2 * 60 + m2) - (h1 * 60 + m1);
+  };
+
+  // Determine valid start times for the current slots and required duration
+  const computeValidStartSet = () => {
+    const set = new Set<string>();
+    if (!slots || slots.length === 0) return set;
+
+    // Compute diffs between consecutive slots to infer step (in minutes)
+    const diffs: number[] = [];
+    for (let i = 1; i < slots.length; i++) {
+      try {
+        const d = minutesBetween(slots[i - 1].time, slots[i].time);
+        if (d > 0) diffs.push(d);
+      } catch {
+        // ignore parse errors
+      }
+    }
+
+    const slotStep = diffs.length ? Math.min(...diffs) : Math.max(15, totalRequiredDuration || 15);
+    const neededSlots = Math.max(1, Math.ceil((totalRequiredDuration || 0) / slotStep));
+
+    for (let i = 0; i < slots.length; i++) {
+      const start = slots[i];
+      if (!start.available) continue;
+
+      let ok = true;
+      for (let j = 0; j < neededSlots; j++) {
+        const idx = i + j;
+        const s = slots[idx];
+        if (!s) {
+          ok = false;
+          break;
+        }
+        // require the slot to be available
+        if (!s.available) {
+          ok = false;
+          break;
+        }
+
+        // require contiguous spacing equal to slotStep (defensive: allow small drift)
+        if (j > 0) {
+          const expected = slotStep * j;
+          const actual = minutesBetween(start.time, s.time);
+          if (Math.abs(actual - expected) > 1) {
+            ok = false;
+            break;
+          }
+        }
+      }
+
+      if (ok) set.add(start.datetime || `${start.date}T${start.time}`);
+    }
+
+    return set;
+  };
+
+  const validStartSet = computeValidStartSet();
 
   return (
     <View style={styles.container}>
@@ -517,28 +621,32 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                 {slots.map((slot, index) => {
                   const isSelected = selectedSlot?.time === slot.time;
                   const formattedTime = formatTime12Hour(slot.time);
+                  // A slot is selectable only if it's in validStartSet (i.e. enough consecutive available slots exist)
+                  const slotKey = slot.datetime || `${slot.date}T${slot.time}`;
+                  const isSelectable = validStartSet.has(slotKey);
+
                   return (
                     <TouchableOpacity
                       key={index}
                       style={[
                         styles.slotChip,
                         isSelected && styles.slotChipSelected,
-                        !slot.available && styles.slotChipDisabled,
+                        !isSelectable && styles.slotChipDisabled,
                       ]}
                       onPress={() => handleSlotSelect(slot)}
-                      disabled={!slot.available}
+                      disabled={!isSelectable}
                       activeOpacity={0.7}
                       {...a11yProps.button(
-                        a11yLabels.timeSlot(formattedTime, slot.available),
-                        slot.available ? 'Book appointment at this time' : 'Time slot not available',
-                        !slot.available
+                        a11yLabels.timeSlot(formattedTime, isSelectable),
+                        isSelectable ? 'Book appointment at this time' : 'Time slot not available for full duration',
+                        !isSelectable
                       )}
                     >
                       <Text
                         style={[
                           styles.slotText,
                           isSelected && styles.slotTextSelected,
-                          !slot.available && styles.slotTextDisabled,
+                          !isSelectable && styles.slotTextDisabled,
                         ]}
                       >
                         {formattedTime}

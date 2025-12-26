@@ -6,6 +6,7 @@ import {
   getCompanyAppointments,
   updateAppointment,
   cancelAppointment,
+  deleteAppointment,
 } from '../controllers/appointments';
 import { authMiddleware } from '../middleware/auth.middleware';
 
@@ -28,5 +29,8 @@ router.patch('/:id', authMiddleware, updateAppointment);
 
 // PATCH /api/appointments/:id/cancel - Cancel appointment (requires auth)
 router.patch('/:id/cancel', authMiddleware, cancelAppointment);
+
+// DELETE /api/appointments/:id - Delete appointment (requires auth)
+router.delete('/:id', authMiddleware, deleteAppointment);
 
 export default router;

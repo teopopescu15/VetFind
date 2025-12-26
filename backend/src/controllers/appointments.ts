@@ -48,22 +48,30 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // If service_id provided, verify it exists and get duration
-    let serviceDuration = 30; // Default duration
-    if (appointmentData.service_id) {
-      const service = await CompanyServiceModel.findById(appointmentData.service_id);
-      if (!service) {
-        res.status(404).json({ error: 'Service not found' });
-        return;
+    // Determine total duration for the booking (support multiple services)
+    let totalDuration = 30; // Default duration
+    const selectedServices: Array<number | { id: number }> = appointmentData.services && Array.isArray(appointmentData.services)
+      ? appointmentData.services
+      : (appointmentData.service_id ? [appointmentData.service_id] : []);
+
+    if (selectedServices.length > 0) {
+      totalDuration = 0;
+      for (const s of selectedServices) {
+        const sid = typeof s === 'number' ? s : s.id;
+        const service = await CompanyServiceModel.findById(sid);
+        if (!service) {
+          res.status(404).json({ error: `Service not found: ${sid}` });
+          return;
+        }
+        totalDuration += service.duration_minutes || 30;
       }
-      serviceDuration = service.duration_minutes || 30;
     }
 
-    // Check if the slot is available
+    // Check if the slot is available for the total duration
     const isAvailable = await appointmentModel.isSlotAvailable(
       appointmentData.clinic_id,
       appointmentDate,
-      serviceDuration
+      totalDuration
     );
 
     if (!isAvailable) {
@@ -76,6 +84,7 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
       company_id: appointmentData.clinic_id, // Map clinic_id from frontend to company_id in database
       user_id: user_id, // Use user_id from authenticated token, not request body
       service_id: appointmentData.service_id,
+      services: selectedServices,
       appointment_date: appointmentDate,
       status: 'pending', // New behavior: mark as pending so company can accept/cancel
       notes: appointmentData.notes,
@@ -92,6 +101,53 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
   } catch (error: any) {
     console.error('Error creating appointment:', error);
     res.status(500).json({ error: 'Failed to create appointment' });
+  }
+};
+
+/**
+ * Delete an appointment
+ * DELETE /api/appointments/:id
+ */
+export const deleteAppointment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const appointmentId = parseInt(req.params.id);
+    const userId = (req as any).user?.id;
+
+    if (isNaN(appointmentId)) {
+      res.status(400).json({ error: 'Invalid appointment ID' });
+      return;
+    }
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const appointment = await appointmentModel.findById(appointmentId);
+    if (!appointment) {
+      res.status(404).json({ error: 'Appointment not found' });
+      return;
+    }
+
+    // Only the appointment owner or the clinic owner can delete
+    const clinicRes = await pool.query('SELECT user_id FROM companies WHERE id = $1', [appointment.company_id]);
+    const clinicOwnerId = clinicRes.rows.length ? clinicRes.rows[0].user_id : null;
+
+    if (appointment.user_id !== userId && clinicOwnerId !== userId) {
+      res.status(403).json({ error: 'Not authorized to delete this appointment' });
+      return;
+    }
+
+    const success = await appointmentModel.delete(appointmentId);
+    if (!success) {
+      res.status(500).json({ error: 'Failed to delete appointment' });
+      return;
+    }
+
+    res.status(200).json({ success: true, message: 'Appointment deleted successfully' });
+  } catch (error: any) {
+    console.error('Error deleting appointment:', error);
+    res.status(500).json({ error: 'Failed to delete appointment' });
   }
 };
 

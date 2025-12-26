@@ -42,6 +42,7 @@ export interface CreateAppointmentDTO {
   clinic_id: number;
   user_id: number;
   service_id?: number;
+  services?: number[]; // optional array of selected service ids for multi-service bookings
   appointment_date: string; // ISO datetime string
   status?: AppointmentStatus; // Default: 'confirmed' for instant booking
   // Note: server now creates appointments with 'pending' status by default; company must accept to confirm

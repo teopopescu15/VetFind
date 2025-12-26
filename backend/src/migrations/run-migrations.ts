@@ -49,6 +49,8 @@ const runMigrations = async () => {
       '010_add_category_id_to_company_services.sql',
       // Appointments & reviews migration recreated after legacy clinic removal
       '011_create_appointments_reviews.sql',
+      '012_create_appointment_services.sql',
+      '013_add_deleted_columns_to_appointments.sql',
     ];
 
     console.log(`\n📋 Found ${migrations.length} migration files to execute\n`);

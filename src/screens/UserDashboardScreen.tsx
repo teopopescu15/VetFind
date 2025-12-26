@@ -21,7 +21,7 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
-import { Text, ActivityIndicator, Chip, TextInput } from 'react-native-paper';
+import { Text, ActivityIndicator, Chip, TextInput, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -100,6 +100,11 @@ export const UserDashboardScreen = () => {
   // ===== User appointments (pet owner) =====
   const [userAppointments, setUserAppointments] = useState<any[]>([]);
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
+  const [expandedAppointments, setExpandedAppointments] = useState<number[]>([]);
+
+  const toggleExpand = (id: number) => {
+    setExpandedAppointments((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
 
   const fetchUserAppointments = useCallback(async () => {
     try {
@@ -347,6 +352,39 @@ export const UserDashboardScreen = () => {
     }
   };
 
+  const handleUserDelete = async (appointmentId: number) => {
+    try {
+      // Confirm with the user before permanently deleting
+      Alert.alert(
+        'Delete appointment',
+        'Are you sure you want to permanently delete this cancelled appointment?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const ok = await ApiService.deleteAppointment(appointmentId);
+                if (ok) {
+                  Alert.alert('Deleted', 'Appointment removed');
+                  fetchUserAppointments();
+                } else {
+                  Alert.alert('Error', 'Could not delete appointment');
+                }
+              } catch (err: any) {
+                console.error('Delete appointment error (user):', err);
+                Alert.alert('Error', err.message || 'Failed to delete appointment');
+              }
+            },
+          },
+        ]
+      );
+    } catch (err: any) {
+      console.error('Delete confirmation error:', err);
+    }
+  };
+
   /**
    * Handle sort requests coming from the card buttons.
    * dir: 'asc' => sort by matchedService.price_min ascending
@@ -495,7 +533,38 @@ export const UserDashboardScreen = () => {
                 .slice()
                 .sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime())
                 .map((a, idx) => {
-                  const mapped: AppointmentData = {
+                  // Normalize services selection: support multiple shapes returned from backend
+                  let servicesList: Array<any> = [];
+                  if (Array.isArray(a.services) && a.services.length) {
+                    servicesList = a.services;
+                  } else if (Array.isArray(a.selected_services) && a.selected_services.length) {
+                    servicesList = a.selected_services;
+                  } else if (Array.isArray(a.service) && a.service.length) {
+                    servicesList = a.service;
+                  } else if (a.service_name || a.service) {
+                    // single service fallback
+                    servicesList = [
+                      {
+                        service_name: a.service_name || a.service?.service_name || a.service || 'Service',
+                        price_min: a.service?.price_min ?? a.service_price ?? a.price ?? undefined,
+                        price_max: a.service?.price_max ?? a.service_price ?? a.price ?? undefined,
+                        duration_minutes: a.service?.duration_minutes ?? undefined,
+                      },
+                    ];
+                  }
+
+                  // Compute totals across selected services (sum of mins, sum of maxes, sum of durations)
+                  const totalPriceMin = servicesList.length
+                    ? servicesList.reduce((sum, s) => sum + Number(s?.price_min ?? s?.price ?? 0), 0)
+                    : 0;
+                  const totalPriceMax = servicesList.length
+                    ? servicesList.reduce((sum, s) => sum + Number(s?.price_max ?? s?.price ?? 0), 0)
+                    : 0;
+                  const totalDuration = servicesList.length
+                    ? servicesList.reduce((sum, s) => sum + Number(s?.duration_minutes ?? 0), 0)
+                    : 0;
+
+                  const mapped: AppointmentData & { servicesList?: any[]; total_price_min?: number; total_price_max?: number; total_duration_minutes?: number } = {
                     id: a.id,
                     clinicName: a.clinic_name || a.company?.name || 'Clinic',
                     clinicLogo: a.company?.photo_url || undefined,
@@ -506,20 +575,119 @@ export const UserDashboardScreen = () => {
                     service: a.service_name || a.service?.service_name || 'Service',
                     status: a.status,
                     price: a.service_price || a.service?.price_min,
+                    servicesList,
+                    total_price_min: totalPriceMin,
+                    total_price_max: totalPriceMax,
+                    total_duration_minutes: totalDuration,
                   };
 
                   // Determine if the appointment is in the future; show upcoming variant for future appointments
                   const isFuture = new Date(a.appointment_date).getTime() > Date.now();
                   const variant = isFuture ? 'upcoming' : 'past';
 
+                  const isExpanded = expandedAppointments.includes(a.id);
+
+                  const statusColor = (s: string) => {
+                    switch (s) {
+                      case 'confirmed':
+                        return theme.colors.primary.main;
+                      case 'pending':
+                        return theme.colors.warning.main;
+                      case 'cancelled':
+                        return theme.colors.error.main;
+                      default:
+                        return theme.colors.neutral[600];
+                    }
+                  };
+
                   return (
-                    <View key={a.id} style={{ marginBottom: theme.spacing.md }}>
-                      <AppointmentCard
-                        appointment={mapped}
-                        variant={variant as any}
-                        onPress={() => navigation.navigate('VetCompanyDetail' as any, { companyId: a.clinic_id })}
-                        onCancel={() => handleUserCancel?.(a.id)}
-                      />
+                    <View key={a.id} style={styles.appRowContainer}>
+                      <TouchableOpacity onPress={() => toggleExpand(a.id)} activeOpacity={0.8} style={styles.appRow}>
+                        <View style={styles.appRowLeft}>
+                          <Text style={styles.clinicNameSmall}>{mapped.clinicName}</Text>
+                          <Text style={styles.dateTimeText}>{mapped.date} • {mapped.time}</Text>
+                        </View>
+
+                        <View style={styles.appRowRight}>
+                          <View style={[styles.statusBadge, { borderColor: statusColor(mapped.status) }]}>
+                            <Text style={[styles.statusBadgeText, { color: statusColor(mapped.status) }]}>{mapped.status.charAt(0).toUpperCase() + mapped.status.slice(1)}</Text>
+                          </View>
+                          <TouchableOpacity onPress={() => toggleExpand(a.id)} style={styles.expandButton}>
+                            <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={theme.colors.neutral[700]} />
+                          </TouchableOpacity>
+                        </View>
+                      </TouchableOpacity>
+
+                      {isExpanded && (
+                        <View style={styles.appDetails}>
+                          {/* Services list */}
+                          {mapped.servicesList && mapped.servicesList.length > 0 ? (
+                            <View>
+                              <Text style={[styles.detailText, { fontWeight: '700' }]}>Services:</Text>
+                              {mapped.servicesList.map((s, si) => {
+                                const priceMin = s?.price_min ?? s?.price ?? 0;
+                                const priceMax = s?.price_max ?? s?.price ?? 0;
+                                const duration = s?.duration_minutes ?? 0;
+                                const hasPrice = !!(s?.price_min || s?.price_max || s?.price);
+                                const priceText = hasPrice
+                                  ? (s?.price_min != null && s?.price_max != null
+                                      ? `$${Number(s.price_min)} - $${Number(s.price_max)}`
+                                      : `$${Number(s.price ?? s.price_min ?? s.price_max ?? 0)}`)
+                                  : '$0';
+
+                                return (
+                                  <Text key={si} style={styles.detailText}>
+                                    {s.service_name || s.name || 'Service'} — {priceText}{' '}
+                                    • {duration ? `${duration} min` : '0 min'}
+                                  </Text>
+                                );
+                              })}
+
+                              {/* Totals: sum of mins, sum of maxes, sum of durations (fallback 0) */}
+                              <Text style={[styles.detailText, { marginTop: theme.spacing.sm }]}>
+                                <Text style={{ fontWeight: '700' }}>Price:</Text>{' '}
+                                {typeof mapped.total_price_min === 'number' && typeof mapped.total_price_max === 'number'
+                                  ? `$${mapped.total_price_min} - $${mapped.total_price_max}`
+                                  : `$0 - $0`}
+                              </Text>
+
+                              <Text style={styles.detailText}>
+                                <Text style={{ fontWeight: '700' }}>Duration:</Text>{' '}
+                                {typeof mapped.total_duration_minutes === 'number'
+                                  ? `${mapped.total_duration_minutes} min`
+                                  : `0 min`}
+                              </Text>
+                            </View>
+                          ) : (
+                            <>
+                              <Text style={styles.detailText}><Text style={{ fontWeight: '700' }}>Service:</Text> {mapped.service}</Text>
+                              <Text style={styles.detailText}><Text style={{ fontWeight: '700' }}>Price:</Text> {mapped.price ? `$${mapped.price}` : '$0'}</Text>
+                              <Text style={styles.detailText}><Text style={{ fontWeight: '700' }}>Duration:</Text> {a.service?.duration_minutes ? `${a.service.duration_minutes} min` : '0 min'}</Text>
+                            </>
+                          )}
+
+                          {(mapped.status === 'confirmed' || mapped.status === 'pending') && (
+                            <View style={styles.detailsActions}>
+                              <Button mode="outlined" onPress={() => handleUserCancel(a.id)} textColor={theme.colors.error.main} style={styles.cancelButton}>
+                                Cancel
+                              </Button>
+                            </View>
+                          )}
+                          {mapped.status === 'cancelled' && (
+                            <View style={styles.detailsActions}>
+                              <Button
+                                mode="outlined"
+                                onPress={() => handleUserDelete(a.id)}
+                                textColor={theme.colors.error.main}
+                                style={styles.cancelButton}
+                                icon={() => <Ionicons name="trash-outline" size={16} color={theme.colors.error.main} />}
+                              >
+                                Delete
+                              </Button>
+                            </View>
+                          )}
+                        </View>
+                      )}
                     </View>
                   );
                 })}
@@ -970,6 +1138,72 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  /* Appointment compact list styles */
+  appRowContainer: {
+    backgroundColor: theme.colors.neutral[50],
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral[200],
+  },
+  appRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  appRowLeft: {
+    flex: 1,
+  },
+  clinicNameSmall: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.neutral[900],
+  },
+  dateTimeText: {
+    fontSize: 13,
+    color: theme.colors.neutral[600],
+    marginTop: theme.spacing.xs,
+  },
+  appRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: theme.spacing.md,
+  },
+  statusBadge: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  expandButton: {
+    marginLeft: theme.spacing.sm,
+  },
+  appDetails: {
+    marginTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.neutral[200],
+    paddingTop: theme.spacing.sm,
+  },
+  detailText: {
+    fontSize: 14,
+    color: theme.colors.neutral[700],
+    marginBottom: theme.spacing.xs,
+  },
+  detailsActions: {
+    marginTop: theme.spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  cancelButton: {
+    borderColor: theme.colors.error.main,
+    borderWidth: 1,
+    backgroundColor: 'transparent',
   },
   // Find Clinics Section Styles
   findClinicsSection: {

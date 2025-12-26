@@ -38,9 +38,22 @@ export interface AppointmentData {
   date: string;  // e.g., "Dec 25, 2024"
   time: string;  // e.g., "10:00 AM"
   petName: string;
-  service: string;
+  // For backwards compatibility a single service name may be provided
+  service?: string;
+  // Support multiple services snapshot (backend may return this)
+  services?: Array<{
+    service_name?: string;
+    price_min?: number | null;
+    price_max?: number | null;
+    duration_minutes?: number | null;
+  }>;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  // Legacy single price
   price?: number;
+  // Aggregates (optional)
+  total_price_min?: number | null;
+  total_price_max?: number | null;
+  total_duration_minutes?: number | null;
 }
 
 /**
@@ -96,6 +109,36 @@ export const AppointmentCard = ({
   };
 
   const config = statusConfig[appointment.status];
+
+  // Helpers to compute totals and formatting
+  const formatPriceRange = (min?: number | null, max?: number | null) => {
+    const minN = Number(min || 0) || 0;
+    const maxN = Number(max != null ? max : min) || minN;
+    if (minN === maxN) return `$${minN}`;
+    return `$${minN} - $${maxN}`;
+  };
+
+  const formatDuration = (minutes?: number | null) => {
+    const m = Number(minutes || 0) || 0;
+    if (m === 0) return '';
+    if (m < 60) return `${m} min`;
+    const hrs = Math.floor(m / 60);
+    const rem = m % 60;
+    return rem === 0 ? `${hrs} hr` : `${hrs}h ${rem}m`;
+  };
+
+  // Compute totals from services if present, otherwise use aggregates or legacy fields
+  let totalMin: number | null = appointment.total_price_min ?? null;
+  let totalMax: number | null = appointment.total_price_max ?? null;
+  let totalDuration: number | null = appointment.total_duration_minutes ?? null;
+
+  if (Array.isArray(appointment.services) && appointment.services.length > 0) {
+    totalMin = appointment.services.reduce((sum, s) => sum + (Number(s.price_min) || 0), 0);
+    totalMax = appointment.services.reduce((sum, s) => sum + (Number(s.price_max) || 0), 0);
+    totalDuration = appointment.services.reduce((sum, s) => sum + (Number(s.duration_minutes) || 0), 0);
+  } else if (appointment.price != null && (totalMin == null && totalMax == null)) {
+    totalMin = totalMax = appointment.price;
+  }
 
   /**
    * Render upcoming appointment (prominent card)
@@ -154,25 +197,67 @@ export const AppointmentCard = ({
             <Text style={styles.detailValue}>{appointment.petName}</Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <MaterialCommunityIcons name="medical-bag" size={20} color={theme.colors.primary.main} />
-            <Text style={styles.detailLabel}>Service:</Text>
-            <Text style={styles.detailValue}>{appointment.service}</Text>
-          </View>
+          {/* If multiple services were saved, render list and totals */}
+          {Array.isArray(appointment.services) && appointment.services.length > 0 ? (
+            <View>
+              <View style={styles.servicesList}>
+                <Text style={styles.servicesLabel}>Services:</Text>
+                {appointment.services.map((s, idx) => (
+                  <Text key={idx} style={styles.serviceRow}>
+                    {s.service_name || appointment.service || 'Service'} — {formatPriceRange(s.price_min, s.price_max)}{s.duration_minutes ? ` • ${s.duration_minutes} min` : ''}
+                  </Text>
+                ))}
+              </View>
 
-          {appointment.price && (
-            <View style={styles.detailRow}>
-              <Ionicons name="cash-outline" size={20} color={theme.colors.accent.main} />
-              <Text style={styles.detailLabel}>Price:</Text>
-              <Text style={[styles.detailValue, { color: theme.colors.accent.main, fontWeight: '700' }]}>
-                ${appointment.price}
-              </Text>
+              {/* Price (total) */}
+              {(totalMin != null || totalMax != null) && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="cash-outline" size={20} color={theme.colors.accent.main} />
+                  <Text style={styles.detailLabel}>Price:</Text>
+                  <Text style={[styles.detailValue, { color: theme.colors.accent.main, fontWeight: '700' }]}>
+                    {formatPriceRange(totalMin, totalMax)}
+                  </Text>
+                </View>
+              )}
+
+              {/* Duration total */}
+              {totalDuration != null && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="time-outline" size={20} color={theme.colors.primary.main} />
+                  <Text style={styles.detailLabel}>Duration:</Text>
+                  <Text style={styles.detailValue}>{formatDuration(totalDuration)}</Text>
+                </View>
+              )}
             </View>
+          ) : (
+            <>
+              <View style={styles.detailRow}>
+                <MaterialCommunityIcons name="medical-bag" size={20} color={theme.colors.primary.main} />
+                <Text style={styles.detailLabel}>Service:</Text>
+                <Text style={styles.detailValue}>{appointment.service}</Text>
+              </View>
+
+              {(totalMin != null || totalMax != null) && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="cash-outline" size={20} color={theme.colors.accent.main} />
+                  <Text style={styles.detailLabel}>Price:</Text>
+                  <Text style={[styles.detailValue, { color: theme.colors.accent.main, fontWeight: '700' }]}> {formatPriceRange(totalMin, totalMax)}</Text>
+                </View>
+              )}
+
+              {totalDuration != null && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="time-outline" size={20} color={theme.colors.primary.main} />
+                  <Text style={styles.detailLabel}>Duration:</Text>
+                  <Text style={styles.detailValue}>{formatDuration(totalDuration)}</Text>
+                </View>
+              )}
+            </>
           )}
         </View>
 
         {/* Actions */}
-        {appointment.status === 'confirmed' && onCancel && (
+        {(appointment.status === 'confirmed' || appointment.status === 'pending') && onCancel && (
           <Button
             mode="outlined"
             onPress={onCancel}
@@ -206,7 +291,7 @@ export const AppointmentCard = ({
         <View style={styles.compactMain}>
           <Text style={styles.compactClinicName} numberOfLines={1}>{appointment.clinicName}</Text>
           <Text style={styles.compactService} numberOfLines={1}>
-            {appointment.service} • {appointment.petName}
+            {appointment.service} • {appointment.petName}{(totalMin != null || totalMax != null) ? ` • ${formatPriceRange(totalMin, totalMax)}` : ''}
           </Text>
         </View>
 
@@ -298,6 +383,19 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     gap: theme.spacing.md,
   },
+  servicesList: {
+    marginBottom: theme.spacing.sm,
+  },
+  servicesLabel: {
+    ...theme.typography.bodyMedium,
+    fontWeight: '700',
+    marginBottom: theme.spacing.xs,
+  },
+  serviceRow: {
+    ...theme.typography.bodySmall,
+    color: theme.colors.neutral[800],
+    marginBottom: theme.spacing.xs,
+  },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -318,6 +416,8 @@ const styles = StyleSheet.create({
     margin: theme.spacing.lg,
     marginTop: 0,
     borderColor: theme.colors.error.main,
+    borderWidth: 1,
+    backgroundColor: 'transparent',
   },
   compactHeader: {
     flexDirection: 'row',

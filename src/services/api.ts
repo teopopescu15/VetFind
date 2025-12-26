@@ -832,6 +832,27 @@ const createApiService = () => {
     },
 
     /**
+     * Delete appointment (permanent) - only available to authorized users
+     * @param appointmentId
+     */
+    async deleteAppointment(appointmentId: number, accessToken?: string): Promise<boolean> {
+      try {
+        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+
+        if (!token) {
+          throw new Error('Authentication required to delete appointments');
+        }
+
+        // Note: backend route must support DELETE /appointments/:id
+        await request(`/appointments/${appointmentId}`, 'DELETE', undefined, token);
+        return true;
+      } catch (error: any) {
+        console.error('Delete appointment error:', error);
+        return false;
+      }
+    },
+
+    /**
      * Get company's appointments (for vet companies)
      * @param accessToken - Company user's authentication token
      * @param status - Optional filter by status
