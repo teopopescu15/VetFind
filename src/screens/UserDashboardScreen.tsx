@@ -21,7 +21,7 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
-import { Text, ActivityIndicator, Chip, TextInput, Button } from 'react-native-paper';
+import { Text, ActivityIndicator, Chip, TextInput, Button, Snackbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -76,6 +76,10 @@ export const UserDashboardScreen = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearching, setIsSearching] = useState(false);
   const [sortMode, setSortMode] = useState<'none' | 'min_asc' | 'max_desc'>('none');
+  // Snackbar for web/native feedback and a deleting indicator for buttons
+  const [snackVisible, setSnackVisible] = useState(false);
+  const [snackMessage, setSnackMessage] = useState('');
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   /**
    * Fetch all companies from API
@@ -354,60 +358,24 @@ export const UserDashboardScreen = () => {
   };
 
   const handleUserDelete = async (appointmentId: number) => {
+    // Immediate soft-delete without dialog. Show a Snackbar for feedback and a loading state on the button.
     try {
-      // Cross-platform confirmation: on web Alert.alert does not support custom buttons, so
-      // use window.confirm when available (web). On native, use Alert.alert with buttons.
-      const proceedOnWeb = typeof window !== 'undefined' && typeof window.confirm === 'function'
-        ? window.confirm('This will hide the cancelled appointment from your list. Do you want to continue?')
-        : null;
-
-      if (proceedOnWeb !== null) {
-        // We're on web (or environment with window.confirm)
-        if (!proceedOnWeb) return; // user cancelled
-        try {
-          const ok = await ApiService.deleteAppointment(appointmentId);
-          if (ok) {
-            // Use a simple alert/notification on web
-            if (typeof window !== 'undefined' && typeof window.alert === 'function') window.alert('Appointment removed');
-            fetchUserAppointments();
-          } else {
-            if (typeof window !== 'undefined' && typeof window.alert === 'function') window.alert('Could not remove appointment');
-          }
-        } catch (err: any) {
-          console.error('Remove appointment error (user):', err);
-          if (typeof window !== 'undefined' && typeof window.alert === 'function') window.alert(err.message || 'Failed to remove appointment');
-        }
-        return;
+      setDeletingId(appointmentId);
+      const ok = await ApiService.deleteAppointment(appointmentId);
+      if (ok) {
+        setSnackMessage('Appointment removed');
+        setSnackVisible(true);
+        await fetchUserAppointments();
+      } else {
+        setSnackMessage('Could not remove appointment');
+        setSnackVisible(true);
       }
-
-      // Native path: keep Alert.alert with buttons
-      Alert.alert(
-        'Remove appointment',
-        'This will hide the cancelled appointment from your list. Do you want to continue?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Hide',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const ok = await ApiService.deleteAppointment(appointmentId);
-                if (ok) {
-                  Alert.alert('Removed', 'Appointment removed from your list');
-                  fetchUserAppointments();
-                } else {
-                  Alert.alert('Error', 'Could not remove appointment');
-                }
-              } catch (err: any) {
-                console.error('Remove appointment error (user):', err);
-                Alert.alert('Error', err.message || 'Failed to remove appointment');
-              }
-            },
-          },
-        ]
-      );
     } catch (err: any) {
-      console.error('Hide confirmation error:', err);
+      console.error('Remove appointment error (user):', err);
+      setSnackMessage(err?.message || 'Failed to remove appointment');
+      setSnackVisible(true);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -704,6 +672,8 @@ export const UserDashboardScreen = () => {
                               <Button
                                 mode="outlined"
                                 onPress={() => handleUserDelete(a.id)}
+                                loading={deletingId === a.id}
+                                disabled={deletingId !== null && deletingId !== a.id}
                                 textColor={theme.colors.error.main}
                                 style={styles.cancelButton}
                                 icon={() => <Ionicons name="trash-outline" size={16} color={theme.colors.error.main} />}
@@ -847,6 +817,15 @@ export const UserDashboardScreen = () => {
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
       </ScrollView>
+      {/* Feedback Snackbar (web + native) */}
+      <Snackbar
+        visible={snackVisible}
+        onDismiss={() => setSnackVisible(false)}
+        duration={3000}
+        action={{ label: 'OK', onPress: () => setSnackVisible(false) }}
+      >
+        {snackMessage}
+      </Snackbar>
     </SafeAreaView>
   );
 };
