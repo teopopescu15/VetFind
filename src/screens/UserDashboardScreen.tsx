@@ -85,7 +85,7 @@ export const UserDashboardScreen = () => {
       setError(null);
       const data = await ApiService.searchCompanies();
       // Sort by creation date (newest first)
-      const sorted = data.sort((a, b) => {
+      const sorted = data.sort((a: any, b: any) => {
         const dateA = new Date(a.created_at).getTime();
         const dateB = new Date(b.created_at).getTime();
         return dateB - dateA;
@@ -110,7 +110,8 @@ export const UserDashboardScreen = () => {
     try {
       setIsLoadingAppointments(true);
       const data = await ApiService.getUserAppointments();
-      setUserAppointments(data || []);
+      // Ensure we don't show appointments that have been soft-deleted
+      setUserAppointments((data || []).filter((a: any) => !a.deleted));
     } catch (err: any) {
       console.error('Error fetching user appointments:', err);
       setUserAppointments([]);
@@ -354,34 +355,59 @@ export const UserDashboardScreen = () => {
 
   const handleUserDelete = async (appointmentId: number) => {
     try {
-      // Confirm with the user before permanently deleting
+      // Cross-platform confirmation: on web Alert.alert does not support custom buttons, so
+      // use window.confirm when available (web). On native, use Alert.alert with buttons.
+      const proceedOnWeb = typeof window !== 'undefined' && typeof window.confirm === 'function'
+        ? window.confirm('This will hide the cancelled appointment from your list. Do you want to continue?')
+        : null;
+
+      if (proceedOnWeb !== null) {
+        // We're on web (or environment with window.confirm)
+        if (!proceedOnWeb) return; // user cancelled
+        try {
+          const ok = await ApiService.deleteAppointment(appointmentId);
+          if (ok) {
+            // Use a simple alert/notification on web
+            if (typeof window !== 'undefined' && typeof window.alert === 'function') window.alert('Appointment removed');
+            fetchUserAppointments();
+          } else {
+            if (typeof window !== 'undefined' && typeof window.alert === 'function') window.alert('Could not remove appointment');
+          }
+        } catch (err: any) {
+          console.error('Remove appointment error (user):', err);
+          if (typeof window !== 'undefined' && typeof window.alert === 'function') window.alert(err.message || 'Failed to remove appointment');
+        }
+        return;
+      }
+
+      // Native path: keep Alert.alert with buttons
       Alert.alert(
-        'Delete appointment',
-        'Are you sure you want to permanently delete this cancelled appointment?',
+        'Remove appointment',
+        'This will hide the cancelled appointment from your list. Do you want to continue?',
         [
           { text: 'Cancel', style: 'cancel' },
           {
-            text: 'Delete',
+            text: 'Hide',
             style: 'destructive',
             onPress: async () => {
               try {
                 const ok = await ApiService.deleteAppointment(appointmentId);
                 if (ok) {
-                  Alert.alert('Deleted', 'Appointment removed');
+                  Alert.alert('Removed', 'Appointment removed from your list');
                   fetchUserAppointments();
                 } else {
-                  Alert.alert('Error', 'Could not delete appointment');
+                  Alert.alert('Error', 'Could not remove appointment');
                 }
               } catch (err: any) {
-                console.error('Delete appointment error (user):', err);
-                Alert.alert('Error', err.message || 'Failed to delete appointment');
+                console.error('Remove appointment error (user):', err);
+                Alert.alert('Error', err.message || 'Failed to remove appointment');
               }
             },
           },
         ]
       );
     } catch (err: any) {
-      console.error('Delete confirmation error:', err);
+      console.error('Hide confirmation error:', err);
     }
   };
 
