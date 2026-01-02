@@ -19,6 +19,7 @@ import serviceCategoryRoutes from './routes/serviceCategory';
 import routesRoutes from './routes/routes';
 import servicesRoutes from './routes/services';
 import appointmentsRoutes from './routes/appointments';
+import vetRoutes from './routes/vet.routes';
 
 // Import error handler middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -84,7 +85,7 @@ app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
@@ -94,7 +95,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // API routes
-app.get('/api', (req: Request, res: Response) => {
+app.get('/api', (_req: Request, res: Response) => {
   res.json({
     message: 'Welcome to the API',
     version: '1.0.0',
@@ -112,6 +113,7 @@ app.use('/api/services', companyServiceRoutes); // Also mount at /api/services f
 app.use('/api/service-categories', serviceCategoryRoutes); // Service categories and specializations
 app.use('/api/routes', routesRoutes); // Google Routes API for driving distances
 app.use('/api/appointments', appointmentsRoutes); // Appointment booking routes
+app.use('/api/vet', vetRoutes); // Legacy-compat vet endpoints (clinics/reviews/etc.) used by frontend
 
 // Error handling middleware (should be last)
 app.use(notFound);

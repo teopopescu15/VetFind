@@ -3,8 +3,9 @@ import { QueryResult } from 'pg';
 
 export interface Review {
   id?: number;
-  clinic_id: number;
+  company_id: number;
   user_id: number;
+  appointment_id?: number;
   rating: number; // 1-5
   comment?: string;
   created_at?: Date;
@@ -16,13 +17,19 @@ export const createReviewModel = () => {
   return {
     // Create a new review
     async create(review: Review): Promise<number> {
+      // Basic validation to ensure required foreign keys are present
+      if (!review.company_id || !review.user_id || !review.appointment_id) {
+        throw new Error('Missing required fields: company_id, user_id and appointment_id');
+      }
+
       const result: QueryResult = await pool.query(
-        `INSERT INTO reviews (clinic_id, user_id, rating, comment)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO reviews (company_id, user_id, appointment_id, rating, comment)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING id`,
         [
-          review.clinic_id,
+          review.company_id,
           review.user_id,
+          review.appointment_id,
           review.rating,
           review.comment || null
         ]
@@ -45,7 +52,7 @@ export const createReviewModel = () => {
         `SELECT r.*, u.full_name as user_name, u.email as user_email
          FROM reviews r
          JOIN users u ON r.user_id = u.id
-         WHERE r.clinic_id = $1
+         WHERE r.company_id = $1
          ORDER BY r.created_at DESC`,
         [clinicId]
       );
@@ -64,7 +71,7 @@ export const createReviewModel = () => {
     // Get average rating for a clinic
     async getAverageRating(clinicId: number): Promise<number> {
       const result: QueryResult = await pool.query(
-        'SELECT AVG(rating) as avg_rating FROM reviews WHERE clinic_id = $1',
+        'SELECT AVG(rating) as avg_rating FROM reviews WHERE company_id = $1',
         [clinicId]
       );
       return result.rows[0]?.avg_rating || 0;
@@ -73,7 +80,7 @@ export const createReviewModel = () => {
     // Get review count for a clinic
     async getReviewCount(clinicId: number): Promise<number> {
       const result: QueryResult = await pool.query(
-        'SELECT COUNT(*) as count FROM reviews WHERE clinic_id = $1',
+        'SELECT COUNT(*) as count FROM reviews WHERE company_id = $1',
         [clinicId]
       );
       return parseInt(result.rows[0]?.count) || 0;
@@ -82,8 +89,17 @@ export const createReviewModel = () => {
     // Check if user has already reviewed a clinic
     async hasUserReviewed(clinicId: number, userId: number): Promise<boolean> {
       const result: QueryResult = await pool.query(
-        'SELECT id FROM reviews WHERE clinic_id = $1 AND user_id = $2',
+        'SELECT id FROM reviews WHERE company_id = $1 AND user_id = $2',
         [clinicId, userId]
+      );
+      return result.rows.length > 0;
+    },
+
+    // Check if a review exists for a specific appointment
+    async hasReviewForAppointment(appointmentId: number): Promise<boolean> {
+      const result: QueryResult = await pool.query(
+        'SELECT id FROM reviews WHERE appointment_id = $1',
+        [appointmentId]
       );
       return result.rows.length > 0;
     },
@@ -95,7 +111,7 @@ export const createReviewModel = () => {
       let paramIndex = 1;
 
       Object.entries(review).forEach(([key, value]) => {
-        if (key !== 'id' && key !== 'clinic_id' && key !== 'user_id' && key !== 'created_at' && key !== 'updated_at') {
+        if (key !== 'id' && key !== 'company_id' && key !== 'user_id' && key !== 'created_at' && key !== 'updated_at') {
           fields.push(`${key} = $${paramIndex}`);
           values.push(value);
           paramIndex++;

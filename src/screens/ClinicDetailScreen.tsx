@@ -39,7 +39,16 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
         vetApi.reviews.getByClinic(clinicId)
       ]);
 
-      setClinic(clinicData);
+      // Compute average rating from reviews if backend didn't include avg_rating
+      const computedAvg =
+        typeof clinicData?.avg_rating === 'number'
+          ? clinicData.avg_rating
+          : (reviewsData && reviewsData.length > 0
+              ? reviewsData.reduce((s: number, r: any) => s + Number(r.rating || 0), 0) / reviewsData.length
+              : 0);
+
+  // Cast to any to satisfy Clinic typing when some optional fields may be undefined
+  setClinic({ ...clinicData, avg_rating: computedAvg, review_count: reviewsData?.length ?? 0 } as any);
       setServices(servicesData);
       setReviews(reviewsData);
     } catch (error: any) {
@@ -54,7 +63,6 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
     navigation.navigate('BookAppointment', {
       clinicId: clinic?.id,
       clinicName: clinic?.name,
-      selectedServiceIds: service ? [service.id] : undefined,
       selectedServices: service ? [{
         id: service.id,
         company_id: clinic?.id || 0,

@@ -142,8 +142,9 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
     }).start();
   };
 
-  // Mock rating for now (you can add this to Company type later)
-  const rating = 4.8;
+  // Use server-provided average rating when available, otherwise show 0.0
+  const rating = typeof company.avg_rating === 'number' ? company.avg_rating : 0;
+  // Always show the badge (0.0 when there are no reviews) per product requirement
   const hasRating = true;
 
   return (
@@ -186,7 +187,10 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
             {hasRating && (
               <View style={styles.ratingBadge}>
                 <MaterialCommunityIcons name="star" size={14} color="#fbbf24" />
-                <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+                <Text style={styles.ratingText}>
+                  {rating.toFixed(1)}
+                  <Text style={styles.ratingCountText}> ({company.review_count ?? 0})</Text>
+                </Text>
               </View>
             )}
 
@@ -289,7 +293,7 @@ export const VetCompanyCard = memo(
     return (
       prevProps.company.id === nextProps.company.id &&
       prevProps.distance === nextProps.distance &&
-      prevProps.routeDistance?.distance_meters === nextProps.routeDistance?.distance_meters &&
+  prevProps.routeDistance?.distanceMeters === nextProps.routeDistance?.distanceMeters &&
       prevProps.matchedService?.id === nextProps.matchedService?.id
     );
   }
@@ -341,6 +345,12 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
+  },
+  ratingCountText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.95,
   },
   bottomBadgesContainer: {
     position: 'absolute',

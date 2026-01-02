@@ -51,6 +51,8 @@ const runMigrations = async () => {
       '011_create_appointments_reviews.sql',
       '012_create_appointment_services.sql',
       '013_add_deleted_columns_to_appointments.sql',
+      '014_allow_multiple_reviews_per_user.sql',
+      '015_reviews_add_appointment_id.sql',
     ];
 
     console.log(`\n📋 Found ${migrations.length} migration files to execute\n`);

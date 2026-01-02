@@ -21,7 +21,7 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
-import { Text, ActivityIndicator, Chip, TextInput, Button, Snackbar } from 'react-native-paper';
+import { Text, ActivityIndicator, Chip, TextInput, Button, Snackbar, Portal, Dialog } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -29,6 +29,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiService } from '../services/api';
+import { vetApi } from '../services/vetApi';
 import { Company } from '../types/company.types';
 import { RouteDistance } from '../types/routes.types';
 import { RootStackParamList } from '../types/navigation.types';
@@ -80,6 +81,14 @@ export const UserDashboardScreen = () => {
   const [snackVisible, setSnackVisible] = useState(false);
   const [snackMessage, setSnackMessage] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  // Review modal state
+  const [reviewVisible, setReviewVisible] = useState(false);
+  const [reviewClinicId, setReviewClinicId] = useState<number | null>(null);
+  const [reviewRating, setReviewRating] = useState<number>(5);
+  const [reviewComment, setReviewComment] = useState<string>('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [myReviews, setMyReviews] = useState<any[]>([]);
+  const [reviewAppointmentId, setReviewAppointmentId] = useState<number | null>(null);
 
   /**
    * Fetch all companies from API
@@ -124,6 +133,16 @@ export const UserDashboardScreen = () => {
     }
   }, []);
 
+  const fetchMyReviews = useCallback(async () => {
+    try {
+      const data = await vetApi.reviews.getMyReviews();
+      setMyReviews(data || []);
+    } catch (err: any) {
+      console.error('Error fetching my reviews:', err);
+      setMyReviews([]);
+    }
+  }, []);
+
   const isFocused = useIsFocused();
 
   useEffect(() => {
@@ -137,7 +156,7 @@ export const UserDashboardScreen = () => {
     const loadData = async () => {
       setIsLoading(true);
       // load companies and user appointments in parallel
-      await Promise.all([fetchCompanies(), fetchUserAppointments()]);
+      await Promise.all([fetchCompanies(), fetchUserAppointments(), fetchMyReviews()]);
       setIsLoading(false);
     };
     loadData();
@@ -379,6 +398,49 @@ export const UserDashboardScreen = () => {
     }
   };
 
+  const openReview = (clinicId: number | null, appointmentId?: number | null) => {
+    if (!clinicId) return;
+    setReviewClinicId(clinicId);
+    setReviewAppointmentId(appointmentId ?? null);
+    setReviewRating(5);
+    setReviewComment('');
+    setReviewVisible(true);
+  };
+
+  const closeReview = () => {
+    setReviewVisible(false);
+    setReviewClinicId(null);
+    setReviewAppointmentId(null);
+    setReviewRating(5);
+    setReviewComment('');
+  };
+
+  const submitReview = async () => {
+    if (!reviewClinicId) return;
+    if (reviewRating < 1 || reviewRating > 5) {
+      setSnackMessage('Rating must be between 1 and 5');
+      setSnackVisible(true);
+      return;
+    }
+
+    try {
+      setReviewSubmitting(true);
+  const payload = { rating: reviewRating, comment: reviewComment, appointment_id: reviewAppointmentId };
+  const saved = await vetApi.reviews.create(reviewClinicId, payload as any);
+  setSnackMessage('Multumesc pentru review');
+  setSnackVisible(true);
+  // Refresh my reviews so the Review button hides immediately
+  try { await fetchMyReviews(); } catch {}
+  closeReview();
+    } catch (err: any) {
+      console.error('Submit review error:', err);
+      setSnackMessage(err?.message || 'Failed to save review');
+      setSnackVisible(true);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
   /**
    * Handle sort requests coming from the card buttons.
    * dir: 'asc' => sort by matchedService.price_min ascending
@@ -575,6 +637,9 @@ export const UserDashboardScreen = () => {
                     total_duration_minutes: totalDuration,
                   };
 
+                  // Resolve clinic/company id using multiple possible shapes
+                  const clinicId = a.company?.id ?? a.company_id ?? a.clinic_id ?? null;
+
                   // Determine if the appointment is in the future; show upcoming variant for future appointments
                   const isFuture = new Date(a.appointment_date).getTime() > Date.now();
                   const variant = isFuture ? 'upcoming' : 'past';
@@ -584,11 +649,15 @@ export const UserDashboardScreen = () => {
                   const statusColor = (s: string) => {
                     switch (s) {
                       case 'confirmed':
-                        return theme.colors.primary.main;
+                        // show confirmed as green
+                        return theme.colors.success.main;
                       case 'pending':
                         return theme.colors.warning.main;
                       case 'cancelled':
                         return theme.colors.error.main;
+                      case 'completed':
+                        // show completed as blue/info
+                        return theme.colors.info.main;
                       default:
                         return theme.colors.neutral[600];
                     }
@@ -603,6 +672,20 @@ export const UserDashboardScreen = () => {
                         </View>
 
                         <View style={styles.appRowRight}>
+                          {mapped.status === 'completed' && (() => {
+                            const hasReviewed = myReviews.some((r) => r.appointment_id === a.id);
+                            if (hasReviewed) return null;
+                            return (
+                              <TouchableOpacity
+                                onPress={() => openReview(clinicId, a.id)}
+                                style={styles.reviewButton}
+                                activeOpacity={0.8}
+                              >
+                                <MaterialCommunityIcons name="star-outline" size={16} color={theme.colors.primary.main} />
+                                <Text style={styles.reviewButtonText}>Review</Text>
+                              </TouchableOpacity>
+                            );
+                          })()}
                           <View style={[styles.statusBadge, { borderColor: statusColor(mapped.status) }]}>
                             <Text style={[styles.statusBadgeText, { color: statusColor(mapped.status) }]}>{mapped.status.charAt(0).toUpperCase() + mapped.status.slice(1)}</Text>
                           </View>
@@ -817,6 +900,38 @@ export const UserDashboardScreen = () => {
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
       </ScrollView>
+      {/* Review dialog */}
+      <Portal>
+        <Dialog visible={reviewVisible} onDismiss={closeReview}>
+          <Dialog.Title>Leave a review</Dialog.Title>
+          <Dialog.Content>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <TouchableOpacity key={i} onPress={() => setReviewRating(i)} style={{ padding: 4 }}>
+                  <MaterialCommunityIcons
+                    name={i <= reviewRating ? 'star' : 'star-outline'}
+                    size={28}
+                    color={i <= reviewRating ? '#f59e0b' : '#d1d5db'}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              mode="outlined"
+              label="Comment (optional)"
+              value={reviewComment}
+              onChangeText={setReviewComment}
+              multiline
+              numberOfLines={4}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={closeReview} mode="text">Cancel</Button>
+            <Button onPress={submitReview} loading={reviewSubmitting} mode="contained">Done</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
       {/* Feedback Snackbar (web + native) */}
       <Snackbar
         visible={snackVisible}
@@ -1175,6 +1290,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: theme.spacing.md,
+  },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginRight: theme.spacing.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  reviewButtonText: {
+    fontSize: 13,
+    color: theme.colors.primary.main,
+    fontWeight: '700',
+    marginLeft: 6,
   },
   statusBadge: {
     paddingHorizontal: theme.spacing.sm,

@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
 import { createReviewModel, Review } from '../models/review.model';
 import { createClinicModel } from '../models/clinic.model';
+import { createAppointmentModel } from '../models/appointment.model';
 
 const reviewModel = createReviewModel();
 const clinicModel = createClinicModel();
+const appointmentModel = createAppointmentModel();
 
 // Factory function for review controller
 export const createReviewController = () => {
@@ -25,19 +27,49 @@ export const createReviewController = () => {
           return;
         }
 
-        // Check if user has already reviewed this clinic
-        const hasReviewed = await reviewModel.hasUserReviewed(clinicId, userId);
-        if (hasReviewed) {
-          res.status(400).json({ success: false, message: 'You have already reviewed this clinic' });
+        // Ensure appointment_id is provided and valid
+        const appointmentId = parseInt(req.body.appointment_id);
+        if (!appointmentId) {
+          res.status(400).json({ success: false, message: 'appointment_id is required' });
+          return;
+        }
+
+        const appointment = await appointmentModel.findById(appointmentId);
+        if (!appointment) {
+          res.status(404).json({ success: false, message: 'Appointment not found' });
+          return;
+        }
+
+        // Appointment must belong to the requesting user and be completed
+        if (appointment.user_id !== userId) {
+          res.status(403).json({ success: false, message: 'Not authorized to review this appointment' });
+          return;
+        }
+
+        if (appointment.status !== 'completed') {
+          res.status(400).json({ success: false, message: 'Can only review completed appointments' });
+          return;
+        }
+
+        if (appointment.company_id !== clinicId) {
+          res.status(400).json({ success: false, message: 'Appointment does not belong to this clinic/company' });
+          return;
+        }
+
+        // Ensure one review per appointment
+        const exists = await reviewModel.hasReviewForAppointment(appointmentId);
+        if (exists) {
+          res.status(400).json({ success: false, message: 'A review already exists for this appointment' });
           return;
         }
 
         const reviewData: Review = {
-          clinic_id: clinicId,
+          company_id: clinicId,
           user_id: userId,
+          appointment_id: appointmentId,
           rating: req.body.rating,
           comment: req.body.comment
-        };
+        } as any;
 
         // Validate rating
         if (reviewData.rating < 1 || reviewData.rating > 5) {
@@ -54,7 +86,7 @@ export const createReviewController = () => {
           data: review
         });
       } catch (error: any) {
-        console.error('Create review error:', error);
+        console.error('Create review error:', error, error?.stack);
         res.status(500).json({
           success: false,
           message: 'Failed to create review',
