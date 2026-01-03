@@ -213,13 +213,21 @@ export const createCompanyController = () => {
           return;
         }
 
+        // Refresh persisted rating/review_count to ensure the latest values are served
+        const refreshed = await CompanyModel.updateRatingStats(company.id).catch((e) => {
+          console.error('updateRatingStats failed, returning stale rating fields:', e?.message || e);
+          return null;
+        });
+
+        const payload = refreshed || company;
+
         // Include services (treatments) offered by the company so public users can see them
         const services = await CompanyServiceModel.findByCompanyId(companyId);
 
         res.status(200).json({
           success: true,
           data: {
-            ...company,
+            ...payload,
             services,
           },
         });

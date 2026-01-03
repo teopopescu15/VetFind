@@ -109,8 +109,9 @@ export interface Company {
   company_completed: boolean; // Indicates if 4-step registration is complete
 
   // Optional analytics/aggregates
-  avg_rating?: number;
-  review_count?: number;
+  rating?: number;       // persisted average rating from backend
+  avg_rating?: number;   // legacy/alias, may mirror rating
+  review_count?: number; // persisted number of reviews from backend
   distance?: number;
 
   // Timestamps

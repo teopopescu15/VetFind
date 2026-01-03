@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { createReviewModel, Review } from '../models/review.model';
 import { createClinicModel } from '../models/clinic.model';
 import { createAppointmentModel } from '../models/appointment.model';
+import { CompanyModel } from '../models/company.model';
 
 const reviewModel = createReviewModel();
 const clinicModel = createClinicModel();
@@ -79,6 +80,13 @@ export const createReviewController = () => {
 
         const reviewId = await reviewModel.create(reviewData);
         const review = await reviewModel.findById(reviewId);
+
+        // Refresh company rating aggregates
+        try {
+          await CompanyModel.updateRatingStats(clinicId);
+        } catch (err) {
+          console.error('Failed to update company rating stats:', err);
+        }
 
         res.status(201).json({
           success: true,
@@ -169,6 +177,12 @@ export const createReviewController = () => {
         await reviewModel.update(reviewId, req.body);
         const updatedReview = await reviewModel.findById(reviewId);
 
+        try {
+          await CompanyModel.updateRatingStats(review.company_id);
+        } catch (err) {
+          console.error('Failed to update company rating stats:', err);
+        }
+
         res.status(200).json({
           success: true,
           message: 'Review updated successfully',
@@ -202,6 +216,12 @@ export const createReviewController = () => {
         }
 
         await reviewModel.delete(reviewId);
+
+        try {
+          await CompanyModel.updateRatingStats(review.company_id);
+        } catch (err) {
+          console.error('Failed to update company rating stats:', err);
+        }
         res.status(200).json({
           success: true,
           message: 'Review deleted successfully'

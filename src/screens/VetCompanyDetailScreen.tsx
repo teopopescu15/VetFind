@@ -414,9 +414,11 @@ export const VetCompanyDetailScreen = () => {
     );
   };
 
-  // Use rating info from company if available
-  const rating = company?.avg_rating ? company.avg_rating : 0;
-  const reviewCount = company?.review_count ? company.review_count : 0;
+  // Use persisted rating info from company if available
+  const rating = typeof company?.rating === 'number'
+    ? company.rating
+    : (typeof company?.avg_rating === 'number' ? company.avg_rating : 0);
+  const reviewCount = typeof company?.review_count === 'number' ? company.review_count : 0;
 
   if (isLoading) {
     return (
@@ -642,9 +644,6 @@ export const VetCompanyDetailScreen = () => {
           navigation.navigate('BookAppointment', {
             companyId,
             companyName: company?.name || '',
-            // pass ids instead of full objects to keep web URLs clean
-            selectedServiceIds: selected.map(s => s.id),
-            // also keep objects for native navigation if needed
             selectedServices: selected,
           });
         }}

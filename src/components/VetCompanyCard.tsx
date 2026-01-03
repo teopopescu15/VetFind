@@ -142,10 +142,11 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
     }).start();
   };
 
-  // Use server-provided average rating when available, otherwise show 0.0
-  const rating = typeof company.avg_rating === 'number' ? company.avg_rating : 0;
-  // Always show the badge (0.0 when there are no reviews) per product requirement
-  const hasRating = true;
+  // Use persisted rating from backend; fall back to legacy avg_rating; default to 0
+  const rating = typeof company.rating === 'number'
+    ? company.rating
+    : (typeof company.avg_rating === 'number' ? company.avg_rating : 0);
+  const reviewCount = typeof company.review_count === 'number' ? company.review_count : 0;
 
   return (
     <Animated.View style={[styles.container, {
@@ -184,15 +185,13 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
             )}
 
             {/* Rating Badge - Top Right */}
-            {hasRating && (
-              <View style={styles.ratingBadge}>
-                <MaterialCommunityIcons name="star" size={14} color="#fbbf24" />
-                <Text style={styles.ratingText}>
-                  {rating.toFixed(1)}
-                  <Text style={styles.ratingCountText}> ({company.review_count ?? 0})</Text>
-                </Text>
-              </View>
-            )}
+            <View style={styles.ratingBadge}>
+              <MaterialCommunityIcons name="star" size={14} color="#fbbf24" />
+              <Text style={styles.ratingText}>
+                {rating.toFixed(1)}
+                <Text style={styles.ratingCountText}> ({reviewCount})</Text>
+              </Text>
+            </View>
 
             {/* Bottom Badges Container */}
             <View style={styles.bottomBadgesContainer}>

@@ -474,6 +474,32 @@ export const CompanyModel = {
   },
 
   /**
+   * Recalculate and persist rating + review_count from reviews table
+   */
+  async updateRatingStats(companyId: number): Promise<Company | null> {
+    const query = `
+      WITH stats AS (
+        SELECT
+          COALESCE(AVG(rating), 0)::NUMERIC(3,2) AS avg_rating,
+          COUNT(*)::INTEGER AS review_count
+        FROM reviews
+        WHERE company_id = $1
+      )
+      UPDATE companies c
+      SET rating = stats.avg_rating,
+          review_count = stats.review_count,
+          updated_at = CURRENT_TIMESTAMP
+      FROM stats
+      WHERE c.id = $1
+      RETURNING c.*;
+    `;
+
+    const result = await pool.query(query, [companyId]);
+    if (!result.rows.length) return null;
+    return CompanyModel._deserializeCompany(result.rows[0]);
+  },
+
+  /**
    * Count total companies
    */
   async count(): Promise<number> {
@@ -488,6 +514,9 @@ export const CompanyModel = {
   _deserializeCompany(row: any): Company {
     return {
       ...row,
+      rating: row.rating !== undefined && row.rating !== null ? Number(row.rating) : 0,
+      review_count: row.review_count !== undefined && row.review_count !== null ? Number(row.review_count) : 0,
+      avg_rating: row.avg_rating !== undefined ? Number(row.avg_rating) : (row.rating !== undefined ? Number(row.rating) : 0),
       photos: typeof row.photos === 'string' ? JSON.parse(row.photos) : row.photos,
       opening_hours: typeof row.opening_hours === 'string' ? JSON.parse(row.opening_hours) : row.opening_hours,
     };

@@ -39,16 +39,19 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
         vetApi.reviews.getByClinic(clinicId)
       ]);
 
-      // Compute average rating from reviews if backend didn't include avg_rating
-      const computedAvg =
-        typeof clinicData?.avg_rating === 'number'
-          ? clinicData.avg_rating
-          : (reviewsData && reviewsData.length > 0
-              ? reviewsData.reduce((s: number, r: any) => s + Number(r.rating || 0), 0) / reviewsData.length
-              : 0);
+      const persistedRating =
+        typeof clinicData?.rating === 'number'
+          ? clinicData.rating
+          : (typeof clinicData?.avg_rating === 'number' ? clinicData.avg_rating : 0);
+      const persistedCount = typeof clinicData?.review_count === 'number' ? clinicData.review_count : 0;
 
-  // Cast to any to satisfy Clinic typing when some optional fields may be undefined
-  setClinic({ ...clinicData, avg_rating: computedAvg, review_count: reviewsData?.length ?? 0 } as any);
+      // Cast to any to satisfy Clinic typing when some optional fields may be undefined
+      setClinic({
+        ...clinicData,
+        rating: persistedRating,
+        avg_rating: persistedRating,
+        review_count: persistedCount,
+      } as any);
       setServices(servicesData);
       setReviews(reviewsData);
     } catch (error: any) {
@@ -107,10 +110,10 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <Text style={styles.clinicName}>{clinic.name}</Text>
-        {clinic.avg_rating && (
+        {typeof clinic.rating === 'number' && (
           <View style={styles.ratingContainer}>
-            <Text style={styles.ratingText}>⭐ {clinic.avg_rating.toFixed(1)}</Text>
-            <Text style={styles.reviewCount}>({clinic.review_count} reviews)</Text>
+            <Text style={styles.ratingText}>⭐ {clinic.rating.toFixed(1)}</Text>
+            <Text style={styles.reviewCount}>({clinic.review_count ?? 0} reviews)</Text>
           </View>
         )}
       </View>

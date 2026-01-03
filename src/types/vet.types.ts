@@ -16,6 +16,7 @@ export interface Clinic {
   longitude?: number;
   opening_hours?: OpeningHours;
   photo_urls?: string[];
+  rating?: number;
   avg_rating?: number;
   review_count?: number;
   distance?: number;
