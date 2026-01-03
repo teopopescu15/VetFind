@@ -19,6 +19,7 @@ import { CompanyCreatedSuccessScreen } from '../screens/CompanyCreatedSuccessScr
 import { CompanyDashboardScreen } from '../screens/CompanyDashboardScreen';
 import { UserDashboardScreen } from '../screens/UserDashboardScreen';
 import { VetCompanyDetailScreen } from '../screens/VetCompanyDetailScreen';
+import CompanyReviewsScreen from '../screens/CompanyReviewsScreen';
 import ManageServicesScreen from '../screens/ManageServicesScreen';
 import ManagePricesScreen from '../screens/ManagePricesScreen';
 import { ManagePhotosScreen } from '../screens/ManagePhotosScreen';
@@ -190,6 +191,7 @@ const AppNavigator: React.FC = () => {
           <Stack.Screen name="ManagePhotos" component={ManagePhotosScreen} />
           <Stack.Screen name="UserDashboard" component={UserDashboardScreen} />
           <Stack.Screen name="VetCompanyDetail" component={VetCompanyDetailScreen} />
+          <Stack.Screen name="CompanyReviews" component={CompanyReviewsScreen} />
           <Stack.Screen name="ClinicDetail" component={ClinicDetailScreen} />
           <Stack.Screen name="BookAppointment" component={BookAppointmentScreen} />
           <Stack.Screen name="MyAppointments" component={MyAppointmentsScreen} />

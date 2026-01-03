@@ -415,9 +415,7 @@ export const VetCompanyDetailScreen = () => {
   };
 
   // Use persisted rating info from company if available
-  const rating = typeof company?.rating === 'number'
-    ? company.rating
-    : (typeof company?.avg_rating === 'number' ? company.avg_rating : 0);
+  const rating = typeof company?.avg_rating === 'number' ? company.avg_rating : 0;
   const reviewCount = typeof company?.review_count === 'number' ? company.review_count : 0;
 
   if (isLoading) {
@@ -479,10 +477,27 @@ export const VetCompanyDetailScreen = () => {
           </LinearGradient>
 
           {/* Rating Badge */}
-          <View style={styles.ratingBadge}>
-            <MaterialCommunityIcons name="star" size={16} color="#fbbf24" />
-            <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
-            <Text style={styles.reviewCountText}>({reviewCount})</Text>
+          <View style={styles.ratingRow}>
+            <View style={styles.ratingBadge}>
+              <MaterialCommunityIcons name="star" size={16} color="#fbbf24" />
+              <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+              <Text style={styles.reviewCountText}>({reviewCount})</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.seeReviewsButton}
+              onPress={() => {
+                navigation.navigate('CompanyReviews', {
+                  companyId,
+                  companyName: company?.name,
+                });
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="See reviews"
+            >
+              <Text style={styles.seeReviewsText}>See reviews</Text>
+              <Ionicons name="chevron-forward" size={14} color="#ffffff" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -569,6 +584,7 @@ export const VetCompanyDetailScreen = () => {
               ))
             )}
           </View>
+
         </View>
 
         {/* Booking Button (full-width, shown under Services) */}
@@ -717,10 +733,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  ratingBadge: {
+  ratingRow: {
     position: 'absolute',
     bottom: 16,
     right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
@@ -728,6 +749,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 16,
     gap: 4,
+  },
+  seeReviewsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  seeReviewsText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   ratingText: {
     color: '#ffffff',

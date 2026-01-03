@@ -49,7 +49,7 @@ export const createReviewModel = () => {
     // Get reviews by clinic with user info
     async findByClinic(clinicId: number): Promise<any[]> {
       const result: QueryResult = await pool.query(
-        `SELECT r.*, u.full_name as user_name, u.email as user_email
+        `SELECT r.*, u.name as user_name, u.email as user_email
          FROM reviews r
          JOIN users u ON r.user_id = u.id
          WHERE r.company_id = $1

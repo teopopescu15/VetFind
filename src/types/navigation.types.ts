@@ -27,6 +27,10 @@ export type RootStackParamList = {
   VetCompanyDetail: {
     companyId: number;
   };
+  CompanyReviews: {
+    companyId: number;
+    companyName?: string;
+  };
 
   // Appointment booking routes
   BookAppointment: {
@@ -34,8 +38,6 @@ export type RootStackParamList = {
     companyName?: string;
     /** Selected services (preferred) */
     selectedServices?: CompanyService[];
-    /** Alternatively pass only service ids (better for web URLs) */
-    selectedServiceIds?: number[];
     // Legacy single-service params (optional)
     serviceId?: number;
     serviceName?: string;
