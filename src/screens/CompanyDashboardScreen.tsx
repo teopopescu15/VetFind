@@ -164,6 +164,20 @@ export const CompanyDashboardScreen = () => {
     );
   }
 
+  const avgRatingValue = typeof company.avg_rating === 'number' ? company.avg_rating : Number((company as any).avg_rating);
+  const reviewCountValue = typeof company.review_count === 'number' ? company.review_count : Number((company as any).review_count);
+  const hasReviews = (Number.isFinite(reviewCountValue) ? reviewCountValue : 0) > 0;
+  const averageRatingDisplay = hasReviews && Number.isFinite(avgRatingValue)
+    ? avgRatingValue.toFixed(1)
+    : '--';
+
+  const weeklyAppointmentsValue = typeof (company as any).weekly_appointments === 'number'
+    ? (company as any).weekly_appointments
+    : Number((company as any).weekly_appointments);
+  const weeklyAppointmentsDisplay = Number.isFinite(weeklyAppointmentsValue)
+    ? String(weeklyAppointmentsValue)
+    : '--';
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       {/* Compact Header */}
@@ -227,25 +241,35 @@ export const CompanyDashboardScreen = () => {
           <StatCard
             icon="calendar"
             iconColor={theme.colors.primary.main}
-            value="--"
+            value={weeklyAppointmentsDisplay}
             label="Weekly Appointments"
             isLoading={false}
           />
           <StatCard
             icon="star"
             iconColor={theme.colors.warning.main}
-            value="--"
+            value={averageRatingDisplay}
             label="Average Rating"
             isLoading={false}
           />
           <StatCard
             icon="trending-up"
             iconColor={theme.colors.success.main}
-            value="--"
-            label="Growth Rate"
+            value={Number.isFinite(reviewCountValue) ? String(reviewCountValue) : '--'}
+            label="Reviews"
             isLoading={false}
           />
         </View>
+
+        <Button
+          mode="outlined"
+          icon="star-outline"
+          onPress={() => navigation.navigate('CompanyReviews', { companyId: company.id, companyName: company.name })}
+          style={styles.seeReviewsButton}
+          textColor={theme.colors.primary.main}
+        >
+          See reviews
+        </Button>
       </View>
 
       {/* Services & Categories */}
@@ -407,6 +431,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.spacing.md,
+  },
+  seeReviewsButton: {
+    marginTop: theme.spacing.lg,
+    borderColor: theme.colors.primary.main,
+    alignSelf: 'flex-start',
   },
   quickActionsContainer: {
     paddingHorizontal: theme.spacing.lg,

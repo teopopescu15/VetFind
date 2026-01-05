@@ -186,6 +186,22 @@ export const createAppointmentModel = () => {
       return rows;
     },
 
+    // Count appointments for a clinic in the last N days
+    async countRecentByClinic(clinicId: number, days: number = 7): Promise<number> {
+      // Use appointment_date window; exclude cancelled and soft-deleted rows
+      const result = await pool.query(
+        `SELECT COUNT(*)::int AS count
+         FROM appointments
+         WHERE company_id = $1
+           AND appointment_date >= NOW() - ($2::text || ' days')::interval
+           AND status != 'cancelled'
+           AND (deleted = FALSE OR deleted IS NULL)`,
+        [clinicId, days]
+      );
+
+      return Number(result.rows[0]?.count) || 0;
+    },
+
     // Get upcoming appointments for a user
     async findUpcoming(userId: number): Promise<any[]> {
       const query = `

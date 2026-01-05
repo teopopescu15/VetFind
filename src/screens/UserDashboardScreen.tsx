@@ -115,6 +115,56 @@ export const UserDashboardScreen = () => {
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
   const [expandedAppointments, setExpandedAppointments] = useState<number[]>([]);
 
+  // Dashboard should show only a small, priority subset of appointments.
+  // Priority rules:
+  // - Include only: pending, confirmed, completed (ONLY if not reviewed yet)
+  // - Pick max 3 closest to now (past + future) by |appointment_date - now|
+  // - Completed with review should NOT be shown on dashboard
+  const getPriorityDashboardAppointments = useCallback(
+    (allAppointments: any[], reviews: any[]) => {
+      const reviewedAppointmentIds = new Set(
+        (reviews || [])
+          .map((r) => r?.appointment_id)
+          .filter((id) => typeof id === 'number')
+      );
+
+      const now = Date.now();
+
+      const eligible = (allAppointments || [])
+        .filter((a) => !a?.deleted)
+        .map((a) => {
+          const t = new Date(a?.appointment_date).getTime();
+          return { a, t, delta: Math.abs(t - now) };
+        })
+        .filter((x) => Number.isFinite(x.t))
+        .filter(({ a, t }) => {
+          const status = String(a?.status || '').toLowerCase();
+          const isPast = t < now;
+
+          // Past appointments on dashboard: ONLY completed and ONLY if review not yet left
+          if (isPast) {
+            if (status !== 'completed') return false;
+            const id = a?.id;
+            return typeof id === 'number' ? !reviewedAppointmentIds.has(id) : true;
+          }
+
+          // Future appointments on dashboard: ONLY pending/confirmed
+          if (status === 'pending' || status === 'confirmed' || status === 'cancelled') return true;
+
+          // Future completed appointments shouldn't show on dashboard (completed are for review flow)
+          return false;
+        });
+
+      eligible.sort((x, y) => {
+        if (x.delta !== y.delta) return x.delta - y.delta;
+        return x.t - y.t;
+      });
+
+      return eligible.slice(0, 3).map((x) => x.a);
+    },
+    []
+  );
+
   const toggleExpand = (id: number) => {
     setExpandedAppointments((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
@@ -142,6 +192,18 @@ export const UserDashboardScreen = () => {
       setMyReviews([]);
     }
   }, []);
+
+  const priorityAppointments = getPriorityDashboardAppointments(userAppointments, myReviews);
+  const hasAnyDashboardEligibleAppointments =
+    (userAppointments || []).filter((a) => {
+      const status = String(a?.status || '').toLowerCase();
+      if (status === 'pending' || status === 'confirmed') return true;
+      if (status === 'completed') {
+        const hasReviewed = myReviews.some((r) => r?.appointment_id === a?.id);
+        return !hasReviewed;
+      }
+      return false;
+    }).length > 0;
 
   const isFocused = useIsFocused();
 
@@ -563,7 +625,7 @@ export const UserDashboardScreen = () => {
         <View style={styles.myAppointmentsSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My Appointments</Text>
-            <TouchableOpacity style={styles.viewAllButton}>
+            <TouchableOpacity style={styles.viewAllButton} onPress={() => navigation.navigate('MyAppointments')}>
               <Text style={styles.viewAllButtonText}>View All</Text>
               <Ionicons name="chevron-forward" size={16} color={theme.colors.primary.main} />
             </TouchableOpacity>
@@ -574,7 +636,7 @@ export const UserDashboardScreen = () => {
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={theme.colors.primary.main} />
             </View>
-          ) : userAppointments.length === 0 ? (
+          ) : !hasAnyDashboardEligibleAppointments ? (
             <View style={styles.emptyAppointments}>
               <Ionicons name="calendar-outline" size={48} color={theme.colors.neutral[400]} />
               <Text style={styles.emptyAppointmentsText}>No upcoming appointments</Text>
@@ -585,7 +647,7 @@ export const UserDashboardScreen = () => {
           ) : (
             <View>
               {/** Map server appointments to AppointmentCard shape */}
-              {userAppointments
+              {priorityAppointments
                 .slice()
                 .sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime())
                 .map((a, idx) => {

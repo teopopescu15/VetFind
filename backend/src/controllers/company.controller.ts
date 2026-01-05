@@ -1,17 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { CompanyModel } from '../models/company.model';
 import { CompanyServiceModel } from '../models/companyService.model';
+import { createReviewModel } from '../models/review.model';
+import { createAppointmentModel } from '../models/appointment.model';
 import { CreateCompanyDTO, UpdateCompanyDTO, CompanySearchFilters } from '../types/company.types';
 import fs from 'fs';
-
-// Extended Request with user from auth middleware
-export interface AuthRequest extends Request {
-  user?: {
-    id: number;
-    email: string;
-    role: string;
-  };
-}
 
 // Factory function to create company controller
 export const createCompanyController = () => {
@@ -21,7 +14,7 @@ export const createCompanyController = () => {
      * POST /api/companies
      * Requires: authentication, role: vetcompany
      */
-    async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
       try {
         console.log('=== COMPANY CREATION REQUEST ===');
         console.log('Request body:', JSON.stringify(req.body, null, 2));
@@ -148,7 +141,7 @@ export const createCompanyController = () => {
      * GET /api/companies/my-company
      * Requires: authentication
      */
-    async getMyCompany(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async getMyCompany(req: Request, res: Response, next: NextFunction): Promise<void> {
       try {
         const userId = req.user?.id;
 
@@ -173,11 +166,24 @@ export const createCompanyController = () => {
         // Include services (treatments) offered by the company when returning company details
         const services = await CompanyServiceModel.findByCompanyId(company.id);
 
+        // Include review aggregates for dashboard stats
+        const reviewModel = createReviewModel();
+        const appointmentModel = createAppointmentModel();
+
+        const [avgRating, reviewCount, weeklyAppointments] = await Promise.all([
+          reviewModel.getAverageRating(company.id),
+          reviewModel.getReviewCount(company.id),
+          appointmentModel.countRecentByClinic(company.id, 7),
+        ]);
+
         res.status(200).json({
           success: true,
           data: {
             ...company,
             services,
+            avg_rating: Number(avgRating) || 0,
+            review_count: Number(reviewCount) || 0,
+            weekly_appointments: Number(weeklyAppointments) || 0,
           },
         });
       } catch (error: any) {
@@ -213,21 +219,13 @@ export const createCompanyController = () => {
           return;
         }
 
-        // Refresh persisted rating/review_count to ensure the latest values are served
-        const refreshed = await CompanyModel.updateRatingStats(company.id).catch((e) => {
-          console.error('updateRatingStats failed, returning stale rating fields:', e?.message || e);
-          return null;
-        });
-
-        const payload = refreshed || company;
-
         // Include services (treatments) offered by the company so public users can see them
         const services = await CompanyServiceModel.findByCompanyId(companyId);
 
         res.status(200).json({
           success: true,
           data: {
-            ...payload,
+            ...company,
             services,
           },
         });
@@ -242,7 +240,7 @@ export const createCompanyController = () => {
      * PUT /api/companies/:id
      * Requires: authentication, ownership check
      */
-    async update(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
       try {
         const userId = req.user?.id;
         const companyId = parseInt(req.params.id);
@@ -350,7 +348,7 @@ export const createCompanyController = () => {
      * DELETE /api/companies/:id
      * Requires: authentication, ownership check
      */
-    async delete(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
       try {
         const userId = req.user?.id;
         const companyId = parseInt(req.params.id);
@@ -445,7 +443,7 @@ export const createCompanyController = () => {
      * - OLD: Accepts { photo_url } in JSON body
      * - NEW: Accepts multipart/form-data with 'photo' field
      */
-    async uploadPhoto(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async uploadPhoto(req: Request, res: Response, next: NextFunction): Promise<void> {
       try {
         const userId = req.user?.id;
         const companyId = parseInt(req.params.id);
@@ -567,7 +565,7 @@ export const createCompanyController = () => {
      * DELETE /api/companies/:id/photos
      * Requires: authentication, ownership check
      */
-    async deletePhoto(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async deletePhoto(req: Request, res: Response, next: NextFunction): Promise<void> {
       try {
         const userId = req.user?.id;
         const companyId = parseInt(req.params.id);
