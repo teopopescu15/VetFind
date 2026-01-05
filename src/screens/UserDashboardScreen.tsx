@@ -10,7 +10,7 @@
  * - Location-based filtering when distance is selected
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -20,6 +20,8 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
+  BackHandler,
+  Platform,
 } from 'react-native';
 import { Text, ActivityIndicator, Chip, TextInput, Button, Snackbar, Portal, Dialog } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -76,7 +78,9 @@ export const UserDashboardScreen = () => {
   const [selectedDistance, setSelectedDistance] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearching, setIsSearching] = useState(false);
-  const [sortMode, setSortMode] = useState<'none' | 'min_asc' | 'max_desc'>('none');
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const searchInputRef = useRef<any>(null);
+  const [sortMode, setSortMode] = useState<'none' | 'min_asc' | 'max_desc' | 'rating_desc'>('none');
   // Snackbar for web/native feedback and a deleting indicator for buttons
   const [snackVisible, setSnackVisible] = useState(false);
   const [snackMessage, setSnackMessage] = useState('');
@@ -89,6 +93,50 @@ export const UserDashboardScreen = () => {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [myReviews, setMyReviews] = useState<any[]>([]);
   const [reviewAppointmentId, setReviewAppointmentId] = useState<number | null>(null);
+
+  const isServiceSearchActive = (searchQuery || '').trim().length > 0;
+
+  // Android back behavior: when searching, back should exit search and return to dashboard state.
+  useEffect(() => {
+    const onBackPress = () => {
+      const hasSearchText = (searchQuery || '').trim().length > 0;
+      if (isSearchExpanded || hasSearchText) {
+        setSearchQuery('');
+        setIsSearchExpanded(false);
+        setSortMode('none');
+
+        // restore default list
+        setFilteredCompanies(companies);
+        setCompaniesWithDistance(companies.map((company) => ({ company })));
+        return true; // handled
+      }
+
+      return false; // allow default navigation
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [companies, isSearchExpanded, searchQuery]);
+
+  // Web/browser back behavior: when searching, back should exit search and keep user on dashboard.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      const hasSearchText = (searchQuery || '').trim().length > 0;
+      if (!isSearchExpanded && !hasSearchText) return;
+
+      // Prevent leaving the dashboard; instead clear search state.
+      e.preventDefault();
+      setSearchQuery('');
+      setIsSearchExpanded(false);
+      setSortMode('none');
+      setFilteredCompanies(companies);
+      setCompaniesWithDistance(companies.map((company) => ({ company })));
+    });
+
+    return unsubscribe;
+  }, [companies, isSearchExpanded, navigation, searchQuery]);
 
   /**
    * Fetch all companies from API
@@ -329,8 +377,14 @@ export const UserDashboardScreen = () => {
           return a.distance - b.distance;
         });
 
-        // Apply user-selected sort over the matched service price
-        if (sortMode === 'min_asc') {
+        // Apply user-selected sorting
+        if (sortMode === 'rating_desc') {
+          matches.sort((a, b) => {
+            const ar = typeof (a.company as any).avg_rating === 'number' ? (a.company as any).avg_rating : Number((a.company as any).avg_rating || 0);
+            const br = typeof (b.company as any).avg_rating === 'number' ? (b.company as any).avg_rating : Number((b.company as any).avg_rating || 0);
+            return (br || 0) - (ar || 0);
+          });
+        } else if (sortMode === 'min_asc') {
           matches.sort((a, b) => {
             const pa = a.matchedService?.price_min ?? Number.POSITIVE_INFINITY;
             const pb = b.matchedService?.price_min ?? Number.POSITIVE_INFINITY;
@@ -352,7 +406,7 @@ export const UserDashboardScreen = () => {
         setIsSearching(false);
       }
     },
-    [companies, filteredCompanies, location, selectedDistance]
+    [companies, filteredCompanies, location, selectedDistance, sortMode]
   );
 
   // Debounce search queries
@@ -362,6 +416,14 @@ export const UserDashboardScreen = () => {
     }, 300);
     return () => clearTimeout(t);
   }, [searchQuery, searchCompaniesByService]);
+
+  useEffect(() => {
+    if (isSearchExpanded) {
+      // Let the input mount before focusing
+      const t = setTimeout(() => searchInputRef.current?.focus?.(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [isSearchExpanded]);
 
   /**
    * Fetch route distances when location filter is active and companies are loaded
@@ -526,6 +588,30 @@ export const UserDashboardScreen = () => {
     setCompaniesWithDistance(matches);
   };
 
+  const handleSortRating = () => {
+    const mode: 'rating_desc' = 'rating_desc';
+    setSortMode(mode);
+
+    // Only meaningful when we have a current service search (matchedService present)
+    const matches = companiesWithDistance.filter((c) => c.matchedService) as Array<{ company: Company; distance?: number; matchedService: any }>;
+    if (matches.length === 0) return;
+
+    matches.sort((a, b) => {
+      const ar = typeof (a.company as any).avg_rating === 'number' ? (a.company as any).avg_rating : Number((a.company as any).avg_rating || 0);
+      const br = typeof (b.company as any).avg_rating === 'number' ? (b.company as any).avg_rating : Number((b.company as any).avg_rating || 0);
+      return (br || 0) - (ar || 0);
+    });
+
+    setFilteredCompanies(matches.map((m) => m.company));
+    setCompaniesWithDistance(matches);
+
+    // Re-run search to ensure the full results set respects this sort choice
+    // (e.g., if async search rebuilt list after a previous sort).
+    if ((searchQuery || '').trim().length > 0) {
+      searchCompaniesByService(searchQuery);
+    }
+  };
+
   /**
    * Handle user logout
    */
@@ -582,33 +668,46 @@ export const UserDashboardScreen = () => {
 
             {/* Right side: search + sort + logout */}
             <View style={styles.headerRight}>
-              <View style={styles.headerSearchContainer}>
-                <TextInput
-                  mode="outlined"
-                  placeholder="Cauta serviciu"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  style={styles.searchInput}
-                  left={<TextInput.Icon icon="magnify" />}
-                  right={isSearching ? <TextInput.Icon icon={() => <ActivityIndicator size={16} color={theme.colors.primary.main} />} /> : undefined}
-                />
+              <View style={[styles.headerSearchContainer, !isSearchExpanded && styles.headerSearchContainerCollapsed]}>
+                {isSearchExpanded ? (
+                  <TextInput
+                    ref={searchInputRef}
+                    mode="outlined"
+                    placeholder="Caută un serviciu"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    style={styles.searchInput}
+                    // No left icon when expanded: keep maximum room for placeholder text
+                    right={
+                      <TextInput.Icon
+                        icon={() => (
+                          <Ionicons
+                            name="close"
+                            size={15}
+                            color="#6b7280"
+                          />
+                        )}
+                        onPress={() => {
+                          setSearchQuery('');
+                          setIsSearchExpanded(false);
+                        }}
+                      />
+                    }
+                  />
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setIsSearchExpanded(true)}
+                    style={styles.searchIconButton}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Search"
+                  >
+                    <Ionicons name="search" size={22} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
               </View>
 
               <View style={styles.sortControls}>
-                <TouchableOpacity
-                  onPress={() => handleSortPrice('asc')}
-                  style={[styles.sortChip, sortMode === 'min_asc' && styles.sortChipActive]}
-                >
-                  <Text style={[styles.sortChipText, sortMode === 'min_asc' && { color: '#ffffff' }]}>Price ↑</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => handleSortPrice('desc')}
-                  style={[styles.sortChip, sortMode === 'max_desc' && styles.sortChipActive]}
-                >
-                  <Text style={[styles.sortChipText, sortMode === 'max_desc' && { color: '#ffffff' }]}>Price ↓</Text>
-                </TouchableOpacity>
-
                 <TouchableOpacity
                   onPress={handleLogout}
                   style={styles.logoutButton}
@@ -621,7 +720,7 @@ export const UserDashboardScreen = () => {
           </View>
         </LinearGradient>
 
-        {/* 1. My Appointments Section (TOP - Primary) */}
+        {!isServiceSearchActive && (
         <View style={styles.myAppointmentsSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My Appointments</Text>
@@ -834,7 +933,8 @@ export const UserDashboardScreen = () => {
                 })}
             </View>
           )}
-        </View>
+  </View>
+  )}
 
         {/* 2. Find Clinics Section (MIDDLE) */}
         <View style={styles.findClinicsSection}>
@@ -946,6 +1046,34 @@ export const UserDashboardScreen = () => {
         {/* Company Cards List */}
         {!error && filteredCompanies.length > 0 && (
           <View style={styles.cardsContainer}>
+            {(searchQuery || '').trim().length > 0 && (
+              <View style={styles.resultsSortSection}>
+                <Text style={styles.resultsSortLabel}>Sortează după:</Text>
+                <View style={styles.resultsSortBar}>
+                  <TouchableOpacity
+                    onPress={() => handleSortPrice('asc')}
+                    style={[styles.sortChip, sortMode === 'min_asc' && styles.sortChipActive]}
+                  >
+                    <Text style={[styles.sortChipText, sortMode === 'min_asc' && { color: '#ffffff' }]}>Price ↑</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => handleSortPrice('desc')}
+                    style={[styles.sortChip, sortMode === 'max_desc' && styles.sortChipActive]}
+                  >
+                    <Text style={[styles.sortChipText, sortMode === 'max_desc' && { color: '#ffffff' }]}>Price ↓</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={handleSortRating}
+                    style={[styles.sortChip, sortMode === 'rating_desc' && styles.sortChipActive]}
+                  >
+                    <Text style={[styles.sortChipText, sortMode === 'rating_desc' && { color: '#ffffff' }]}>Rating ★</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
             {companiesWithDistance.map(({ company, distance, matchedService }) => (
               <VetCompanyCard
                 key={company.id}
@@ -1050,8 +1178,10 @@ const styles = StyleSheet.create({
     height: 38,
     backgroundColor: theme.colors.neutral[50],
     borderRadius: theme.borderRadius.md,
-    marginRight: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.sm,
+    marginRight: 0,
+    paddingHorizontal: 0,
+    fontSize: 13,
+    paddingVertical: 0,
     elevation: 2,
   },
   titleMain: {
@@ -1105,6 +1235,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginLeft: 8,
+  },
+  resultsSortSection: {
+    marginBottom: theme.spacing.lg,
+  },
+  resultsSortLabel: {
+    color: theme.colors.neutral[700],
+    fontWeight: '700',
+    marginBottom: theme.spacing.xs,
+  },
+  resultsSortBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   sortChip: {
     backgroundColor: '#f3f4f6',
@@ -1256,8 +1399,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerSearchContainer: {
-    width: 220,
+    flexShrink: 1,
+    width: Math.min(210, Math.max(160, SCREEN_WIDTH * 0.48)),
+    marginLeft: 6,
+    marginRight: 6,
+  },
+  headerSearchContainerCollapsed: {
+    width: 40,
     marginRight: 8,
+  },
+  searchIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerLeft: {
     flexDirection: 'row',
