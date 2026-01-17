@@ -277,7 +277,7 @@ export const CompanyDashboardScreen = () => {
         <View style={styles.categoriesContainer}>
           <View style={styles.categoriesHeader}>
             <Text variant="titleLarge" style={styles.sectionTitle}>
-              Services & Specializations
+              See new services that you might offer
             </Text>
             <Chip
               style={styles.totalServicesChip}

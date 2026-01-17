@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Card, Chip } from 'react-native-paper';
+import React, { useMemo, useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { Text, Card, Chip, Button, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CategoryWithSpecializations } from '../../types/company.types';
+import { CategoryWithSpecializations, CreateServiceDTO, ServiceCategoryType } from '../../types/company.types';
 import { useTheme } from '../../hooks/useTheme';
+import { useCompany } from '../../context/CompanyContext';
+import { useAuth } from '../../context/AuthContext';
+import { ApiService } from '../../services/api';
 
 /**
  * CategoryCard - Expandable category card showing specializations
@@ -24,6 +27,14 @@ interface CategoryCardProps {
 export const CategoryCard = ({ category }: CategoryCardProps) => {
   const { colors, responsive } = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
+  const { company, refreshCompany } = useCompany();
+  const { accessToken } = useAuth();
+
+  const [activeSpecializationId, setActiveSpecializationId] = useState<number | null>(null);
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+  const [duration, setDuration] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const toggleExpanded = () => {
     setIsExpanded(!isExpanded);
@@ -34,7 +45,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
     const iconMap: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
       'Routine Care': 'stethoscope',
       'Dental Care': 'tooth',
-      'Surgical Procedures': 'scalpel',
+      'Surgical Procedures': 'knife',
       'Emergency Care': 'ambulance',
       'Diagnostic Services': 'microscope',
       'Grooming & Wellness': 'content-cut',
@@ -43,23 +54,108 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
     return iconMap[categoryName] || 'paw';
   };
 
-  // Format duration for display
-  const formatDuration = (minutes: number): string => {
-    if (minutes < 60) {
-      return `${minutes} min`;
+  const categoryType = useMemo((): ServiceCategoryType => {
+    const map: Record<string, ServiceCategoryType> = {
+      'Routine Care': 'routine_care',
+      'Dental Care': 'dental_care',
+      'Diagnostic Services': 'diagnostic_services',
+      'Emergency Care': 'emergency_care',
+      'Surgical Procedures': 'surgical_procedures',
+      'Grooming & Wellness': 'grooming',
+      'Grooming': 'grooming',
+    };
+    return map[category.name] || 'custom';
+  }, [category.name]);
+
+  const isSpecializationAlreadyAdded = (specializationId: number, specializationName: string) => {
+    const list = ((company as any)?.services || []) as any[];
+    if (!Array.isArray(list) || list.length === 0) return false;
+
+    // Preferred: link through specialization_id
+    if (list.some(s => Number(s?.specialization_id) === specializationId && (s.is_active === undefined || s.is_active === true))) {
+      return true;
     }
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    if (remainingMinutes === 0) {
-      return `${hours} hr`;
+
+    // Fallback for older data: match by service name
+    const needle = (specializationName || '').trim().toLowerCase();
+    return list.some(s => (String(s?.service_name || '').trim().toLowerCase() === needle) && (s.is_active === undefined || s.is_active === true));
+  };
+
+  const handleStartAddService = (specializationId: number, _suggestedDurationMinutes?: number) => {
+    setActiveSpecializationId(prev => (prev === specializationId ? null : specializationId));
+    setPriceMin('');
+    setPriceMax('');
+    // Keep empty so placeholder is visible (Duration(min))
+    setDuration('');
+  };
+
+  const handleDoneAddService = async (specializationId: number, specializationName: string) => {
+    if (!company) {
+      Alert.alert('Error', 'Company not loaded');
+      return;
     }
-    return `${hours}h ${remainingMinutes}m`;
+
+    if (!priceMin.trim()) {
+      Alert.alert('Validation', 'Pret min is required');
+      return;
+    }
+    if (!duration.trim()) {
+      Alert.alert('Validation', 'Duration (min) is required');
+      return;
+    }
+
+    const pm = parseFloat(priceMin);
+    const px = priceMax.trim() ? parseFloat(priceMax) : pm;
+    const dur = parseInt(duration, 10);
+
+    if (!Number.isFinite(pm) || pm < 0) {
+      Alert.alert('Validation', 'Pret min must be a valid number');
+      return;
+    }
+    if (!Number.isFinite(dur) || dur <= 0) {
+      Alert.alert('Validation', 'Duration must be a positive number');
+      return;
+    }
+    if (priceMax.trim() && (!Number.isFinite(px) || px < 0)) {
+      Alert.alert('Validation', 'Pret max must be a valid number');
+      return;
+    }
+
+    if (px < pm) {
+      Alert.alert('Validation', 'Max price must be >= min price');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const dto: CreateServiceDTO = {
+        category: categoryType,
+        service_name: specializationName,
+        specialization_id: specializationId,
+        category_id: category.id,
+        price_min: pm,
+        price_max: px,
+        duration_minutes: dur,
+        is_custom: false,
+      };
+
+      await ApiService.createService(company.id, dto, accessToken || undefined);
+      try { await refreshCompany(); } catch (e) { /* ignore */ }
+
+      setActiveSpecializationId(null);
+      Alert.alert('Success', 'Service added');
+    } catch (err: any) {
+      console.error('Add service error:', err);
+      Alert.alert('Error', err.message || 'Failed to add service');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <Card style={styles.card} elevation={3}>
-      <TouchableOpacity onPress={toggleExpanded} activeOpacity={0.8}>
-        <Card.Content style={styles.cardContent}>
+      <Card.Content style={styles.cardContent}>
+        <TouchableOpacity onPress={toggleExpanded} activeOpacity={0.8}>
           <View style={styles.headerRow}>
             {/* Icon with Gradient */}
             <LinearGradient
@@ -112,10 +208,11 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
               style={styles.chevron}
             />
           </View>
+        </TouchableOpacity>
 
           {/* Expanded Content */}
           {isExpanded && (
-            <View style={styles.expandedContent}>
+            <View style={styles.expandedContent} onStartShouldSetResponder={() => true}>
               {category.description && (
                 <Text variant="bodyMedium" style={styles.fullDescription}>
                   {category.description}
@@ -134,27 +231,85 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                       <View style={styles.specializationHeader}>
                         <View style={styles.bulletPoint}>
                           <MaterialCommunityIcons
-                            name="check-circle"
+                            name="circle-small"
                             size={20}
-                            color={colors.primary.main}
+                            color="#9ca3af"
                           />
                         </View>
                         <Text variant="bodyMedium" style={styles.specializationName}>
                           {specialization.name}
                         </Text>
-                        {specialization.suggested_duration_minutes && (
-                          <Chip
-                            style={styles.durationChip}
-                            textStyle={styles.durationChipText}
-                            compact
-                            icon={() => (
-                              <Ionicons name="time-outline" size={12} color="#ffffff" />
-                            )}
-                          >
-                            {formatDuration(specialization.suggested_duration_minutes)}
+                        {isSpecializationAlreadyAdded(specialization.id, specialization.name) ? (
+                          <Chip style={styles.addedChip} textStyle={styles.addedChipText} compact>
+                            Added
                           </Chip>
+                        ) : (
+                          <Button
+                            mode={activeSpecializationId === specialization.id ? 'outlined' : 'contained'}
+                            compact
+                            disabled={isSaving}
+                            onPress={() => handleStartAddService(specialization.id, specialization.suggested_duration_minutes)}
+                            style={styles.addServiceButton}
+                            labelStyle={styles.addServiceButtonLabel}
+                          >
+                            {activeSpecializationId === specialization.id ? 'Cancel' : 'Add service'}
+                          </Button>
                         )}
                       </View>
+
+                      {activeSpecializationId === specialization.id && !isSpecializationAlreadyAdded(specialization.id, specialization.name) && (
+                        <View style={styles.addServiceInlineForm}>
+                          <View style={styles.inlineRow}>
+                            <View style={styles.inlineField}>
+                              <TextInput
+                                placeholder="Pret min*"
+                                keyboardType="numeric"
+                                value={priceMin}
+                                onChangeText={setPriceMin}
+                                style={styles.inlineInput}
+                                placeholderTextColor="#9ca3af"
+                              />
+                            </View>
+                            <View style={styles.inlineField}>
+                              <TextInput
+                                placeholder="Pret max"
+                                keyboardType="numeric"
+                                value={priceMax}
+                                onChangeText={setPriceMax}
+                                style={styles.inlineInput}
+                                placeholderTextColor="#9ca3af"
+                              />
+                            </View>
+                          </View>
+
+                          <View style={styles.inlineRow}>
+                            <View style={styles.inlineField}>
+                              <TextInput
+                                placeholder="Duration (min)*"
+                                keyboardType="numeric"
+                                value={duration}
+                                onChangeText={setDuration}
+                                style={styles.inlineInput}
+                                placeholderTextColor="#9ca3af"
+                              />
+                            </View>
+                            <View style={styles.inlineActions}>
+                              <Button
+                                mode="contained"
+                                disabled={isSaving}
+                                onPress={() => handleDoneAddService(specialization.id, specialization.name)}
+                                style={styles.doneButton}
+                                labelStyle={styles.doneButtonLabel}
+                              >
+                                Done
+                              </Button>
+                              {isSaving && (
+                                <ActivityIndicator size="small" color={colors.primary.main} style={styles.savingSpinner} />
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                      )}
 
                       {specialization.description && (
                         <Text
@@ -170,8 +325,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
               </View>
             </View>
           )}
-        </Card.Content>
-      </TouchableOpacity>
+      </Card.Content>
     </Card>
   );
 };
@@ -295,6 +449,75 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1f2937',
     fontSize: 15,
+  },
+  addServiceButton: {
+    backgroundColor: '#2563eb',
+    borderRadius: 10,
+    height: 28,
+    justifyContent: 'center',
+  },
+  addServiceButtonLabel: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+    marginVertical: 0,
+    marginHorizontal: 10,
+  },
+  addedChip: {
+    backgroundColor: 'rgba(22, 163, 74, 0.12)',
+    borderRadius: 10,
+    height: 28,
+  },
+  addedChipText: {
+    color: '#16a34a',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  addServiceInlineForm: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    gap: 10,
+  },
+  inlineRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  inlineField: {
+    flex: 1,
+  },
+  inlineInput: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: '#111827',
+  },
+  inlineActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  doneButton: {
+    backgroundColor: '#16a34a',
+    borderRadius: 10,
+    height: 36,
+    justifyContent: 'center',
+  },
+  doneButtonLabel: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+    marginVertical: 0,
+    marginHorizontal: 14,
+  },
+  savingSpinner: {
+    marginLeft: 2,
   },
   durationChip: {
     backgroundColor: '#2563eb',
