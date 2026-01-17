@@ -29,6 +29,9 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview';
+
+// Web map is rendered via Leaflet inside a WebView/HTML snippet (no Google Maps API key required).
 
 import { ApiService } from '../services/api';
 import { vetApi } from '../services/vetApi';
@@ -49,16 +52,16 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Distance options in kilometers
 const DISTANCE_OPTIONS = [
   { label: 'All', value: null },
+  { label: '500 m', value: 0.5 },
+  { label: '1 km', value: 1 },
   { label: '5 km', value: 5 },
   { label: '10 km', value: 10 },
-  { label: '25 km', value: 25 },
-  { label: '50 km', value: 50 },
 ];
 
 export const UserDashboardScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const { logout } = useAuth();
-  const { location, permissionStatus, requestPermission, isLoading: locationLoading } = useLocation();
+  const { location, permissionStatus, requestPermission, refreshLocation, isLoading: locationLoading } = useLocation();
   const {
     fetchDistances,
     getDistance,
@@ -80,7 +83,7 @@ export const UserDashboardScreen = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const searchInputRef = useRef<any>(null);
-  const [sortMode, setSortMode] = useState<'none' | 'min_asc' | 'max_desc' | 'rating_desc'>('none');
+  const [sortMode, setSortMode] = useState<'none' | 'closest' | 'min_asc' | 'max_desc' | 'rating_desc'>('none');
   // Snackbar for web/native feedback and a deleting indicator for buttons
   const [snackVisible, setSnackVisible] = useState(false);
   const [snackMessage, setSnackMessage] = useState('');
@@ -93,6 +96,12 @@ export const UserDashboardScreen = () => {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [myReviews, setMyReviews] = useState<any[]>([]);
   const [reviewAppointmentId, setReviewAppointmentId] = useState<number | null>(null);
+
+  // Map modal state
+  const [mapVisible, setMapVisible] = useState(false);
+  const [selectedMapClinic, setSelectedMapClinic] = useState<{ id: number; name: string } | null>(null);
+
+  // Web map is rendered via Leaflet in an iframe/WebView-like HTML (no API key required).
 
   const isServiceSearchActive = (searchQuery || '').trim().length > 0;
 
@@ -378,7 +387,14 @@ export const UserDashboardScreen = () => {
         });
 
         // Apply user-selected sorting
-        if (sortMode === 'rating_desc') {
+        if (sortMode === 'closest') {
+          // Closest first (if distance is unknown, keep it at the end)
+          matches.sort((a, b) => {
+            const ad = typeof a.distance === 'number' ? a.distance : Number.POSITIVE_INFINITY;
+            const bd = typeof b.distance === 'number' ? b.distance : Number.POSITIVE_INFINITY;
+            return ad - bd;
+          });
+        } else if (sortMode === 'rating_desc') {
           matches.sort((a, b) => {
             const ar = typeof (a.company as any).avg_rating === 'number' ? (a.company as any).avg_rating : Number((a.company as any).avg_rating || 0);
             const br = typeof (b.company as any).avg_rating === 'number' ? (b.company as any).avg_rating : Number((b.company as any).avg_rating || 0);
@@ -416,6 +432,16 @@ export const UserDashboardScreen = () => {
     }, 300);
     return () => clearTimeout(t);
   }, [searchQuery, searchCompaniesByService]);
+
+  // If the user selected "Closest" but location was missing, once location becomes available
+  // automatically re-run the search so distances are computed and the list is sorted properly.
+  useEffect(() => {
+    if (sortMode !== 'closest') return;
+    if (!location) return;
+    if ((searchQuery || '').trim().length === 0) return;
+
+    searchCompaniesByService(searchQuery);
+  }, [location, searchCompaniesByService, searchQuery, sortMode]);
 
   useEffect(() => {
     if (isSearchExpanded) {
@@ -612,6 +638,47 @@ export const UserDashboardScreen = () => {
     }
   };
 
+  const handleSortClosest = () => {
+    const mode: 'closest' = 'closest';
+    setSortMode(mode);
+
+    // On mobile, Closest requires current location.
+    if (!location) {
+      setSnackMessage('Activează locația pentru Closest');
+      setSnackVisible(true);
+
+      // Re-request permission on mobile devices.
+      if (Platform.OS !== 'web') {
+        requestPermission();
+      }
+      return;
+    }
+
+  const matches = companiesWithDistance.filter((c) => c.matchedService) as Array<{ company: Company; distance?: number; matchedService: any }>;
+    if (matches.length === 0) return;
+
+    // Compute distance from current user location to each clinic (if possible)
+    const matchesWithDistance = matches.map((m) => {
+      if (typeof m.distance === 'number') return m;
+      if (!location || !m.company?.latitude || !m.company?.longitude) return m;
+      const d = calculateDistance(location.latitude, location.longitude, m.company.latitude, m.company.longitude);
+      return { ...m, distance: d };
+    });
+
+    matchesWithDistance.sort((a, b) => {
+      const ad = typeof a.distance === 'number' ? a.distance : Number.POSITIVE_INFINITY;
+      const bd = typeof b.distance === 'number' ? b.distance : Number.POSITIVE_INFINITY;
+      return ad - bd;
+    });
+
+    setFilteredCompanies(matchesWithDistance.map((m) => m.company));
+    setCompaniesWithDistance(matchesWithDistance);
+
+    if ((searchQuery || '').trim().length > 0) {
+      searchCompaniesByService(searchQuery);
+    }
+  };
+
   /**
    * Handle user logout
    */
@@ -621,6 +688,33 @@ export const UserDashboardScreen = () => {
     } catch (error) {
       console.error('Logout error:', error);
     }
+  };
+
+  const openMap = async () => {
+    // Always open the popup so the user gets feedback (and can grant permission from inside).
+    setMapVisible(true);
+
+    // Reset selection on open
+    setSelectedMapClinic(null);
+
+    // If we don't have a fix yet, try to request permission / refresh location in the background.
+    if (!location) {
+      try {
+        if (Platform.OS !== 'web') {
+          await requestPermission();
+        } else {
+          await refreshLocation();
+        }
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const handleMapClinicOpen = () => {
+    if (!selectedMapClinic) return;
+    setMapVisible(false);
+    navigation.navigate('VetCompanyDetail', { companyId: selectedMapClinic.id });
   };
 
   /**
@@ -739,9 +833,6 @@ export const UserDashboardScreen = () => {
             <View style={styles.emptyAppointments}>
               <Ionicons name="calendar-outline" size={48} color={theme.colors.neutral[400]} />
               <Text style={styles.emptyAppointmentsText}>No upcoming appointments</Text>
-              <TouchableOpacity style={styles.bookNowButton} onPress={() => navigation.navigate('BookAppointment' as any)}>
-                <Text style={styles.bookNowButtonText}>Book Your First Appointment</Text>
-              </TouchableOpacity>
             </View>
           ) : (
             <View>
@@ -937,79 +1028,91 @@ export const UserDashboardScreen = () => {
   )}
 
         {/* 2. Find Clinics Section (MIDDLE) */}
-        <View style={styles.findClinicsSection}>
-          <Text style={styles.sectionTitle}>Find Clinics</Text>
+        {!isServiceSearchActive && (
+          <View style={styles.findClinicsSection}>
+            <Text style={styles.sectionTitle}>Find Clinics</Text>
 
-          {/* Search moved to top bar */}
+            {/* Search moved to top bar */}
 
-          {/* Location Filter Banner */}
-          <View style={styles.filterCard}>
-            <View style={styles.filterHeader}>
-              <Ionicons name="location" size={20} color={theme.colors.primary.main} />
-              <Text style={styles.filterTitle}>
-                Filter by Distance
-              </Text>
-            </View>
-
-            {/* Distance Options */}
-            <View style={styles.distanceOptions}>
-                {DISTANCE_OPTIONS.map((option) => (
-                  <TouchableOpacity
-                    key={option.label}
-                    onPress={() => handleDistanceSelect(option.value)}
-                    style={[
-                      styles.distanceChip,
-                      selectedDistance === option.value && styles.distanceChipSelected,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.distanceChipText,
-                        selectedDistance === option.value && styles.distanceChipTextSelected,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            {/* Location Filter Banner */}
+            <View style={styles.filterCard}>
+              <View style={styles.filterHeader}>
+                <Ionicons name="location" size={20} color={theme.colors.primary.main} />
+                <Text style={styles.filterTitle}>
+                  Filter by Distance
+                </Text>
+                <TouchableOpacity
+                  onPress={openMap}
+                  activeOpacity={0.85}
+                  style={styles.seeMapButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="See map with clinics"
+                >
+                  <Ionicons name="map-outline" size={16} color={theme.colors.primary.main} />
+                  <Text style={styles.seeMapButtonText}>See map with clinics</Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Location Status Message */}
-              {selectedDistance !== null && permissionStatus === 'denied' && (
-                <View style={styles.locationWarning}>
-                  <Ionicons name="warning" size={16} color="#f59e0b" />
-                  <Text style={styles.locationWarningText}>
-                    Location access denied. Enable in settings to filter by distance.
-                  </Text>
+              {/* Distance Options */}
+              <View style={styles.distanceOptions}>
+                  {DISTANCE_OPTIONS.map((option) => (
+                    <TouchableOpacity
+                      key={option.label}
+                      onPress={() => handleDistanceSelect(option.value)}
+                      style={[
+                        styles.distanceChip,
+                        selectedDistance === option.value && styles.distanceChipSelected,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.distanceChipText,
+                          selectedDistance === option.value && styles.distanceChipTextSelected,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-              )}
 
-              {selectedDistance !== null && locationLoading && (
-                <View style={styles.locationStatus}>
-                  <ActivityIndicator size="small" color={theme.colors.primary.main} />
-                  <Text style={styles.locationStatusText}>Getting your location...</Text>
-                </View>
-              )}
+                {/* Location Status Message */}
+                {selectedDistance !== null && permissionStatus === 'denied' && (
+                  <View style={styles.locationWarning}>
+                    <Ionicons name="warning" size={16} color="#f59e0b" />
+                    <Text style={styles.locationWarningText}>
+                      Location access denied. Enable in settings to filter by distance.
+                    </Text>
+                  </View>
+                )}
 
-              {/* Route distances loading indicator */}
-              {selectedDistance !== null && !locationLoading && isLoadingRoutes && (
-                <View style={styles.locationStatus}>
-                  <ActivityIndicator size="small" color="#3b82f6" />
-                  <Text style={styles.locationStatusText}>Calculating driving distances...</Text>
-                </View>
-              )}
+                {selectedDistance !== null && locationLoading && (
+                  <View style={styles.locationStatus}>
+                    <ActivityIndicator size="small" color={theme.colors.primary.main} />
+                    <Text style={styles.locationStatusText}>Getting your location...</Text>
+                  </View>
+                )}
 
-            {/* Results Count */}
-            <View style={styles.resultsContainer}>
-              <Text style={styles.resultsText}>
-                Found{' '}
-                <Text style={styles.resultsCount}>{filteredCompanies.length}</Text>{' '}
-                vet clinic{filteredCompanies.length !== 1 ? 's' : ''}
-                {selectedDistance !== null && isLoadingRoutes && ' (loading drive times...)'}
-              </Text>
+                {/* Route distances loading indicator */}
+                {selectedDistance !== null && !locationLoading && isLoadingRoutes && (
+                  <View style={styles.locationStatus}>
+                    <ActivityIndicator size="small" color="#3b82f6" />
+                    <Text style={styles.locationStatusText}>Calculating driving distances...</Text>
+                  </View>
+                )}
+
+              {/* Results Count */}
+              <View style={styles.resultsContainer}>
+                <Text style={styles.resultsText}>
+                  Found{' '}
+                  <Text style={styles.resultsCount}>{filteredCompanies.length}</Text>{' '}
+                  vet clinic{filteredCompanies.length !== 1 ? 's' : ''}
+                  {selectedDistance !== null && isLoadingRoutes && ' (loading drive times...)'}
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
         {/* Error State */}
         {error && (
@@ -1070,6 +1173,13 @@ export const UserDashboardScreen = () => {
                   >
                     <Text style={[styles.sortChipText, sortMode === 'rating_desc' && { color: '#ffffff' }]}>Rating ★</Text>
                   </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={handleSortClosest}
+                    style={[styles.sortChip, sortMode === 'closest' && styles.sortChipActive]}
+                  >
+                    <Text style={[styles.sortChipText, sortMode === 'closest' && { color: '#ffffff' }]}>Closest</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             )}
@@ -1090,6 +1200,173 @@ export const UserDashboardScreen = () => {
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
       </ScrollView>
+      {/* Map dialog: interactive only on web */}
+      <Portal>
+        <Dialog visible={mapVisible} onDismiss={() => setMapVisible(false)} style={{ maxWidth: 720, alignSelf: 'center', width: '92%' }}>
+          <Dialog.Title>Map</Dialog.Title>
+          <Dialog.Content>
+            {!location ? (
+              <View style={{ gap: 12 }}>
+                <Text>Nu avem încă locația curentă.</Text>
+                {locationLoading ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <ActivityIndicator />
+                    <Text>Se obține locația...</Text>
+                  </View>
+                ) : (
+                  <Button
+                    mode="contained"
+                    onPress={async () => {
+                      if (Platform.OS !== 'web') {
+                        await requestPermission();
+                      }
+                      await refreshLocation();
+                    }}
+                  >
+                    Permite locația
+                  </Button>
+                )}
+              </View>
+            ) : (
+              <View style={{ gap: 12 }}>
+                <View style={{ height: 420, width: '100%', borderRadius: 12, overflow: 'hidden' }}>
+                  <WebView
+                    originWhitelist={['*']}
+                    javaScriptEnabled
+                    domStorageEnabled
+                    onMessage={(e) => {
+                      try {
+                        const data = JSON.parse(e.nativeEvent.data);
+                        if (data?.type === 'clinic_select' && typeof data?.id === 'number') {
+                          setSelectedMapClinic({ id: data.id, name: String(data?.name || 'Clinic') });
+                        }
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    source={{
+                      html: `<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <style>
+      html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script>
+      (function () {
+        const center = [${location.latitude}, ${location.longitude}];
+
+        const map = L.map('map', {
+          zoomControl: true,
+        }).setView(center, 14);
+
+        // OpenStreetMap tiles (no API key)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap contributors',
+        }).addTo(map);
+
+        // User marker
+        L.circleMarker(center, {
+          radius: 7,
+          color: '#2563eb',
+          weight: 2,
+          fillColor: '#2563eb',
+          fillOpacity: 0.7,
+        })
+          .addTo(map)
+          .bindPopup('You');
+
+        const clinics = ${JSON.stringify(
+          (filteredCompanies || [])
+            .filter((c) => typeof (c as any)?.latitude === 'number' && typeof (c as any)?.longitude === 'number')
+            .map((c) => ({ id: c.id, name: c.name, lat: c.latitude, lng: c.longitude }))
+        )};
+
+        const markers = [];
+
+        clinics.forEach((c) => {
+          const m = L.circleMarker([c.lat, c.lng], {
+            radius: 7,
+            color: '#ef4444',
+            weight: 2,
+            fillColor: '#ef4444',
+            fillOpacity: 0.75,
+          })
+            .addTo(map)
+            .bindPopup(c.name);
+
+          // Uber/Bolt-like: select clinic on marker click
+          m.on('click', function () {
+            try {
+              const payload = JSON.stringify({ type: 'clinic_select', id: c.id, name: c.name });
+              if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                window.ReactNativeWebView.postMessage(payload);
+              }
+            } catch (e) {}
+          });
+          markers.push(m);
+        });
+
+        // Fit bounds if we have clinics
+        if (markers.length) {
+          const group = L.featureGroup([L.marker(center), ...markers]);
+          map.fitBounds(group.getBounds().pad(0.25));
+        }
+      })();
+    </script>
+  </body>
+</html>`,
+                    }}
+                  />
+                </View>
+
+                {selectedMapClinic ? (
+                  <View
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      backgroundColor: theme.colors.neutral[50],
+                      borderWidth: 1,
+                      borderColor: theme.colors.neutral[200],
+                    }}
+                  >
+                    <Text style={{ fontWeight: '700', fontSize: 16, color: theme.colors.neutral[900] }}>
+                      {selectedMapClinic.name}
+                    </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 }}>
+                      <Button mode="contained" onPress={handleMapClinicOpen}>
+                        Open details
+                      </Button>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={{ color: theme.colors.neutral[600] }}>
+                    Apasă pe o bulină ca să vezi detalii.
+                  </Text>
+                )}
+              </View>
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setMapVisible(false)}>Close</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
       {/* Review dialog */}
       <Portal>
         <Dialog visible={reviewVisible} onDismiss={closeReview}>
@@ -1218,6 +1495,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 16,
+  },
+  seeMapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(37, 99, 235, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 99, 235, 0.18)',
+  },
+  seeMapButtonText: {
+    color: theme.colors.primary.main,
+    fontWeight: '700',
+    fontSize: 13,
   },
   filterTitle: {
     fontSize: 15,

@@ -195,7 +195,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 </View>
                 <TextInput
                   style={styles.input}
-                  placeholder="teodora.popescu@student.upt.ro"
+                  placeholder="username@domain.com"
                   placeholderTextColor="#a0a0a0"
                   value={email}
                   onChangeText={setEmail}

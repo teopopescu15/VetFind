@@ -16,7 +16,6 @@ export interface Clinic {
   longitude?: number;
   opening_hours?: OpeningHours;
   photo_urls?: string[];
-  rating?: number;
   avg_rating?: number;
   review_count?: number;
   distance?: number;
@@ -78,7 +77,7 @@ export interface Appointment {
   service_name?: string;
   service_price?: number;
   appointment_date: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'expired';
   notes?: string;
   created_at?: string;
   updated_at?: string;

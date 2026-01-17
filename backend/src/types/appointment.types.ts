@@ -8,7 +8,8 @@ export type AppointmentStatus =
   | 'pending'
   | 'confirmed'
   | 'cancelled'
-  | 'completed';
+  | 'completed'
+  | 'expired';
 
 export interface Appointment {
   id: number;

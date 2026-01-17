@@ -498,6 +498,13 @@ async function generateDaySlots(
 ): Promise<TimeSlot[]> {
   const slots: TimeSlot[] = [];
 
+  // For "today", don't allow booking in the past.
+  const now = new Date();
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
   // Parse opening and closing times
   const [openHour, openMinute] = schedule.open.split(':').map(Number);
   const [closeHour, closeMinute] = schedule.close.split(':').map(Number);
@@ -520,11 +527,18 @@ async function generateDaySlots(
     const slotEnd = new Date(currentSlot.getTime() + durationMinutes * 60000);
     let isAvailable = true;
 
+    // Block past times for same-day booking
+    if (isToday && currentSlot.getTime() < now.getTime()) {
+      isAvailable = false;
+    }
+
     // Check for overlap with occupied slots
-    for (const occupied of occupiedSlots) {
-      if (currentSlot < occupied.end && slotEnd > occupied.start) {
-        isAvailable = false;
-        break;
+    if (isAvailable) {
+      for (const occupied of occupiedSlots) {
+        if (currentSlot < occupied.end && slotEnd > occupied.start) {
+          isAvailable = false;
+          break;
+        }
       }
     }
 

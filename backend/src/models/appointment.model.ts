@@ -10,7 +10,7 @@ export interface Appointment {
   total_price_max?: number | null;
   total_duration_minutes?: number | null;
   appointment_date: Date;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'expired';
   notes?: string;
   created_at?: Date;
   updated_at?: Date;
@@ -19,6 +19,30 @@ export interface Appointment {
 // Factory function for appointment operations
 export const createAppointmentModel = () => {
   return {
+    // Normalize and validate status values to prevent Postgres enum cast errors.
+    // (e.g. passing an unknown status in query params would otherwise crash with code 22P02)
+    normalizeStatus(status?: string): Appointment['status'] | undefined {
+      if (!status) return undefined;
+      const s = String(status).trim().toLowerCase();
+      const allowed: Array<Appointment['status']> = ['pending', 'confirmed', 'cancelled', 'completed', 'expired'];
+      return (allowed as string[]).includes(s) ? (s as Appointment['status']) : undefined;
+    },
+
+    // Mark appointments as expired if they are in the past and were never completed/cancelled.
+    // This enables the frontend to show a reliable `expired` state even if the clinic never confirmed.
+    async expirePendingAppointments(now: Date = new Date()): Promise<number> {
+      const result = await pool.query(
+        `UPDATE appointments
+         SET status = 'expired', updated_at = NOW()
+         WHERE appointment_date < $1
+           AND status IN ('pending', 'confirmed')
+           AND (deleted = FALSE OR deleted IS NULL)`,
+        [now]
+      );
+
+      return Number(result.rowCount || 0);
+    },
+
     // Create a new appointment. Supports an optional `services` array to snapshot per-service data.
     async create(appointment: any): Promise<number> {
       const client = await pool.connect();
@@ -129,6 +153,9 @@ export const createAppointmentModel = () => {
 
     // Get appointments by user
     async findByUser(userId: number, status?: string): Promise<any[]> {
+      // Keep statuses consistent before returning data to callers
+      await this.expirePendingAppointments();
+
       let query = `
         SELECT a.*,
                c.name as clinic_name, c.address as clinic_address, c.phone as clinic_phone
@@ -138,9 +165,10 @@ export const createAppointmentModel = () => {
       `;
       const params: any[] = [userId];
 
-      if (status) {
+      const safeStatus = this.normalizeStatus(status);
+      if (safeStatus) {
         query += ' AND a.status = $2';
-        params.push(status);
+        params.push(safeStatus);
       }
 
       query += ' ORDER BY a.appointment_date DESC';
@@ -159,6 +187,9 @@ export const createAppointmentModel = () => {
 
     // Get appointments by clinic
     async findByClinic(clinicId: number, status?: string): Promise<any[]> {
+      // Keep statuses consistent before returning data to callers
+      await this.expirePendingAppointments();
+
       let query = `
         SELECT a.*,
                u.name as user_name, u.email as user_email
@@ -168,9 +199,10 @@ export const createAppointmentModel = () => {
       `;
       const params: any[] = [clinicId];
 
-      if (status) {
+      const safeStatus = this.normalizeStatus(status);
+      if (safeStatus) {
         query += ' AND a.status = $2';
-        params.push(status);
+        params.push(safeStatus);
       }
 
       query += ' ORDER BY a.appointment_date DESC';
@@ -204,6 +236,7 @@ export const createAppointmentModel = () => {
 
     // Get upcoming appointments for a user
     async findUpcoming(userId: number): Promise<any[]> {
+      await this.expirePendingAppointments();
       const query = `
         SELECT a.*,
                c.name as clinic_name, c.address as clinic_address, c.phone as clinic_phone,
@@ -211,7 +244,7 @@ export const createAppointmentModel = () => {
         FROM appointments a
         JOIN companies c ON a.company_id = c.id
         LEFT JOIN company_services s ON a.service_id = s.id
-        WHERE a.user_id = $1 AND a.appointment_date >= NOW() AND a.status != 'cancelled' AND (a.deleted = FALSE OR a.deleted IS NULL)
+        WHERE a.user_id = $1 AND a.appointment_date >= NOW() AND a.status NOT IN ('cancelled','expired') AND (a.deleted = FALSE OR a.deleted IS NULL)
         ORDER BY a.appointment_date ASC
       `;
 
@@ -221,6 +254,7 @@ export const createAppointmentModel = () => {
 
     // Get past appointments for a user
     async findPast(userId: number): Promise<any[]> {
+      await this.expirePendingAppointments();
       const query = `
         SELECT a.*,
                c.name as clinic_name, c.address as clinic_address, c.phone as clinic_phone,

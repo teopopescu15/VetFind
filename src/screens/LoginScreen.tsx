@@ -142,13 +142,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 </View>
                 <TextInput
                   style={styles.input}
-                  placeholder="teodora.popescu@student.upt.ro"
+                  placeholder="username@domain.com"
                   placeholderTextColor="#a0a0a0"
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  returnKeyType="next"
                 />
               </View>
 
@@ -168,6 +169,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                     autoCorrect={false}
+                    returnKeyType="done"
+                    blurOnSubmit={false}
+                    onSubmitEditing={handleLogin}
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}

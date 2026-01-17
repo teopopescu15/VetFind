@@ -116,19 +116,22 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
         return theme.colors.error.main;
       case 'completed':
         return theme.colors.info.main;
+      case 'expired':
+        return theme.colors.neutral[500];
       default:
         return theme.colors.neutral[500];
     }
   };
 
   const getStatusLabel = (status: string) => {
+    if (status === 'expired') return 'Expired';
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
   const renderAppointmentCard = ({ item }: { item: Appointment }) => {
     const appointmentDate = new Date(item.appointment_date);
     const isPast = appointmentDate < new Date();
-    const canCancel = item.status === 'pending' || item.status === 'confirmed';
+  const canCancel = item.status === 'pending' || item.status === 'confirmed';
 
     // Normalize services selection: support multiple shapes returned from backend
     let servicesList: Array<any> = [];
@@ -283,7 +286,7 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
           </View>
         )}
 
-        {!isPast && canCancel && (
+        {!isPast && canCancel && item.status !== 'expired' && (
           <TouchableOpacity style={styles.cancelButton} onPress={() => handleCancelAppointment(item.id!)}>
             <Ionicons name="close-circle-outline" size={18} color={theme.colors.error.main} />
             <Text style={styles.cancelButtonText}>Cancel</Text>
