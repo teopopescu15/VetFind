@@ -200,13 +200,14 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
       </View>
 
       {/* Status Filter */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+      <View style={styles.filterContainer}>
         <Chip
           mode={statusFilter === undefined ? 'flat' : 'outlined'}
           selected={statusFilter === undefined}
           onPress={() => setStatusFilter(undefined)}
           style={styles.filterChip}
           textStyle={statusFilter === undefined ? styles.filterChipTextActive : styles.filterChipText}
+          compact
         >
           All
         </Chip>
@@ -216,6 +217,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
           onPress={() => setStatusFilter('pending')}
           style={styles.filterChip}
           textStyle={statusFilter === 'pending' ? styles.filterChipTextActive : styles.filterChipText}
+          compact
         >
           Pending
         </Chip>
@@ -225,6 +227,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
           onPress={() => setStatusFilter('confirmed')}
           style={styles.filterChip}
           textStyle={statusFilter === 'confirmed' ? styles.filterChipTextActive : styles.filterChipText}
+          compact
         >
           Confirmed
         </Chip>
@@ -234,6 +237,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
           onPress={() => setStatusFilter('completed')}
           style={styles.filterChip}
           textStyle={statusFilter === 'completed' ? styles.filterChipTextActive : styles.filterChipText}
+          compact
         >
           Completed
         </Chip>
@@ -243,10 +247,11 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
           onPress={() => setStatusFilter('cancelled')}
           style={styles.filterChip}
           textStyle={statusFilter === 'cancelled' ? styles.filterChipTextActive : styles.filterChipText}
+          compact
         >
           Cancelled
         </Chip>
-      </ScrollView>
+      </View>
 
       {/* Appointments List */}
       {appointments.length === 0 ? (
@@ -436,16 +441,25 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     marginBottom: theme.spacing.lg,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    rowGap: theme.spacing.xs,
   },
   filterChip: {
     marginRight: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 2,
   },
   filterChipText: {
     color: theme.colors.neutral[600],
+    fontSize: 12,
   },
   filterChipTextActive: {
     color: theme.colors.primary.main,
     fontWeight: '600',
+    fontSize: 12,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -510,13 +524,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.xs,
     backgroundColor: theme.colors.neutral[50],
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: 8,
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: 2,
+    borderRadius: 999,
   },
   statusText: {
     fontWeight: '600',
-    fontSize: 12,
+    fontSize: 11,
   },
   clientInfo: {
     flexDirection: 'row',

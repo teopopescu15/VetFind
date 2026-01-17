@@ -17,6 +17,8 @@ import MyAppointmentsScreen from '../screens/MyAppointmentsScreen';
 import { CreateCompanyScreen } from '../screens/CreateCompanyScreen';
 import { CompanyCreatedSuccessScreen } from '../screens/CompanyCreatedSuccessScreen';
 import { CompanyDashboardScreen } from '../screens/CompanyDashboardScreen';
+import { CompanyManageAppointmentsScreen } from '../screens/CompanyManageAppointmentsScreen';
+import { CompanyAddAppointmentScreen } from '../screens/CompanyAddAppointmentScreen';
 import { UserDashboardScreen } from '../screens/UserDashboardScreen';
 import { VetCompanyDetailScreen } from '../screens/VetCompanyDetailScreen';
 import CompanyReviewsScreen from '../screens/CompanyReviewsScreen';
@@ -142,6 +144,8 @@ const AppNavigator: React.FC = () => {
         CreateCompany: 'company/create',
         CompanyCreatedSuccess: 'company/created',
         CompanyDashboard: 'company/dashboard',
+        CompanyManageAppointments: 'company/appointments',
+        CompanyAddAppointment: 'company/appointments/new',
         ManagePhotos: 'company/photos',
         ClinicDetail: 'clinic/:clinicId',
         BookAppointment: 'book/:clinicId',
@@ -186,6 +190,8 @@ const AppNavigator: React.FC = () => {
             }}
           />
           <Stack.Screen name="CompanyDashboard" component={CompanyDashboardScreen} />
+          <Stack.Screen name="CompanyManageAppointments" component={CompanyManageAppointmentsScreen} />
+          <Stack.Screen name="CompanyAddAppointment" component={CompanyAddAppointmentScreen} />
           <Stack.Screen name="ManageServices" component={ManageServicesScreen} />
           <Stack.Screen name="ManagePrices" component={ManagePricesScreen} />
           <Stack.Screen name="ManagePhotos" component={ManagePhotosScreen} />

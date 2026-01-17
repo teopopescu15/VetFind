@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   createAppointment,
   getAvailableSlots,
+  getAvailableSlotsByDuration,
   getUserAppointments,
   getCompanyAppointments,
   updateAppointment,
@@ -17,6 +18,9 @@ router.post('/', authMiddleware, createAppointment);
 
 // GET /api/appointments/availability/:companyId/:serviceId - Get available time slots (public)
 router.get('/availability/:companyId/:serviceId', getAvailableSlots);
+
+// GET /api/appointments/availability-duration/:companyId - Get available time slots for a duration (public)
+router.get('/availability-duration/:companyId', getAvailableSlotsByDuration);
 
 // GET /api/appointments/user - Get user's appointments (requires auth)
 router.get('/user', authMiddleware, getUserAppointments);

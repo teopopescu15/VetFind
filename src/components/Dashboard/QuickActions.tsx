@@ -69,7 +69,7 @@ export const QuickActions = ({
   const defaultActions: QuickAction[] = [
     {
       id: 'new-appointment',
-      label: 'New Appointment',
+      label: 'Manage Appointments',
       icon: 'add-circle',
       iconLibrary: 'Ionicons',
       color: theme.colors.white,

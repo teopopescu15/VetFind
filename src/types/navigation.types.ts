@@ -18,6 +18,8 @@ export type RootStackParamList = {
     companyName: string;
   };
   CompanyDashboard: undefined;
+  CompanyManageAppointments: undefined;
+  CompanyAddAppointment: undefined;
   ManageServices: undefined;
   ManagePrices: undefined;
   ManagePhotos: undefined;

@@ -24,12 +24,6 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming');
   const [refreshing, setRefreshing] = useState(false);
-  const [expandedAppointments, setExpandedAppointments] = useState<number[]>([]);
-
-  const toggleExpand = (id?: number | null) => {
-    if (!id) return;
-    setExpandedAppointments((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
 
   useEffect(() => {
     loadAppointments();
@@ -164,8 +158,6 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
       ? servicesList.reduce((sum, s) => sum + Number(s?.duration_minutes ?? 0), 0)
       : 0;
 
-    const isExpanded = expandedAppointments.includes(item.id || 0);
-
     const formatPriceRange = (min?: number, max?: number) => {
       const minN = Number(min ?? 0) || 0;
       const maxN = Number(max ?? minN) || minN;
@@ -192,7 +184,7 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
 
     return (
       <View style={styles.appointmentCard}>
-        <TouchableOpacity activeOpacity={0.85} onPress={() => toggleExpand(item.id)} style={styles.cardHeader}>
+        <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
             <Text style={styles.clinicName}>{item.clinic_name}</Text>
             {!!item.clinic_address && (
@@ -209,7 +201,7 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
               </Text>
             </View>
           </View>
-        </TouchableOpacity>
+        </View>
 
         <View style={styles.cardBody}>
           <View style={styles.metaRow}>
@@ -220,71 +212,57 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
                 {appointmentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Text>
             </View>
-
-            <TouchableOpacity
-              onPress={() => toggleExpand(item.id)}
-              activeOpacity={0.7}
-              style={styles.expandChevron}
-              accessibilityRole="button"
-              accessibilityLabel={isExpanded ? 'Collapse appointment details' : 'Expand appointment details'}
-            >
-              <Ionicons
-                name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                size={20}
-                color={theme.colors.neutral[700]}
-              />
-            </TouchableOpacity>
-
           </View>
         </View>
 
-        {isExpanded && (
-          <View style={styles.expandedDetails}>
-            {/* Services list */}
-            {servicesList.length > 0 ? (
-              <View style={{ marginBottom: theme.spacing.sm }}>
-                <Text style={styles.expandedHeading}>Services</Text>
-                {servicesList.map((s, idx) => {
-                  const priceText =
-                    s?.price_min != null || s?.price_max != null || s?.price != null
-                      ? (s?.price_min != null && s?.price_max != null
-                          ? formatPriceRange(Number(s.price_min), Number(s.price_max))
-                          : formatPriceRange(Number(s.price ?? s.price_min ?? s.price_max ?? 0), Number(s.price ?? s.price_min ?? s.price_max ?? 0)))
-                      : '$0';
-                  const durationText = s?.duration_minutes ? `${Number(s.duration_minutes)} min` : '0 min';
+        <View style={styles.detailsSection}>
+          {/* Services list */}
+          {servicesList.length > 0 ? (
+            <View style={{ marginBottom: theme.spacing.sm }}>
+              <Text style={styles.detailsHeading}>Services</Text>
+              {servicesList.map((s, idx) => {
+                const priceText =
+                  s?.price_min != null || s?.price_max != null || s?.price != null
+                    ? (s?.price_min != null && s?.price_max != null
+                        ? formatPriceRange(Number(s.price_min), Number(s.price_max))
+                        : formatPriceRange(
+                            Number(s.price ?? s.price_min ?? s.price_max ?? 0),
+                            Number(s.price ?? s.price_min ?? s.price_max ?? 0)
+                          ))
+                    : '$0';
+                const durationText = s?.duration_minutes ? `${Number(s.duration_minutes)} min` : '0 min';
 
-                  return (
-                    <Text key={idx} style={styles.expandedLine}>
-                      {s?.service_name || s?.name || item.service_name || 'Service'} — {priceText} • {durationText}
-                    </Text>
-                  );
-                })}
-              </View>
-            ) : (
-              <Text style={styles.expandedLine}>No services</Text>
-            )}
+                return (
+                  <Text key={idx} style={styles.detailsLine}>
+                    {s?.service_name || s?.name || item.service_name || 'Service'} — {priceText} • {durationText}
+                  </Text>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={styles.detailsLine}>No services</Text>
+          )}
 
-            {/* Totals */}
-            <Text style={styles.expandedLine}>
-              <Text style={styles.detailLabel}>Price:</Text> {formatPriceRange(totalPriceMin, totalPriceMax)}
+          {/* Totals */}
+          <Text style={styles.detailsLine}>
+            <Text style={styles.detailLabel}>Price:</Text> {formatPriceRange(totalPriceMin, totalPriceMax)}
+          </Text>
+          <Text style={styles.detailsLine}>
+            <Text style={styles.detailLabel}>Duration:</Text> {formatDuration(totalDuration)}
+          </Text>
+
+          {!!item.notes && !hasServicesInNotes(item.notes) && (
+            <Text style={[styles.detailsLine, { marginTop: theme.spacing.xs }]}>
+              <Text style={styles.detailLabel}>Notes:</Text> {item.notes}
             </Text>
-            <Text style={styles.expandedLine}>
-              <Text style={styles.detailLabel}>Duration:</Text> {formatDuration(totalDuration)}
+          )}
+
+          {!!item.clinic_phone && (
+            <Text style={styles.detailsLine}>
+              <Text style={styles.detailLabel}>Phone:</Text> {item.clinic_phone}
             </Text>
-
-            {!!item.notes && !hasServicesInNotes(item.notes) && (
-              <Text style={[styles.expandedLine, { marginTop: theme.spacing.xs }]}>
-                <Text style={styles.detailLabel}>Notes:</Text> {item.notes}
-              </Text>
-            )}
-
-            {!!item.clinic_phone && (
-              <Text style={styles.expandedLine}>
-                <Text style={styles.detailLabel}>Phone:</Text> {item.clinic_phone}
-              </Text>
-            )}
-          </View>
-        )}
+          )}
+        </View>
 
         {!isPast && canCancel && item.status !== 'expired' && (
           <TouchableOpacity style={styles.cancelButton} onPress={() => handleCancelAppointment(item.id!)}>
@@ -502,10 +480,10 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral[600],
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 999,
-    borderWidth: 1,
+    borderWidth: 0.75,
     backgroundColor: 'transparent',
   },
   headerRight: {
@@ -513,7 +491,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: theme.colors.neutral[700],
   },
@@ -532,11 +510,7 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral[800],
     marginBottom: theme.spacing.xs,
   },
-  expandedLine: {
-    fontSize: 14,
-    color: theme.colors.neutral[700],
-    marginBottom: theme.spacing.xs,
-  },
+  // expandedLine removed: cards are no longer expandable
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -552,12 +526,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.neutral[700],
   },
-  expandChevron: {
-    marginLeft: 'auto',
-    paddingLeft: theme.spacing.sm,
-    paddingRight: theme.spacing.xs,
-    paddingVertical: 2,
-    alignSelf: 'center',
+  detailsSection: {
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.neutral[200],
+    paddingTop: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+  },
+  detailsHeading: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.colors.neutral[800],
+    marginBottom: theme.spacing.xs,
+  },
+  detailsLine: {
+    fontSize: 14,
+    color: theme.colors.neutral[700],
+    marginBottom: theme.spacing.xs,
   },
   detailLine: {
     fontSize: 14,

@@ -49,12 +49,85 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
     }
 
     // Determine total duration for the booking (support multiple services)
-    let totalDuration = 30; // Default duration
-    const selectedServices: Array<number | { id: number }> = appointmentData.services && Array.isArray(appointmentData.services)
-      ? appointmentData.services
-      : (appointmentData.service_id ? [appointmentData.service_id] : []);
+    // Manual blocking appointments are allowed ONLY for vetcompany users:
+    // - user_id must be -1
+    // - service_id must be -1
+    // - duration is provided in notes as "DURATION_MINUTES=NN"
+    const isCompanyUser = req.user?.role === 'vetcompany';
+    const reqUserIdAny = (appointmentData as any).user_id;
+    const reqServiceIdAny = (appointmentData as any).service_id;
+    const isManualBlock = isCompanyUser && Number(reqUserIdAny) === -1 && Number(reqServiceIdAny) === -1;
 
-    if (selectedServices.length > 0) {
+    // Validate / resolve user_id
+    // - Manual block: allow ONLY -1
+    // - Otherwise: never allow -1; if user_id is provided it must exist; default to authenticated user id.
+    let resolvedUserId: number = user_id;
+    if (isManualBlock) {
+      resolvedUserId = -1;
+    } else {
+      if (Number(reqUserIdAny) === -1) {
+        res.status(400).json({ error: 'user_id=-1 is only allowed for manual blocks created by clinics' });
+        return;
+      }
+
+      if (reqUserIdAny !== undefined && reqUserIdAny !== null) {
+        const requestedUserId = Number(reqUserIdAny);
+        if (!Number.isFinite(requestedUserId) || requestedUserId <= 0) {
+          res.status(400).json({ error: 'Invalid user_id' });
+          return;
+        }
+
+        const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [requestedUserId]);
+        if (userCheck.rows.length === 0) {
+          res.status(404).json({ error: 'User not found' });
+          return;
+        }
+
+        resolvedUserId = requestedUserId;
+      }
+    }
+
+    // Validate service_id only for non-manual bookings
+    if (!isManualBlock) {
+      if (appointmentData.service_id !== undefined && appointmentData.service_id !== null) {
+        const sid = Number(appointmentData.service_id);
+        if (!Number.isFinite(sid) || sid <= 0) {
+          res.status(400).json({ error: 'Invalid service_id' });
+          return;
+        }
+      }
+    }
+
+    // Ensure placeholder user exists for manual blocks (appointments.user_id is NOT NULL and has FK)
+    if (isManualBlock) {
+      await pool.query(
+        `INSERT INTO users (id, name, email, password, role)
+         VALUES (-1, 'Manual Block', 'manual-block@system.local', 'disabled', 'user')
+         ON CONFLICT (id) DO NOTHING`
+      );
+
+      // Ensure placeholder service exists for manual blocks (appointments.service_id has FK)
+      // We keep service_id = -1 as a universal sentinel service.
+      await pool.query(
+        `INSERT INTO company_services (id, company_id, category, service_name, description, price_min, price_max, duration_minutes, is_custom, is_active)
+         VALUES (-1, $1, 'custom', 'Manual Block', 'System placeholder service for manual blocking appointments', 0, 0, 30, true, false)
+         ON CONFLICT (id) DO NOTHING`,
+        [appointmentData.clinic_id]
+      );
+    }
+
+    let totalDuration = 30; // Default duration
+    const selectedServices: Array<number | { id: number }> =
+      appointmentData.services && Array.isArray(appointmentData.services)
+        ? appointmentData.services
+        : (appointmentData.service_id && Number(appointmentData.service_id) > 0 ? [appointmentData.service_id] : []);
+
+    if (isManualBlock) {
+      const notes = String(appointmentData.notes || '');
+      const m = notes.match(/DURATION_MINUTES\s*=\s*(\d+)/i);
+      const parsed = m ? Number(m[1]) : NaN;
+      totalDuration = Number.isFinite(parsed) && parsed > 0 ? parsed : 30;
+    } else if (selectedServices.length > 0) {
       totalDuration = 0;
       for (const s of selectedServices) {
         const sid = typeof s === 'number' ? s : s.id;
@@ -79,15 +152,20 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Create appointment as pending - company must accept to confirm
+    // Create appointment
+    // 1) Default: created as pending (client booking)
+    // 2) Manual block: created as confirmed, user_id = -1, service_id = -1
     const appointmentId = await appointmentModel.create({
       company_id: appointmentData.clinic_id, // Map clinic_id from frontend to company_id in database
-      user_id: user_id, // Use user_id from authenticated token, not request body
-      service_id: appointmentData.service_id,
-      services: selectedServices,
+      // user_id is NOT NULL in DB. Manual blocks use a reserved placeholder user id (-1).
+      user_id: resolvedUserId,
+      service_id: isManualBlock ? -1 : appointmentData.service_id,
+      services: isManualBlock ? [] : selectedServices,
       appointment_date: appointmentDate,
-      status: 'pending', // New behavior: mark as pending so company can accept/cancel
+      status: isManualBlock ? 'confirmed' : 'pending',
       notes: appointmentData.notes,
+      // Store duration on appointment row so availability uses it when service_id is -1
+      total_duration_minutes: isManualBlock ? totalDuration : undefined,
     });
 
     // Fetch the created appointment with details
@@ -216,6 +294,68 @@ export const getAvailableSlots = async (req: Request, res: Response): Promise<vo
     });
   } catch (error: any) {
     console.error('Error fetching available slots:', error);
+    res.status(500).json({ error: 'Failed to fetch available slots' });
+  }
+};
+
+/**
+ * Get available slots for a company by duration only (no serviceId)
+ * GET /api/appointments/availability-duration/:companyId
+ */
+export const getAvailableSlotsByDuration = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const companyId = parseInt(req.params.companyId);
+    const { startDate, endDate, duration } = req.query;
+
+    if (isNaN(companyId)) {
+      res.status(400).json({ error: 'Invalid companyId' });
+      return;
+    }
+
+    if (!startDate) {
+      res.status(400).json({ error: 'startDate query parameter is required (YYYY-MM-DD)' });
+      return;
+    }
+
+    const start = new Date(startDate as string);
+    const end = endDate ? new Date(endDate as string) : new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      return;
+    }
+
+    const dur = duration ? Number(duration) : 30;
+    const durationMinutes = Number.isFinite(dur) && dur > 0 ? dur : 30;
+
+    // Fetch company opening hours
+    const companyResult = await pool.query('SELECT opening_hours FROM companies WHERE id = $1', [companyId]);
+    if (companyResult.rows.length === 0) {
+      res.status(404).json({ error: 'Company not found' });
+      return;
+    }
+
+    const openingHours: OpeningHours = companyResult.rows[0].opening_hours;
+
+    const availability = await generateAvailableSlots(
+      companyId,
+      openingHours,
+      durationMinutes,
+      start,
+      end
+    );
+
+    res.status(200).json({
+      success: true,
+      companyId,
+      serviceId: -1,
+      serviceDuration: durationMinutes,
+      startDate: start.toISOString().split('T')[0],
+      endDate: end.toISOString().split('T')[0],
+      data: availability,
+    });
+  } catch (error: any) {
+    console.error('Error fetching available slots (duration):', error);
     res.status(500).json({ error: 'Failed to fetch available slots' });
   }
 };

@@ -50,11 +50,15 @@ export const createAppointmentModel = () => {
         await client.query('BEGIN');
 
         // Insert base appointment row. Keep service_id as first selected service (if provided) for backward compatibility.
-        const primaryServiceId = Array.isArray(appointment.services) && appointment.services.length > 0 ? appointment.services[0].id || appointment.services[0] : appointment.service_id || null;
+        // IMPORTANT: preserve explicit null (manual blocks) - don't treat it as falsy and fall back.
+        const primaryServiceId =
+          Array.isArray(appointment.services) && appointment.services.length > 0
+            ? appointment.services[0].id || appointment.services[0]
+            : appointment.service_id ?? null;
 
         const insertQuery = `
-          INSERT INTO appointments (company_id, user_id, service_id, appointment_date, status, notes)
-          VALUES ($1, $2, $3, $4, $5, $6)
+          INSERT INTO appointments (company_id, user_id, service_id, appointment_date, status, notes, total_duration_minutes)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id
         `;
         const insertValues = [
@@ -64,12 +68,13 @@ export const createAppointmentModel = () => {
           appointment.appointment_date,
           appointment.status || 'pending',
           appointment.notes || null,
+          appointment.total_duration_minutes ?? null,
         ];
 
         const insertResult = await client.query(insertQuery, insertValues);
         const appointmentId = insertResult.rows[0].id;
 
-        // If services were provided, snapshot them into appointment_services
+  // If services were provided, snapshot them into appointment_services
         let totalPriceMin = 0;
         let totalPriceMax = 0;
         let totalDuration = 0;
@@ -194,7 +199,7 @@ export const createAppointmentModel = () => {
         SELECT a.*,
                u.name as user_name, u.email as user_email
         FROM appointments a
-        JOIN users u ON a.user_id = u.id
+        LEFT JOIN users u ON a.user_id = u.id
         WHERE a.company_id = $1 AND (a.deleted = FALSE OR a.deleted IS NULL)
       `;
       const params: any[] = [clinicId];

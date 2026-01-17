@@ -748,6 +748,41 @@ const createApiService = () => {
     },
 
     /**
+     * Get available time slots for manual blocking (company side).
+     * Uses durationMinutes only (no service id) so clinics can block arbitrary intervals.
+     */
+    async getAvailableSlotsForDuration(
+      companyId: number,
+      startDate: string,
+      endDate?: string,
+      durationMinutes?: number
+    ): Promise<DayAvailability[]> {
+      try {
+        const queryParams = new URLSearchParams({ startDate });
+        if (endDate) {
+          queryParams.append('endDate', endDate);
+        }
+        if (durationMinutes && durationMinutes > 0) {
+          queryParams.append('duration', String(durationMinutes));
+        }
+
+        const response: AvailabilityResponse = await request(
+          `/appointments/availability-duration/${companyId}?${queryParams.toString()}`,
+          'GET'
+        );
+
+        if (!response.success || !response.data) {
+          return [];
+        }
+
+        return response.data;
+      } catch (error: any) {
+        console.error('Get duration availability error:', error);
+        return [];
+      }
+    },
+
+    /**
      * Create a new appointment with instant confirmation
      * @param data - Appointment data
      * @param accessToken - User's authentication token

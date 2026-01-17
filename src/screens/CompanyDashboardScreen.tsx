@@ -10,7 +10,6 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '../types/navigation.types';
 import { useAuth } from '../context/AuthContext';
 import { CategoryCard } from '../components/Dashboard/CategoryCard';
-import { ManageAppointmentsSection } from '../components/Dashboard/ManageAppointmentsSection';
 import { QuickActions } from '../components/Dashboard/QuickActions';
 import { StatCard } from '../components/Dashboard/StatCard';
 import { theme } from '../theme';
@@ -218,16 +217,11 @@ export const CompanyDashboardScreen = () => {
         </View>
       </LinearGradient>
 
-      {/* 1. Manage Appointments (TOP - Primary) */}
-      <View style={styles.appointmentsSection}>
-        <ManageAppointmentsSection onRefresh={loadCompany} />
-      </View>
-
       {/* 2. Quick Actions (MIDDLE) */}
       <View style={styles.quickActionsSection}>
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <QuickActions
-          onNewAppointment={() => Alert.alert('Coming Soon', 'New appointment booking')}
+          onNewAppointment={() => navigation.navigate('CompanyManageAppointments')}
           onManageServices={() => navigation.navigate('ManageServices')}
           onUpdatePrices={() => navigation.navigate('ManagePrices')}
           onAddPhotos={() => navigation.navigate('ManagePhotos')}
@@ -277,7 +271,7 @@ export const CompanyDashboardScreen = () => {
         <View style={styles.categoriesContainer}>
           <View style={styles.categoriesHeader}>
             <Text variant="titleLarge" style={styles.sectionTitle}>
-              See new services that you might offer
+              Services you might offer
             </Text>
             <Chip
               style={styles.totalServicesChip}
@@ -413,10 +407,6 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   // Phase 4: New layout sections
-  appointmentsSection: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing['2xl'],
-  },
   quickActionsSection: {
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing['2xl'],
