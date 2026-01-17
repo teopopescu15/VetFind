@@ -3,6 +3,7 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { TextInput, Text, HelperText, Button } from 'react-native-paper';
 import { OpeningHoursPicker } from '../../components/FormComponents/OpeningHoursPicker';
 import { CountyPicker } from '../../components/FormComponents/CountyPicker';
+import { LocalityPicker } from '../../components/FormComponents/LocalityPicker';
 import { ScrollContainer } from '../../components/FormComponents/ScrollContainer';
 import { Step2FormData } from '../../types/company.types';
 import { CountyCode } from '../../constants/romania';
@@ -82,6 +83,22 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
     } finally {
       setIsLoadingLocation(false);
     }
+  };
+
+
+  const handleCountyChange = (county: CountyCode) => {
+    // If county changes, reset locality to avoid mismatched values.
+    const currentCounty = (data.county || '') as CountyCode | '';
+    if (currentCounty !== county) {
+      onChange({
+        ...data,
+        county,
+        city: '',
+      });
+      return;
+    }
+
+    updateField('county', county);
   };
 
   return (
@@ -200,25 +217,24 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
         </View>
       </View>
 
-      {/* City */}
+
+      {/* Country */}
       <View style={styles.section}>
         <TextInput
-          label="Oraș/Localitate *"
-          value={data.city || ''}
-          onChangeText={(text) => updateField('city', text)}
-          onFocus={() => handleFocus('city')}
-          onBlur={() => handleBlur('city')}
+          label="Țara *"
+          value={data.country ?? 'Romania'}
+          onChangeText={(text) => updateField('country', text)}
           mode="outlined"
-          error={!!errors.city}
-          placeholder="București"
+          error={!!errors.country}
+          placeholder="Romania"
           style={styles.input}
           outlineColor="#e5e7eb"
           activeOutlineColor="#7c3aed"
-          accessibilityLabel="City"
-          accessibilityHint="Enter the city name"
+          accessibilityLabel="Country"
+          accessibilityHint="Enter the country"
         />
-        <HelperText type="error" visible={!!errors.city}>
-          {errors.city || ' '}
+        <HelperText type="error" visible={!!errors.country}>
+          {errors.country || ' '}
         </HelperText>
       </View>
 
@@ -226,10 +242,24 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
       <View style={styles.section}>
         <CountyPicker
           value={(data.county || '') as CountyCode | ''}
-          onChange={(county) => updateField('county', county)}
+          onChange={handleCountyChange}
           error={errors.county}
           disabled={false}
         />
+      </View>
+
+      {/* Locality (depends on county) */}
+      <View style={styles.section}>
+        <LocalityPicker
+          county={(data.county || '') as CountyCode | ''}
+          value={data.city || ''}
+          onChange={(locality) => updateField('city', locality)}
+          error={errors.city}
+          disabled={false}
+        />
+        <HelperText type="error" visible={!!errors.city}>
+          {errors.city || ' '}
+        </HelperText>
       </View>
 
       {/* Postal Code */}

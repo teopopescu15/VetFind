@@ -126,12 +126,25 @@ export const createAuthController = () => {
           return;
         }
 
+        // Normalize email (avoid duplicates due to casing)
+        userData.email = String(userData.email).trim().toLowerCase();
+
         // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(userData.email)) {
           res.status(400).json({
             success: false,
             message: 'Invalid email format'
+          });
+          return;
+        }
+
+        // Explicitly check for existing email to return a user-friendly error
+        const existing = await UserModel.findByEmail(userData.email);
+        if (existing) {
+          res.status(409).json({
+            success: false,
+            message: 'An account with this email already exists'
           });
           return;
         }

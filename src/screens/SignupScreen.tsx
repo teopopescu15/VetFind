@@ -40,6 +40,18 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  // Inline validation state (keeps user on the same progress with data preserved)
+  const [touched, setTouched] = useState({
+    fullName: false,
+    email: false,
+    password: false,
+    confirmPassword: false,
+  });
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  const MIN_PASSWORD_LENGTH = 8;
+  const SPECIAL_CHAR_REGEX = /[^A-Za-z0-9]/;
+
   const checkPasswordStrength = (pass: string) => {
     let strength = 0;
     if (pass.length >= 8) strength++;
@@ -55,39 +67,55 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     checkPasswordStrength(text);
   };
 
-  const handleSignUp = async () => {
-    // Validate input
-    if (!fullName.trim()) {
-      Alert.alert('Error', 'Please enter your full name');
-      return;
-    }
-
-    if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email');
-      return;
-    }
-
+  const isValidEmail = (value: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return;
-    }
+    return emailRegex.test(value);
+  };
 
-    if (password.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters long');
-      return;
-    }
+  const getPasswordIssues = (pass: string): string[] => {
+    const issues: string[] = [];
+    if ((pass || '').length < MIN_PASSWORD_LENGTH) issues.push(`at least ${MIN_PASSWORD_LENGTH} characters`);
+    if (!/[A-Z]/.test(pass)) issues.push('an uppercase letter');
+    if (!/[a-z]/.test(pass)) issues.push('a lowercase letter');
+    if (!/[0-9]/.test(pass)) issues.push('a number');
+    if (!SPECIAL_CHAR_REGEX.test(pass)) issues.push('a special character');
+    return issues;
+  };
 
-    if (passwordStrength < 3) {
-      Alert.alert(
-        'Weak Password',
-        'Please use a stronger password with uppercase, lowercase, and numbers'
-      );
-      return;
-    }
+  const shouldShowError = (field: keyof typeof touched) => submitAttempted || touched[field];
 
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+  const errors = {
+    fullName: !fullName.trim() ? 'Please enter your full name' : '',
+    email: !email.trim() ? 'Please enter your email' : (!isValidEmail(email) ? 'Please enter a valid email address' : ''),
+    password: '',
+    confirmPassword: '',
+  };
+
+  const passwordIssues = getPasswordIssues(password);
+  if (!password) {
+    errors.password = 'Please enter a password';
+  } else if (passwordIssues.length > 0) {
+    // Make it explicit: too short / missing special chars etc.
+    errors.password = `Password must include ${passwordIssues.join(', ')}`;
+  }
+
+  if (!confirmPassword) {
+    errors.confirmPassword = 'Please confirm your password';
+  } else if (password !== confirmPassword) {
+    errors.confirmPassword = 'Passwords do not match';
+  }
+
+  const isFormValid = !errors.fullName && !errors.email && !errors.password && !errors.confirmPassword;
+
+  const handleSignUp = async () => {
+    // Inline validation UX: keep user on same screen, preserve inputs,
+    // highlight invalid fields and show what needs to be fixed.
+    setSubmitAttempted(true);
+    setTouched({ fullName: true, email: true, password: true, confirmPassword: true });
+
+    if (!isFormValid) {
+      // Optional: keep a gentle top-level hint, but the main feedback is inline.
+      Alert.alert('Fix the highlighted fields', 'Please correct the errors shown in red.');
       return;
     }
 
@@ -103,7 +131,15 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
       // No need to navigate - AuthContext will handle it automatically
     } catch (error: any) {
-      Alert.alert('Signup Failed', error.message || 'An error occurred during signup');
+      const rawMsg = String(error?.message || '').trim();
+      const msgLower = rawMsg.toLowerCase();
+
+      // Friendly mapping for duplicate emails (backend returns 409 with a clear message)
+      if (msgLower.includes('email already exists') || msgLower.includes('account with this email already exists')) {
+        Alert.alert('Email already in use', 'An account with this email already exists. Try logging in instead.');
+      } else {
+        Alert.alert('Signup Failed', rawMsg || 'An error occurred during signup');
+      }
     } finally {
       setLoading(false);
     }
@@ -119,6 +155,12 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
   const getPasswordStrengthWidth = (): string => {
     return `${(passwordStrength / 5) * 100}%`;
+  };
+
+  // React Native expects numeric width while web can accept string percentages.
+  const getPasswordStrengthWidthValue = (): any => {
+    if (Platform.OS === 'web') return getPasswordStrengthWidth();
+    return `${(passwordStrength / 5) * 100}%` as any;
   };
 
   return (
@@ -177,14 +219,24 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   <Text style={styles.inputLabel}>Full Name</Text>
                 </View>
                 <TextInput
-                  style={styles.input}
+                    style={[styles.input, shouldShowError('fullName') && !!errors.fullName && styles.inputError]}
                   placeholder="John Doe"
                   placeholderTextColor="#a0a0a0"
                   value={fullName}
-                  onChangeText={setFullName}
+                    onChangeText={(t) => {
+                      setFullName(t);
+                      if (!touched.fullName) setTouched((p) => ({ ...p, fullName: true }));
+                    }}
+                    onBlur={() => setTouched((p) => ({ ...p, fullName: true }))}
                   autoCapitalize="words"
                   autoCorrect={false}
                 />
+                  {shouldShowError('fullName') && !!errors.fullName && (
+                    <View style={styles.errorContainer}>
+                      <Ionicons name="close-circle" size={14} color="#ff4444" />
+                      <Text style={styles.errorText}>{errors.fullName}</Text>
+                    </View>
+                  )}
               </View>
 
               {/* Email Input */}
@@ -194,15 +246,25 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   <Text style={styles.inputLabel}>Email Address</Text>
                 </View>
                 <TextInput
-                  style={styles.input}
+                    style={[styles.input, shouldShowError('email') && !!errors.email && styles.inputError]}
                   placeholder="username@domain.com"
                   placeholderTextColor="#a0a0a0"
                   value={email}
-                  onChangeText={setEmail}
+                    onChangeText={(t) => {
+                      setEmail(t);
+                      if (!touched.email) setTouched((p) => ({ ...p, email: true }));
+                    }}
+                    onBlur={() => setTouched((p) => ({ ...p, email: true }))}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
+                  {shouldShowError('email') && !!errors.email && (
+                    <View style={styles.errorContainer}>
+                      <Ionicons name="close-circle" size={14} color="#ff4444" />
+                      <Text style={styles.errorText}>{errors.email}</Text>
+                    </View>
+                  )}
               </View>
 
               {/* Role Selection */}
@@ -333,8 +395,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                           style={[
                             styles.strengthFill,
                             {
-
-                              width: getPasswordStrengthWidth(),
+                                width: getPasswordStrengthWidthValue(),
                               backgroundColor: getPasswordStrengthColor()
                             }
                           ]}
@@ -345,11 +406,19 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 </View>
                 <View style={styles.passwordInputContainer}>
                   <TextInput
-                    style={[styles.input, styles.passwordInput]}
+                    style={[
+                      styles.input,
+                      styles.passwordInput,
+                      shouldShowError('password') && !!errors.password && styles.inputError,
+                    ]}
                     placeholder="••••••••••••"
                     placeholderTextColor="#a0a0a0"
                     value={password}
-                    onChangeText={handlePasswordChange}
+                    onChangeText={(t) => {
+                      handlePasswordChange(t);
+                      if (!touched.password) setTouched((p) => ({ ...p, password: true }));
+                    }}
+                    onBlur={() => setTouched((p) => ({ ...p, password: true }))}
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -368,16 +437,27 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 {password.length > 0 && (
                   <View style={styles.passwordRequirements}>
                     <Ionicons
-                      name="checkmark-circle"
+                      name={passwordIssues.length === 0 ? 'checkmark-circle' : 'information-circle'}
                       size={14}
-                      color={passwordStrength >= 3 ? '#00aa00' : '#cccccc'}
+                      color={passwordIssues.length === 0 ? '#00aa00' : '#ffaa00'}
                     />
-                    <Text style={[
-                      styles.requirementText,
-                      { color: passwordStrength >= 3 ? '#00aa00' : '#999999' }
-                    ]}>
-                      Must be 8+ characters with uppercase, lowercase, and number
+                    <Text
+                      style={[
+                        styles.requirementText,
+                        { color: passwordIssues.length === 0 ? '#00aa00' : '#999999' },
+                      ]}
+                    >
+                      {passwordIssues.length === 0
+                        ? 'Password looks good'
+                        : `Missing: ${passwordIssues.join(', ')}`}
                     </Text>
+                  </View>
+                )}
+
+                {shouldShowError('password') && !!errors.password && (
+                  <View style={styles.errorContainer}>
+                    <Ionicons name="close-circle" size={14} color="#ff4444" />
+                    <Text style={styles.errorText}>{errors.password}</Text>
                   </View>
                 )}
               </View>
@@ -390,11 +470,19 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 </View>
                 <View style={styles.passwordInputContainer}>
                   <TextInput
-                    style={[styles.input, styles.passwordInput]}
+                    style={[
+                      styles.input,
+                      styles.passwordInput,
+                      shouldShowError('confirmPassword') && !!errors.confirmPassword && styles.inputError,
+                    ]}
                     placeholder="••••••••"
                     placeholderTextColor="#a0a0a0"
                     value={confirmPassword}
-                    onChangeText={setConfirmPassword}
+                    onChangeText={(t) => {
+                      setConfirmPassword(t);
+                      if (!touched.confirmPassword) setTouched((p) => ({ ...p, confirmPassword: true }));
+                    }}
+                    onBlur={() => setTouched((p) => ({ ...p, confirmPassword: true }))}
                     secureTextEntry={!showConfirmPassword}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -410,10 +498,10 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                     />
                   </TouchableOpacity>
                 </View>
-                {confirmPassword.length > 0 && password !== confirmPassword && (
+                {shouldShowError('confirmPassword') && !!errors.confirmPassword && (
                   <View style={styles.errorContainer}>
                     <Ionicons name="close-circle" size={14} color="#ff4444" />
-                    <Text style={styles.errorText}>Passwords do not match</Text>
+                    <Text style={styles.errorText}>{errors.confirmPassword}</Text>
                   </View>
                 )}
               </View>
@@ -614,7 +702,10 @@ const styles = StyleSheet.create({
   strengthFill: {
     height: '100%',
     borderRadius: 2,
-    transition: 'width 0.3s ease',
+  },
+  inputError: {
+    borderColor: '#ff4444',
+    borderWidth: 1.5,
   },
   input: {
     backgroundColor: '#f8f8f8',

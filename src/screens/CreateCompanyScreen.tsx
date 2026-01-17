@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '../types/navigation.types';
 import { validateRomanianPhone, validateRomanianPostalCode, validateCUI } from '../utils/romanianValidation';
+import * as Location from 'expo-location';
 import { useCompany } from '../context/CompanyContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -127,7 +128,10 @@ export const CreateCompanyScreen = () => {
     // CUI validation (if provided)
     if (step1.cui && !validateCUI(step1.cui)) {
       newErrors.cui = 'Format CUI invalid';
-    } else if (!/^\+?1?\s*\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/.test(step1.phone)) {
+    }
+
+    // Fallback legacy regex check (only if phone exists)
+    if (step1.phone && !/^\+?1?\s*\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/.test(step1.phone)) {
       newErrors.phone = 'Invalid phone number format';
     }
 
@@ -140,7 +144,23 @@ export const CreateCompanyScreen = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const validateStep2 = (): boolean => {
+  const buildAddressForGeocoding = (step2: any): string => {
+    const parts: string[] = [];
+
+    const streetLine = [step2.street?.trim(), step2.streetNumber?.trim()].filter(Boolean).join(' ');
+    if (streetLine) parts.push(streetLine);
+    if (step2.building?.trim()) parts.push(`Bloc ${step2.building.trim()}`);
+    if (step2.apartment?.trim()) parts.push(`Ap. ${step2.apartment.trim()}`);
+    if (step2.city?.trim()) parts.push(step2.city.trim());
+    if (step2.county?.trim()) parts.push(step2.county.trim());
+    if (step2.postalCode?.trim()) parts.push(step2.postalCode.trim());
+    const country = (step2.country ?? 'Romania').trim();
+    if (country) parts.push(country);
+
+    return parts.join(', ');
+  };
+
+  const validateStep2 = async (): Promise<boolean> => {
     const newErrors: { [key: string]: string } = {};
     const { step2 } = formData;
 
@@ -153,12 +173,16 @@ export const CreateCompanyScreen = () => {
       newErrors.streetNumber = 'Numărul este obligatoriu';
     }
 
-    if (!step2.city || step2.city.trim().length === 0) {
-      newErrors.city = 'Orașul este obligatoriu';
+    if (!step2.country || step2.country.trim().length === 0) {
+      newErrors.country = 'Țara este obligatorie';
     }
 
     if (!step2.county || step2.county.trim().length === 0) {
       newErrors.county = 'Județul este obligatoriu';
+    }
+
+    if (!step2.city || step2.city.trim().length === 0) {
+      newErrors.city = 'Localitatea este obligatorie';
     }
 
     if (!step2.postalCode || step2.postalCode.trim().length === 0) {
@@ -221,7 +245,39 @@ export const CreateCompanyScreen = () => {
     }
 
     setErrors({ step2: newErrors });
-    return Object.keys(newErrors).length === 0;
+    const isValid = Object.keys(newErrors).length === 0;
+
+    // Best-effort: if Step2 is valid and coordinates are missing, geocode from address.
+    // This avoids requiring the user to press an extra button.
+    if (
+      isValid &&
+      (step2.latitude == null || step2.longitude == null) &&
+      step2.street?.trim() &&
+      step2.streetNumber?.trim() &&
+      step2.city?.trim() &&
+      step2.county?.trim()
+    ) {
+      try {
+        const address = buildAddressForGeocoding(step2);
+        const results = await Location.geocodeAsync(address);
+        if (results && results.length > 0) {
+          const best = results[0];
+          setFormData((prev) => ({
+            ...prev,
+            step2: {
+              ...prev.step2,
+              latitude: best.latitude,
+              longitude: best.longitude,
+            },
+          }));
+        }
+      } catch (e) {
+        // Swallow errors: Step2 can still continue; coords can be obtained via GPS or later edits.
+        console.warn('Geocoding failed (non-blocking):', e);
+      }
+    }
+
+    return isValid;
   };
 
   const validateStep3 = (): boolean => {
@@ -307,7 +363,7 @@ export const CreateCompanyScreen = () => {
   };
 
   // Handle Next button
-  const handleNext = () => {
+  const handleNext = async () => {
     let isValid = false;
 
     switch (currentStep) {
@@ -315,7 +371,7 @@ export const CreateCompanyScreen = () => {
         isValid = validateStep1();
         break;
       case 2:
-        isValid = validateStep2();
+        isValid = await validateStep2();
         break;
       case 3:
         isValid = validateStep3();
@@ -347,16 +403,16 @@ export const CreateCompanyScreen = () => {
   const handleSubmit = async () => {
     // Immediate alert to confirm button click
     Alert.alert('Debug', 'Submit button clicked!');
-    
+
     console.log('=== SUBMIT BUTTON CLICKED ===');
     console.log('Current step:', currentStep);
     console.log('Form data:', JSON.stringify(formData, null, 2));
-    
+
     // Final validation
     const isValid = validateStep4();
     console.log('Step 4 validation result:', isValid);
     console.log('Validation errors:', errors);
-    
+
     if (!isValid) {
       console.log('Validation failed, returning early');
       Alert.alert(
@@ -366,7 +422,7 @@ export const CreateCompanyScreen = () => {
       );
       return;
     }
-    
+
     console.log('Validation passed, proceeding with submission');
 
     try {

@@ -109,9 +109,8 @@ export interface Company {
   company_completed: boolean; // Indicates if 4-step registration is complete
 
   // Optional analytics/aggregates
-  rating?: number;       // persisted average rating from backend
-  avg_rating?: number;   // legacy/alias, may mirror rating
-  review_count?: number; // persisted number of reviews from backend
+  avg_rating?: number;
+  review_count?: number;
   distance?: number;
 
   // Timestamps
@@ -294,6 +293,7 @@ export interface Step1FormData {
 
 export interface Step2FormData {
   // Romanian Address Structure
+  country?: string; // Țara (default: Romania)
   street: string; // Strada
   streetNumber: string; // Număr
   building?: string; // Bloc (optional)
