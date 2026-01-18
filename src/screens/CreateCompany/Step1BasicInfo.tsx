@@ -45,23 +45,23 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
       {/* Header */}
       <View style={[styles.header, { marginBottom: 24 }]}>
         <Text variant="headlineMedium" style={[styles.title, { color: colors.neutral[900] }]}>
-          Tell Us About Your Clinic
+          Spune-ne despre clinica ta
         </Text>
         <Text variant="bodyMedium" style={[styles.subtitle, { color: colors.neutral[600] }]}>
-          Start with the basics so pet owners can recognize and contact you
+          Începe cu informațiile de bază pentru ca proprietarii de animale să te poată recunoaște și contacta
         </Text>
       </View>
 
       {/* Logo Upload Section */}
       <FormSection
-        title="Company Logo"
-        subtitle="Upload your clinic's logo (optional)"
+        title="Logo-ul clinicii"
+        subtitle="Încarcă logo-ul clinicii tale (opțional)"
         icon="business-outline"
       >
         <ImageUploader
           value={data.logo_url || null}
           onChange={(uri) => updateField('logo_url', uri)}
-          placeholder="Upload Logo"
+          placeholder="Încarcă logo"
           aspectRatio={[1, 1]}
           maxWidth={150}
           maxHeight={150}
@@ -76,14 +76,14 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
 
       {/* Basic Information Section */}
       <FormSection
-        title="Basic Information"
-        subtitle="Company name, email, and phone"
+        title="Informații de bază"
+        subtitle="Nume companie, email și telefon"
         icon="information-circle-outline"
       >
         {/* Company Name */}
         <View style={styles.inputGroup}>
           <TextInput
-            label="Company Name *"
+            label="Nume companie *"
             value={data.name || ''}
             onChangeText={(text) => updateField('name', text)}
             onFocus={() => handleFocus('name')}
@@ -91,25 +91,25 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
             mode="outlined"
             error={!!errors.name}
             maxLength={100}
-            placeholder="e.g., Happy Paws Veterinary Clinic"
+            placeholder="ex., Clinica Veterinară Happy Paws"
             style={[styles.input, { backgroundColor: colors.neutral[50] }]}
             outlineColor={colors.neutral[300]}
             activeOutlineColor={colors.primary.main}
-            accessibilityLabel="Company Name"
-            accessibilityHint="Enter your veterinary clinic's name (3-100 characters)"
+            accessibilityLabel="Nume companie"
+            accessibilityHint="Introdu numele clinicii tale veterinare (3-100 caractere)"
           />
           <HelperText type="error" visible={!!errors.name}>
             {errors.name || ' '}
           </HelperText>
           <HelperText type="info" visible={!errors.name && (isFocused.name || !!data.name)}>
-            {data.name ? `${data.name.length}/100 characters` : '3-100 characters required'}
+            {data.name ? `${data.name.length}/100 caractere` : '3-100 caractere necesare'}
           </HelperText>
         </View>
 
         {/* Business Email */}
         <View style={styles.inputGroup}>
           <TextInput
-            label="Business Email *"
+            label="Email de contact *"
             value={data.email || ''}
             onChangeText={(text) => updateField('email', text)}
             onFocus={() => handleFocus('email')}
@@ -123,8 +123,8 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
             style={[styles.input, { backgroundColor: colors.neutral[50] }]}
             outlineColor={colors.neutral[300]}
             activeOutlineColor={colors.primary.main}
-            accessibilityLabel="Business Email"
-            accessibilityHint="Enter your clinic's email address"
+            accessibilityLabel="Email de contact"
+            accessibilityHint="Introdu adresa de email a clinicii tale"
           />
           <HelperText type="error" visible={!!errors.email}>
             {errors.email || ' '}
@@ -144,8 +144,8 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
 
       {/* Tax Information Section */}
       <FormSection
-        title="Tax Information"
-        subtitle="Romanian company identification (optional)"
+        title="Informații fiscale"
+        subtitle="Identificare companie română (opțional)"
         icon="document-text-outline"
       >
         {/* CUI with Contextual Help */}
@@ -165,12 +165,12 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
                 outlineColor={colors.neutral[300]}
                 activeOutlineColor={colors.primary.main}
                 accessibilityLabel="CUI"
-                accessibilityHint="Optional - Romanian Tax ID (can be added later)"
+                accessibilityHint="Opțional - Cod fiscal român (poate fi adăugat mai târziu)"
               />
             </View>
             <ContextualHelp
-              title="CUI Format"
-              content="Enter your company's unique identifier (CUI). This can be with or without the 'RO' prefix."
+              title="Format CUI"
+              content="Introdu codul unic de identificare al companiei tale (CUI). Acesta poate fi cu sau fără prefixul 'RO'."
               examples={['RO12345678', '12345678']}
             />
           </View>
@@ -178,21 +178,21 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
             {errors.cui || ' '}
           </HelperText>
           <HelperText type="info" visible={!errors.cui}>
-            Optional - poate fi adăugat mai târziu
+            Opțional - poate fi adăugat mai târziu
           </HelperText>
         </View>
       </FormSection>
 
       {/* Additional Information Section */}
       <FormSection
-        title="Additional Information"
-        subtitle="Brief description of your clinic (optional)"
+        title="Informații suplimentare"
+        subtitle="Scurtă descriere a clinicii tale (opțional)"
         icon="text-outline"
       >
         {/* Short Description */}
         <View style={styles.inputGroup}>
           <TextInput
-            label="Short Description (Optional)"
+            label="Descriere scurtă (Opțional)"
             value={data.description || ''}
             onChangeText={(text) => updateField('description', text)}
             onFocus={() => handleFocus('description')}
@@ -202,18 +202,18 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
             multiline
             numberOfLines={3}
             maxLength={100}
-            placeholder="Brief description of your clinic (max 100 characters)"
+            placeholder="Scurtă descriere a clinicii tale (max 100 caractere)"
             style={[styles.input, styles.textArea, { backgroundColor: colors.neutral[50] }]}
             outlineColor={colors.neutral[300]}
             activeOutlineColor={colors.primary.main}
-            accessibilityLabel="Short Description"
-            accessibilityHint="Optional brief description of your clinic"
+            accessibilityLabel="Descriere scurtă"
+            accessibilityHint="Descriere scurtă opțională a clinicii tale"
           />
           <HelperText type="error" visible={!!errors.description}>
             {errors.description || ' '}
           </HelperText>
           <HelperText type="info" visible={!errors.description && (isFocused.description || !!data.description)}>
-            {data.description ? `${data.description.length}/100 characters` : 'Optional, max 100 characters'}
+            {data.description ? `${data.description.length}/100 caractere` : 'Opțional, max 100 caractere'}
           </HelperText>
         </View>
       </FormSection>
@@ -221,7 +221,7 @@ export const Step1BasicInfo = ({ data, onChange, errors = {} }: Step1BasicInfoPr
       {/* Required Fields Notice */}
       <View style={[styles.notice, { backgroundColor: colors.primary[50], borderLeftColor: colors.primary.main }]}>
         <Text variant="bodySmall" style={[styles.noticeText, { color: colors.neutral[700] }]}>
-          * Required fields
+          * Câmpuri obligatorii
         </Text>
       </View>
     </ScrollContainer>

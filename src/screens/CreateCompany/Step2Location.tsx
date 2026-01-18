@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, Platform } from 'react-native';
 import { TextInput, Text, HelperText, Button } from 'react-native-paper';
 import { OpeningHoursPicker } from '../../components/FormComponents/OpeningHoursPicker';
 import { CountyPicker } from '../../components/FormComponents/CountyPicker';
@@ -45,13 +45,37 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
     try {
       setIsLoadingLocation(true);
 
-      // Request location permissions
+      // Web fallback using Geolocation API
+      if (Platform.OS === 'web') {
+        if (!navigator.geolocation) {
+          Alert.alert('Eroare', 'Geolocalizarea nu este suportată de browser');
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            updateField('latitude', position.coords.latitude);
+            updateField('longitude', position.coords.longitude);
+            Alert.alert(
+              'Locație detectată',
+              'Coordonatele GPS au fost capturate. Completează manual detaliile adresei.'
+            );
+          },
+          (error) => {
+            Alert.alert('Eroare locație', error.message);
+          },
+          { enableHighAccuracy: true }
+        );
+        return;
+      }
+
+      // Mobile implementation - Request location permissions
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== 'granted') {
         Alert.alert(
-          'Permission Denied',
-          'Location permission is required to use your current location.',
+          'Permisiune refuzată',
+          'Permisiunea de localizare este necesară pentru a folosi locația curentă.',
           [{ text: 'OK' }]
         );
         return;
@@ -69,15 +93,15 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
       updateField('longitude', longitude);
 
       Alert.alert(
-        'Location Detected',
-        `GPS coordinates captured (${latitude.toFixed(6)}, ${longitude.toFixed(6)}). Please fill in the address details manually.`,
+        'Locație detectată',
+        `Coordonate GPS capturate (${latitude.toFixed(6)}, ${longitude.toFixed(6)}). Te rugăm completează manual detaliile adresei.`,
         [{ text: 'OK' }]
       );
     } catch (error) {
       console.error('Error getting location:', error);
       Alert.alert(
-        'Location Error',
-        'Unable to get your current location. Please enter the address manually.',
+        'Eroare de locație',
+        'Nu s-a putut obține locația curentă. Te rugăm introdu adresa manual.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -106,10 +130,10 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
       {/* Header */}
       <View style={styles.header}>
         <Text variant="headlineMedium" style={styles.title}>
-          Where Can Pet Owners Find You?
+          Unde te pot găsi proprietarii de animale?
         </Text>
         <Text variant="bodyMedium" style={styles.subtitle}>
-          Help clients locate your clinic and know when you're available
+          Ajută clienții să găsească clinica ta și să știe când ești disponibil
         </Text>
       </View>
 
@@ -124,10 +148,13 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
           style={styles.locationButton}
           labelStyle={styles.locationButtonLabel}
         >
-          {isLoadingLocation ? 'Detecting Location...' : 'Use Current Location'}
+          {isLoadingLocation ? 'Detectarea locației...' : 'Folosește locația actuală'}
         </Button>
         <HelperText type="info">
-          Auto-fill address using your device's GPS
+          Completare automată a adresei folosind GPS-ul dispozitivului tău
+        </HelperText>
+        <HelperText type="info">
+          Este necesar pentru localizarea utilizatorilor a clinicii
         </HelperText>
       </View>
 

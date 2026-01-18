@@ -25,6 +25,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { Company, ClinicTypeLabels, OpeningHours, DaySchedule, CompanyService } from '../types/company.types';
 import { RouteDistance } from '../types/routes.types';
 import { useTheme } from '../hooks/useTheme';
+import { formatPriceRange } from '../utils/currency';
 
 interface VetCompanyCardProps {
   company: Company;
@@ -240,7 +241,7 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
                 <Text style={styles.priceLabel}>{matchedService.service_name}</Text>
                 <View style={styles.priceBadgeSmall}>
                   <Text style={styles.priceBadgeTextLarge}>
-                    ${Number(matchedService.price_min).toFixed(0)}{matchedService.price_max && matchedService.price_max !== matchedService.price_min ? ` - ${Number(matchedService.price_max).toFixed(0)}` : ''}
+                    {formatPriceRange(matchedService.price_min, matchedService.price_max)}
                   </Text>
                 </View>
               </View>

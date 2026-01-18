@@ -53,7 +53,9 @@ const runMigrations = async () => {
       '013_add_deleted_columns_to_appointments.sql',
       '014_allow_multiple_reviews_per_user.sql',
       '015_reviews_add_appointment_id.sql',
+      '016_add_rating_fields_to_companies.sql',
       '017_add_expired_status_to_appointments.sql',
+      '018_add_description_constraints.sql',
     ];
 
     console.log(`\n📋 Found ${migrations.length} migration files to execute\n`);
@@ -109,6 +111,7 @@ const runMigrations = async () => {
       'category_specializations',
       // Verify appointments and reviews were created by migrations
       'appointments',
+      'appointment_services',
       'reviews'
     ];
 

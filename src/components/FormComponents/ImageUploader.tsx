@@ -94,6 +94,26 @@ export const ImageUploader = ({
   const pickFromGallery = async () => {
     if (disabled) return;
 
+    // Web fallback using HTML5 File API
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (e: any) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event: any) => {
+            onChange(event.target.result);
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      input.click();
+      return;
+    }
+
+    // Mobile implementation
     const hasPermission = await requestPermissions('library');
     if (!hasPermission) return;
 

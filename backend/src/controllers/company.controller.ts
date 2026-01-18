@@ -97,6 +97,18 @@ export const createCompanyController = () => {
           return;
         }
 
+        // Validate description length (5-100 characters)
+        if (req.body.description !== undefined && req.body.description !== null) {
+          const desc = req.body.description.trim();
+          if (desc.length > 0 && (desc.length < 5 || desc.length > 100)) {
+            res.status(400).json({
+              success: false,
+              message: 'Descrierea trebuie să aibă între 5 și 100 de caractere',
+            });
+            return;
+          }
+        }
+
         // Create company DTO
         const companyData: CreateCompanyDTO = {
           user_id: userId,
