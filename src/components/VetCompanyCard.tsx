@@ -66,7 +66,7 @@ const getTodaySchedule = (openingHours?: OpeningHours): DaySchedule | null => {
  */
 const formatOpeningHours = (schedule: DaySchedule | null): { text: string; isOpen: boolean } => {
   if (!schedule || schedule.closed || !schedule.open || !schedule.close) {
-    return { text: 'Closed today', isOpen: false };
+    return { text: 'Închis astăzi', isOpen: false };
   }
 
   // Check if currently open
@@ -82,7 +82,7 @@ const formatOpeningHours = (schedule: DaySchedule | null): { text: string; isOpe
   const isOpen = currentTime >= openTime && currentTime < closeTime;
 
   return {
-    text: `${isOpen ? 'Open' : 'Closed'} · ${schedule.open} - ${schedule.close}`,
+    text: `${isOpen ? 'Deschis' : 'Închis'} · ${schedule.open} - ${schedule.close}`,
     isOpen,
   };
 };
@@ -174,7 +174,7 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
                 style={styles.photoPlaceholder}
               >
                 <MaterialCommunityIcons name="camera" size={40} color={colors.primary.main} />
-                <Text style={[styles.photoPlaceholderText, { color: colors.primary.main }]}>Photo</Text>
+                <Text style={[styles.photoPlaceholderText, { color: colors.primary.main }]}>Fotografie</Text>
               </LinearGradient>
             ) : (
               <LinearGradient
@@ -183,6 +183,18 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
               >
                 <MaterialCommunityIcons name="hospital-building" size={48} color={colors.primary.main} />
               </LinearGradient>
+            )}
+
+            {/* Large Distance Badge - Top Left (when location is active) */}
+            {(routeDistance || distance !== undefined) && (
+              <View style={styles.largeDistanceBadge}>
+                <Text style={styles.largeDistanceNumber}>
+                  {routeDistance ? routeDistance.distanceKm.toFixed(1) : formatDistance(distance!).replace(' km', '').replace(' m', '')}
+                </Text>
+                <Text style={styles.largeDistanceUnit}>
+                  {routeDistance || (distance !== undefined && distance >= 1) ? 'km' : 'm'}
+                </Text>
+              </View>
             )}
 
             {/* Rating Badge - Top Right */}
@@ -254,6 +266,19 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
                 {company.address}, {company.city}
               </Text>
             </View>
+
+            {/* Distance (when location is active) */}
+            {(routeDistance || distance !== undefined) && (
+              <View style={styles.infoRow}>
+                <Ionicons name="navigate" size={16} color="#3b82f6" />
+                <Text variant="bodyMedium" style={[styles.infoText, { color: '#3b82f6', fontWeight: '600' }]}>
+                  {routeDistance
+                    ? `${routeDistance.distanceKm.toFixed(1)} km · ${routeDistance.durationText} cu mașina`
+                    : `${formatDistance(distance!)} depărtare`
+                  }
+                </Text>
+              </View>
+            )}
 
             {/* Phone */}
             <View style={styles.infoRow}>
@@ -328,6 +353,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     fontWeight: '500',
+  },
+  largeDistanceBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(59, 130, 246, 0.95)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    minWidth: 70,
+  },
+  largeDistanceNumber: {
+    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: '900',
+    lineHeight: 28,
+  },
+  largeDistanceUnit: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: -2,
+    opacity: 0.95,
   },
   ratingBadge: {
     position: 'absolute',

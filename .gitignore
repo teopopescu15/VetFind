@@ -151,6 +151,10 @@ credentials.txt
 .mcp.json
 .serena/
 
+# Presentation files (temporary)
+presentation/
+localpulse-content.md
+
 # Config files that should be ignored (metro.config.js is actually needed)
 # metro.config.js (commented out - this is needed for React Native)
 

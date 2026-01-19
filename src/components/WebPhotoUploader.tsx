@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { Text, Button, IconButton } from 'react-native-paper';
 import { ApiService } from '../services/api';
@@ -23,6 +23,7 @@ export const WebPhotoUploader = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [photos, setPhotos] = useState<string[]>(existingPhotos);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Only render on web
   if (Platform.OS !== 'web') {
@@ -104,7 +105,7 @@ export const WebPhotoUploader = ({
 
   return (
     <View style={styles.container}>
-      {/* File input (hidden) */}
+      {/* File input for gallery (hidden) */}
       <input
         ref={fileInputRef}
         type="file"
@@ -114,16 +115,43 @@ export const WebPhotoUploader = ({
         style={{ display: 'none' }}
       />
 
-      {/* Upload button */}
-      <Button
-        mode="contained"
-        onPress={() => fileInputRef.current?.click()}
-        disabled={uploading || photos.length >= maxPhotos}
-        style={styles.uploadButton}
-        buttonColor={theme.colors.primary.main}
-      >
-        {uploading ? `Uploading ${Math.round(uploadProgress * 100)}%` : 'Choose Photos'}
-      </Button>
+      {/* Camera input (hidden) */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/jpeg,image/jpg,image/png,image/webp"
+        capture="environment"
+        multiple
+        onChange={handleFileSelect}
+        style={{ display: 'none' }}
+      />
+
+      {/* Button row */}
+      <View style={styles.buttonRow}>
+        {/* Camera button */}
+        <Button
+          mode="contained"
+          onPress={() => cameraInputRef.current?.click()}
+          disabled={uploading || photos.length >= maxPhotos}
+          style={styles.cameraButton}
+          buttonColor={theme.colors.accent.main}
+          icon="camera"
+        >
+          {uploading ? 'Uploading...' : 'Camera'}
+        </Button>
+
+        {/* Gallery button */}
+        <Button
+          mode="contained"
+          onPress={() => fileInputRef.current?.click()}
+          disabled={uploading || photos.length >= maxPhotos}
+          style={styles.uploadButton}
+          buttonColor={theme.colors.primary.main}
+          icon="image"
+        >
+          {uploading ? `${Math.round(uploadProgress * 100)}%` : 'Gallery'}
+        </Button>
+      </View>
 
       {/* Upload progress */}
       {uploading && (
@@ -172,8 +200,16 @@ const styles = StyleSheet.create({
   container: {
     marginVertical: 16,
   },
-  uploadButton: {
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
     marginBottom: 12,
+  },
+  cameraButton: {
+    flex: 1,
+  },
+  uploadButton: {
+    flex: 1,
   },
   progressContainer: {
     marginBottom: 16,

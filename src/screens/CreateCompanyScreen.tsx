@@ -40,7 +40,8 @@ export const CreateCompanyScreen = () => {
   const [formData, setFormData] = useState<CompanyFormData>({
     step1: {},
     step2: {
-      // Initialize with default opening hours so validation passes
+      // Initialize with default country and opening hours so validation passes
+      country: 'Romania',
       opening_hours: {
         monday: { open: '09:00', close: '17:00', closed: false },
         tuesday: { open: '09:00', close: '17:00', closed: false },
@@ -67,10 +68,10 @@ export const CreateCompanyScreen = () => {
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
 
   const stepLabels = [
-    'Basic Info',
-    'Location & Contact',
-    'Services & Specializations',
-    'Pricing & Photos'
+    'Informații de bază',
+    'Locație și contact',
+    'Servicii și specializări',
+    'Prețuri și fotografii'
   ];
 
   // Debug: Log when currentStep changes
@@ -319,12 +320,12 @@ export const CreateCompanyScreen = () => {
     console.log('Services:', step4.services);
     console.log('Services count:', step4.services?.length || 0);
 
-    // Full description validation
-    if (!step4.description || step4.description.trim().length < 50) {
-      newErrors.description = 'Description must be at least 50 characters';
+    // Full description validation (5-100 characters)
+    if (!step4.description || step4.description.trim().length < 5) {
+      newErrors.description = 'Descrierea trebuie să aibă cel puțin 5 caractere';
       console.log('Description validation failed');
-    } else if (step4.description.length > 500) {
-      newErrors.description = 'Description must not exceed 500 characters';
+    } else if (step4.description.length > 100) {
+      newErrors.description = 'Descrierea nu poate depăși 100 de caractere';
       console.log('Description too long');
     }
 
@@ -534,7 +535,7 @@ export const CreateCompanyScreen = () => {
 
       // Upload logo if provided
       if (formData.step1.logo_url) {
-        await ApiService.uploadCompanyPhoto(
+        await ApiService.uploadCompanyLogo(
           createdCompany.id,
           formData.step1.logo_url,
           accessToken || undefined
@@ -647,7 +648,7 @@ export const CreateCompanyScreen = () => {
           style={[styles.button, styles.backButton]}
           labelStyle={styles.backButtonLabel}
         >
-          Back
+          Înapoi
         </Button>
 
 {currentStep < 4 ? (
@@ -658,7 +659,7 @@ export const CreateCompanyScreen = () => {
             style={[styles.button, styles.nextButton]}
             buttonColor="#7c3aed"
           >
-            Next
+            Următorul
           </Button>
         ) : (
           <Button
@@ -675,7 +676,7 @@ export const CreateCompanyScreen = () => {
             buttonColor="#7c3aed"
             testID="submit-button"
           >
-            {isSubmitting ? 'Creating...' : 'Submit'}
+            {isSubmitting ? 'Se creează...' : 'Trimite'}
           </Button>
         )}
       </View>

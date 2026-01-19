@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TextInput, Alert, useWindowDimensions } from 'react-native';
 import { Text, Card, Chip, Button, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,6 +26,7 @@ interface CategoryCardProps {
 
 export const CategoryCard = ({ category }: CategoryCardProps) => {
   const { colors, responsive } = useTheme();
+  const { width } = useWindowDimensions();
   const [isExpanded, setIsExpanded] = useState(false);
   const { company, refreshCompany } = useCompany();
   const { accessToken } = useAuth();
@@ -35,6 +36,10 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
   const [priceMax, setPriceMax] = useState('');
   const [duration, setDuration] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Responsive breakpoints
+  const isDesktop = width >= 1024;
+  const isTablet = width >= 768 && width < 1024;
 
   const toggleExpanded = () => {
     setIsExpanded(!isExpanded);
@@ -152,9 +157,14 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
     }
   };
 
+  // Responsive sizing
+  const iconContainerSize = isDesktop ? 44 : isTablet ? 52 : 56;
+  const iconSize = isDesktop ? 24 : isTablet ? 28 : 30;
+  const cardPadding = isDesktop ? 14 : isTablet ? 16 : 20;
+
   return (
-    <Card style={styles.card} elevation={3}>
-      <Card.Content style={styles.cardContent}>
+    <Card style={styles.card} elevation={isDesktop ? 1 : 3}>
+      <Card.Content style={[styles.cardContent, { paddingVertical: cardPadding, paddingHorizontal: isDesktop ? 12 : 16 }]}>
         <TouchableOpacity onPress={toggleExpanded} activeOpacity={0.8}>
           <View style={styles.headerRow}>
             {/* Icon with Gradient */}
@@ -163,13 +173,14 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={[styles.iconContainer, {
-                width: responsive.getValue(56, 64, 72),
-                height: responsive.getValue(56, 64, 72),
+                width: iconContainerSize,
+                height: iconContainerSize,
+                marginRight: isDesktop ? 10 : 16,
               }]}
             >
               <MaterialCommunityIcons
                 name={getCategoryIcon(category.name)}
-                size={responsive.getValue(30, 34, 38)}
+                size={iconSize}
                 color="#ffffff"
               />
             </LinearGradient>
@@ -177,12 +188,15 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
             {/* Category Info */}
             <View style={styles.categoryInfo}>
               <View style={styles.titleRow}>
-                <Text variant="titleMedium" style={styles.categoryName}>
+                <Text
+                  variant="titleMedium"
+                  style={[styles.categoryName, { fontSize: isDesktop ? 15 : isTablet ? 16 : 18 }]}
+                >
                   {category.name}
                 </Text>
                 <Chip
-                  style={styles.countChip}
-                  textStyle={styles.countChipText}
+                  style={[styles.countChip, { height: isDesktop ? 24 : 28 }]}
+                  textStyle={[styles.countChipText, { fontSize: isDesktop ? 11 : 13 }]}
                   compact
                 >
                   {category.specializations.length}
@@ -192,8 +206,8 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
               {category.description && !isExpanded && (
                 <Text
                   variant="bodySmall"
-                  style={styles.description}
-                  numberOfLines={2}
+                  style={[styles.description, { fontSize: isDesktop ? 12 : 14 }]}
+                  numberOfLines={isDesktop ? 1 : 2}
                 >
                   {category.description}
                 </Text>
@@ -203,7 +217,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
             {/* Expand/Collapse Icon */}
             <Ionicons
               name={isExpanded ? 'chevron-up' : 'chevron-down'}
-              size={24}
+              size={isDesktop ? 20 : 24}
               color="#6b7280"
               style={styles.chevron}
             />
@@ -212,35 +226,51 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
 
           {/* Expanded Content */}
           {isExpanded && (
-            <View style={styles.expandedContent} onStartShouldSetResponder={() => true}>
+            <View style={[
+              styles.expandedContent,
+              { marginTop: isDesktop ? 14 : 20, paddingTop: isDesktop ? 14 : 20 }
+            ]} onStartShouldSetResponder={() => true}>
               {category.description && (
-                <Text variant="bodyMedium" style={styles.fullDescription}>
+                <Text
+                  variant="bodyMedium"
+                  style={[styles.fullDescription, { fontSize: isDesktop ? 13 : 14, marginBottom: isDesktop ? 14 : 20 }]}
+                >
                   {category.description}
                 </Text>
               )}
 
               {/* Specializations List */}
-              <View style={styles.specializationsContainer}>
-                <Text variant="titleSmall" style={styles.specializationsTitle}>
+              <View style={[styles.specializationsContainer, { gap: isDesktop ? 6 : 10 }]}>
+                <Text
+                  variant="titleSmall"
+                  style={[styles.specializationsTitle, { fontSize: isDesktop ? 14 : 16, marginBottom: isDesktop ? 8 : 12 }]}
+                >
                   Services Offered:
                 </Text>
 
                 {category.specializations.map((specialization, index) => (
-                  <View key={specialization.id} style={styles.specializationItem}>
-                    <View style={styles.specializationCard}>
-                      <View style={styles.specializationHeader}>
-                        <View style={styles.bulletPoint}>
+                  <View key={specialization.id} style={[styles.specializationItem, { marginBottom: isDesktop ? 6 : 8 }]}>
+                    <View style={[styles.specializationCard, { padding: isDesktop ? 10 : 14 }]}>
+                      <View style={[styles.specializationHeader, { marginBottom: isDesktop ? 4 : 6, gap: isDesktop ? 6 : 8 }]}>
+                        <View style={[styles.bulletPoint, { width: isDesktop ? 20 : 24, height: isDesktop ? 20 : 24 }]}>
                           <MaterialCommunityIcons
                             name="circle-small"
-                            size={20}
+                            size={isDesktop ? 16 : 20}
                             color="#9ca3af"
                           />
                         </View>
-                        <Text variant="bodyMedium" style={styles.specializationName}>
+                        <Text
+                          variant="bodyMedium"
+                          style={[styles.specializationName, { fontSize: isDesktop ? 13 : 15 }]}
+                        >
                           {specialization.name}
                         </Text>
                         {isSpecializationAlreadyAdded(specialization.id, specialization.name) ? (
-                          <Chip style={styles.addedChip} textStyle={styles.addedChipText} compact>
+                          <Chip
+                            style={[styles.addedChip, { height: isDesktop ? 24 : 28 }]}
+                            textStyle={[styles.addedChipText, { fontSize: isDesktop ? 10 : 12 }]}
+                            compact
+                          >
                             Added
                           </Chip>
                         ) : (
@@ -249,8 +279,8 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                             compact
                             disabled={isSaving}
                             onPress={() => handleStartAddService(specialization.id, specialization.suggested_duration_minutes)}
-                            style={styles.addServiceButton}
-                            labelStyle={styles.addServiceButtonLabel}
+                            style={[styles.addServiceButton, { height: isDesktop ? 24 : 28 }]}
+                            labelStyle={[styles.addServiceButtonLabel, { fontSize: isDesktop ? 10 : 12 }]}
                           >
                             {activeSpecializationId === specialization.id ? 'Cancel' : 'Add service'}
                           </Button>
@@ -314,7 +344,10 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                       {specialization.description && (
                         <Text
                           variant="bodySmall"
-                          style={styles.specializationDescription}
+                          style={[
+                            styles.specializationDescription,
+                            { fontSize: isDesktop ? 11 : 13, paddingLeft: isDesktop ? 26 : 32 }
+                          ]}
                         >
                           {specialization.description}
                         </Text>
@@ -332,34 +365,32 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 16,
-    borderRadius: 16,
+    marginBottom: 12,
+    borderRadius: 14,
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: 'rgba(37, 99, 235, 0.1)',
     shadowColor: '#2563eb',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
   cardContent: {
-    paddingVertical: 20,
-    paddingHorizontal: 16,
+    // Dynamic padding applied inline
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconContainer: {
-    borderRadius: 16,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
     shadowColor: '#2563eb',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   categoryInfo: {
     flex: 1,
@@ -368,78 +399,63 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
-    gap: 10,
+    gap: 8,
   },
   categoryName: {
     fontWeight: '700',
     color: '#111827',
     flex: 1,
-    fontSize: 18,
   },
   countChip: {
     backgroundColor: '#2563eb',
-    borderRadius: 14,
-    height: 28,
+    borderRadius: 12,
   },
   countChipText: {
     color: '#ffffff',
-    fontSize: 13,
     fontWeight: '700',
   },
   description: {
     color: '#6b7280',
-    lineHeight: 20,
-    fontSize: 14,
+    lineHeight: 18,
   },
   chevron: {
-    marginLeft: 12,
+    marginLeft: 10,
   },
   expandedContent: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 2,
+    borderTopWidth: 1,
     borderTopColor: 'rgba(37, 99, 235, 0.1)',
   },
   fullDescription: {
     color: '#6b7280',
-    marginBottom: 20,
-    lineHeight: 22,
-    fontSize: 14,
+    lineHeight: 20,
   },
   specializationsContainer: {
-    gap: 10,
+    // Gap applied dynamically
   },
   specializationsTitle: {
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 12,
-    fontSize: 16,
   },
   specializationItem: {
-    marginBottom: 8,
+    // Margin applied dynamically
   },
   specializationCard: {
     backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
     elevation: 1,
   },
   specializationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
-    gap: 8,
   },
   bulletPoint: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: 'rgba(37, 99, 235, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -448,29 +464,24 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: '600',
     color: '#1f2937',
-    fontSize: 15,
   },
   addServiceButton: {
     backgroundColor: '#2563eb',
-    borderRadius: 10,
-    height: 28,
+    borderRadius: 8,
     justifyContent: 'center',
   },
   addServiceButtonLabel: {
     color: '#ffffff',
-    fontSize: 12,
     fontWeight: '700',
     marginVertical: 0,
-    marginHorizontal: 10,
+    marginHorizontal: 8,
   },
   addedChip: {
     backgroundColor: 'rgba(22, 163, 74, 0.12)',
-    borderRadius: 10,
-    height: 28,
+    borderRadius: 8,
   },
   addedChipText: {
     color: '#16a34a',
-    fontSize: 12,
     fontWeight: '800',
   },
   addServiceInlineForm: {

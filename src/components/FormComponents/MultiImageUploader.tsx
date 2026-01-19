@@ -8,6 +8,7 @@ import {
   Alert,
   FlatList,
   Dimensions,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,8 +48,8 @@ export const MultiImageUploader = ({
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert(
-            'Permission Required',
-            'Camera access is required to take photos.',
+            'Permisiune necesară',
+            'Accesul la cameră este necesar pentru a face fotografii.',
             [{ text: 'OK' }]
           );
           return false;
@@ -57,8 +58,8 @@ export const MultiImageUploader = ({
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert(
-            'Permission Required',
-            'Gallery access is required to select photos.',
+            'Permisiune necesară',
+            'Accesul la galerie este necesar pentru a selecta fotografii.',
             [{ text: 'OK' }]
           );
           return false;
@@ -75,6 +76,43 @@ export const MultiImageUploader = ({
   const pickFromCamera = async () => {
     if (disabled || value.length >= maxPhotos) return;
 
+    // Web fallback using HTML5 File API with camera capture
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment'; // Use rear camera on mobile web, webcam on desktop
+      input.multiple = true; // Allow multiple photos
+      input.onchange = (e: any) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const remainingSlots = maxPhotos - value.length;
+        const filesToProcess = Math.min(files.length, remainingSlots);
+        const newUris: string[] = [];
+
+        let processed = 0;
+        for (let i = 0; i < filesToProcess; i++) {
+          const file = files[i];
+          const reader = new FileReader();
+          reader.onload = (event: any) => {
+            newUris.push(event.target.result);
+            processed++;
+            if (processed === filesToProcess) {
+              onChange([...value, ...newUris]);
+              if (files.length > remainingSlots) {
+                alert(`Maxim ${maxPhotos} fotografii permise. ${files.length - remainingSlots} fotografie/fotografii vor fi omise.`);
+              }
+            }
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      input.click();
+      return;
+    }
+
+    // Mobile implementation
     const hasPermission = await requestPermissions('camera');
     if (!hasPermission) return;
 
@@ -92,7 +130,7 @@ export const MultiImageUploader = ({
       }
     } catch (error) {
       console.error('Camera error:', error);
-      Alert.alert('Error', 'Failed to take photo. Please try again.');
+      Alert.alert('Eroare', 'Fotografia nu a putut fi făcută. Te rugăm să încerci din nou.');
     } finally {
       setLoading(false);
     }
@@ -122,8 +160,8 @@ export const MultiImageUploader = ({
 
         if (totalPhotos > maxPhotos) {
           Alert.alert(
-            'Too Many Photos',
-            `You can only upload up to ${maxPhotos} photos. ${totalPhotos - maxPhotos} photo(s) will be skipped.`
+            'Prea multe fotografii',
+            `Poți încărca maxim ${maxPhotos} fotografii. ${totalPhotos - maxPhotos} fotografie/fotografii vor fi omise.`
           );
           onChange([...value, ...newUris.slice(0, maxPhotos - value.length)]);
         } else {
@@ -132,7 +170,7 @@ export const MultiImageUploader = ({
       }
     } catch (error) {
       console.error('Gallery error:', error);
-      Alert.alert('Error', 'Failed to pick images. Please try again.');
+      Alert.alert('Eroare', 'Imaginile nu au putut fi selectate. Te rugăm să încerci din nou.');
     } finally {
       setLoading(false);
     }
@@ -142,25 +180,37 @@ export const MultiImageUploader = ({
   const showPickerOptions = () => {
     if (disabled || value.length >= maxPhotos) {
       if (value.length >= maxPhotos) {
-        Alert.alert('Maximum Photos', `You can only upload up to ${maxPhotos} photos.`);
+        // On web, use browser alert
+        if (Platform.OS === 'web') {
+          alert(`Poți încărca maxim ${maxPhotos} fotografii.`);
+        } else {
+          Alert.alert('Maxim de fotografii', `Poți încărca maxim ${maxPhotos} fotografii.`);
+        }
       }
       return;
     }
 
+    // On web, directly open file picker (Alert.alert doesn't work on web)
+    if (Platform.OS === 'web') {
+      pickFromGallery();
+      return;
+    }
+
+    // On mobile, show options dialog
     Alert.alert(
-      'Add Photo',
-      'Choose an option',
+      'Adaugă fotografie',
+      'Alege o opțiune',
       [
         {
-          text: 'Take Photo',
+          text: 'Fă fotografie',
           onPress: pickFromCamera,
         },
         {
-          text: 'Choose from Gallery',
+          text: 'Alege din galerie',
           onPress: pickFromGallery,
         },
         {
-          text: 'Cancel',
+          text: 'Anulează',
           style: 'cancel',
         },
       ],
@@ -172,16 +222,26 @@ export const MultiImageUploader = ({
   const removeImage = (index: number) => {
     if (disabled) return;
 
+    // On web, use browser confirm dialog
+    if (Platform.OS === 'web') {
+      if (window.confirm('Ești sigur că vrei să ștergi această fotografie?')) {
+        const newPhotos = value.filter((_, i) => i !== index);
+        onChange(newPhotos);
+      }
+      return;
+    }
+
+    // On mobile, use Alert.alert
     Alert.alert(
-      'Remove Photo',
-      'Are you sure you want to remove this photo?',
+      'Șterge fotografia',
+      'Ești sigur că vrei să ștergi această fotografie?',
       [
         {
-          text: 'Cancel',
+          text: 'Anulează',
           style: 'cancel',
         },
         {
-          text: 'Remove',
+          text: 'Șterge',
           style: 'destructive',
           onPress: () => {
             const newPhotos = value.filter((_, i) => i !== index);
@@ -227,7 +287,7 @@ export const MultiImageUploader = ({
           color={disabled ? '#999' : '#666'}
         />
         <Text style={[styles.addButtonText, disabled && styles.addButtonTextDisabled]}>
-          {loading ? 'Loading...' : 'Add Photo'}
+          {loading ? 'Se încarcă...' : 'Adaugă fotografie'}
         </Text>
       </TouchableOpacity>
     );
@@ -240,15 +300,15 @@ export const MultiImageUploader = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Clinic Photos</Text>
+        <Text style={styles.title}>Fotografii clinică</Text>
         <Text style={[styles.counter, { color: statusColor }]}>
-          {photoCount}/{maxPhotos} photos
+          {photoCount}/{maxPhotos} fotografii
         </Text>
       </View>
 
       {minPhotos > 0 && photoCount < minPhotos && (
         <Text style={styles.requirementText}>
-          Minimum {minPhotos} photos required
+          Minim {minPhotos} fotografii necesare
         </Text>
       )}
 
@@ -262,14 +322,14 @@ export const MultiImageUploader = ({
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="images-outline" size={48} color="#ccc" />
-            <Text style={styles.emptyText}>No photos added yet</Text>
+            <Text style={styles.emptyText}>Nicio fotografie adăugată încă</Text>
             <TouchableOpacity
               style={styles.emptyButton}
               onPress={showPickerOptions}
               disabled={disabled || loading}
             >
               <Text style={styles.emptyButtonText}>
-                {loading ? 'Loading...' : 'Add Your First Photo'}
+                {loading ? 'Se încarcă...' : 'Adaugă prima fotografie'}
               </Text>
             </TouchableOpacity>
           </View>

@@ -44,6 +44,7 @@ import { useRouteDistance } from '../hooks/useRouteDistance';
 import { useAuth } from '../context/AuthContext';
 import { AppointmentCard, type AppointmentData } from '../components/Dashboard/AppointmentCard';
 import { theme } from '../theme';
+import { formatPriceRange } from '../utils/currency';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'UserDashboard'>;
 
@@ -100,6 +101,9 @@ export const UserDashboardScreen = () => {
   // Map modal state
   const [mapVisible, setMapVisible] = useState(false);
   const [selectedMapClinic, setSelectedMapClinic] = useState<{ id: number; name: string } | null>(null);
+
+  // Location toggle state for "Use Current Location" feature
+  const [useCurrentLocation, setUseCurrentLocation] = useState(false);
 
   // Web map is rendered via Leaflet in an iframe/WebView-like HTML (no API key required).
 
@@ -283,8 +287,12 @@ export const UserDashboardScreen = () => {
 
   /**
    * Filter and calculate distances when location or distance filter changes
+   * This is the OLD system - only runs when location toggle is OFF
    */
   useEffect(() => {
+    // Skip if location toggle is active - new system handles filtering
+    if (useCurrentLocation) return;
+
     if (!companies.length) {
       setFilteredCompanies([]);
       setCompaniesWithDistance([]);
@@ -334,7 +342,7 @@ export const UserDashboardScreen = () => {
 
     setFilteredCompanies(withDistances.map((item) => item.company));
     setCompaniesWithDistance(withDistances);
-  }, [companies, selectedDistance, location]);
+  }, [companies, selectedDistance, location, useCurrentLocation]);
 
   /**
    * Search companies for a given service name and attach matched service/pricing
@@ -343,11 +351,18 @@ export const UserDashboardScreen = () => {
     async (query: string) => {
       const q = query.trim().toLowerCase();
       if (!q) {
-        // Clear search - restore previous filteredCompanies state
-        // Recompute companiesWithDistance from filteredCompanies
-        const base = filteredCompanies.length ? filteredCompanies : companies;
-        setFilteredCompanies(base);
-        setCompaniesWithDistance(base.map((company) => ({ company })));
+        // Clear search - do NOT reset distances when location is active
+        // Simply trigger recalculation through the existing distance system
+        if (useCurrentLocation) {
+          // When location is active, just clear the search but keep distances
+          // The calculateCompanyDistances useEffect will handle distance display
+          setIsSearching(false);
+          return;
+        }
+
+        // When location is NOT active, restore to full company list without distances
+        setFilteredCompanies(companies);
+        setCompaniesWithDistance(companies.map((company) => ({ company })));
         setIsSearching(false);
         return;
       }
@@ -422,11 +437,18 @@ export const UserDashboardScreen = () => {
         setIsSearching(false);
       }
     },
-    [companies, filteredCompanies, location, selectedDistance, sortMode]
+    // NOTE: Do NOT include companiesWithDistance in dependencies to avoid infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [companies, filteredCompanies, location, selectedDistance, sortMode, useCurrentLocation]
   );
 
   // Debounce search queries
   useEffect(() => {
+    // Only run search when query is NOT empty
+    if (!searchQuery || !searchQuery.trim()) {
+      return;
+    }
+
     const t = setTimeout(() => {
       searchCompaniesByService(searchQuery);
     }, 300);
@@ -483,15 +505,142 @@ export const UserDashboardScreen = () => {
 
   /**
    * Handle distance selection
+   * Works with both the location toggle and the old permission system
    */
   const handleDistanceSelect = async (distance: number | null) => {
     setSelectedDistance(distance);
 
-    // Request location permission if selecting a distance and not already granted
+    // If location toggle is active, filtering will happen automatically via useEffect
+    if (useCurrentLocation) {
+      // Distance calculation and filtering will be triggered by the useEffect
+      return;
+    }
+
+    // Old system: Request location permission if selecting a distance and not already granted
     if (distance !== null && permissionStatus !== 'granted') {
       await requestPermission();
     }
   };
+
+  /**
+   * Handle location toggle for "Use Current Location" feature
+   * Activates location mode with fallback to Bucharest coordinates if GPS unavailable
+   */
+  const handleLocationToggle = async () => {
+    console.log('[DEBUG] Location toggle clicked, current state:', useCurrentLocation);
+
+    if (!useCurrentLocation) {
+      // Turning ON location
+      console.log('[DEBUG] Requesting location permission...');
+      const granted = await requestPermission();
+
+      console.log('[DEBUG] Permission result:', granted);
+
+      if (granted) {
+        console.log('[DEBUG] Setting useCurrentLocation = true');
+        setUseCurrentLocation(true);
+        // Will trigger distance generation via useEffect
+        // If GPS fails, calculateCompanyDistances will use fallback coordinates
+      } else {
+        // Permission denied - use mocked location as fallback
+        console.log('[DEBUG] Location permission denied, using fallback location (Bucharest)');
+
+        // Still activate location mode with fallback coordinates
+        // This allows the feature to work even without GPS permission
+        setUseCurrentLocation(true);
+
+        // Distance calculation will use fallback coordinates (44.4268, 26.1025)
+        // from calculateCompanyDistances function
+      }
+    } else {
+      // Turning OFF location
+      console.log('[DEBUG] Turning OFF location, clearing distances');
+      setUseCurrentLocation(false);
+      // Clear distance filter when turning off location
+      setSelectedDistance(null);
+      // Will clear distances and reset sorting via useEffect
+    }
+  };
+
+  /**
+   * Calculate distances using Haversine formula with fallback coordinates
+   * Fallback coordinates: Bucharest, Romania (44.4268, 26.1025)
+   * Also applies distance filtering when a distance filter is selected
+   */
+  const calculateCompanyDistances = useCallback(() => {
+    console.log('[DEBUG] calculateCompanyDistances called', {
+      useCurrentLocation,
+      hasLocation: !!location,
+      location,
+      selectedDistance,
+      companiesCount: companies.length
+    });
+
+    if (!useCurrentLocation) {
+      // Location mode is OFF - clear distances and show all companies
+      console.log('[DEBUG] Location mode OFF - clearing distances');
+      setCompaniesWithDistance(companies.map((company) => ({ company })));
+      setFilteredCompanies(companies);
+      return;
+    }
+
+    // Use actual location or fallback to mocked coordinates if GPS fails
+    // Mocked coordinates: Bucharest, Romania (central location)
+    const userLatitude = location?.latitude || 44.4268;
+    const userLongitude = location?.longitude || 26.1025;
+
+    console.log('[DEBUG] User coordinates:', { userLatitude, userLongitude, isGPS: !!location });
+
+    // Calculate real straight-line distance using Haversine formula
+    const companiesWithCalcDistance = companies
+      .map((company) => {
+        if (!company.latitude || !company.longitude) {
+          console.log('[DEBUG] Company missing coordinates:', company.name);
+          return null; // Filter out companies without coordinates
+        }
+
+        const distance = calculateDistance(
+          userLatitude,
+          userLongitude,
+          company.latitude,
+          company.longitude
+        );
+
+        console.log('[DEBUG] Calculated distance for', company.name, ':', distance, 'km');
+
+        return {
+          company,
+          distance, // in kilometers, rounded to 1 decimal
+        };
+      })
+      .filter((item): item is { company: Company; distance: number } => item !== null);
+
+    console.log('[DEBUG] Companies with distances:', companiesWithCalcDistance.length);
+
+    // Apply distance filter if selected
+    let filtered = companiesWithCalcDistance;
+    if (selectedDistance !== null) {
+      filtered = companiesWithCalcDistance.filter((item) => item.distance <= selectedDistance);
+      console.log('[DEBUG] Filtered by distance <=', selectedDistance, 'km:', filtered.length, 'companies');
+    }
+
+    // Sort by distance (closest first)
+    filtered.sort((a, b) => a.distance - b.distance);
+
+    console.log('[DEBUG] Setting companiesWithDistance to', filtered.length, 'companies');
+    setCompaniesWithDistance(filtered);
+    setFilteredCompanies(filtered.map((item) => item.company));
+  }, [companies, useCurrentLocation, location, selectedDistance]);
+
+  /**
+   * Calculate distances when location toggle is activated or distance filter changes
+   */
+  useEffect(() => {
+    // Only run if location toggle is active OR if we're in the old distance filter system
+    if (!useCurrentLocation && selectedDistance === null) return;
+
+    calculateCompanyDistances();
+  }, [calculateCompanyDistances, useCurrentLocation, selectedDistance]);
 
   /**
    * Handle pull-to-refresh
@@ -501,6 +650,12 @@ export const UserDashboardScreen = () => {
     // Clear route distance cache on refresh to get fresh data
     clearRouteCache();
     await Promise.all([fetchCompanies(), fetchUserAppointments()]);
+
+    // Recalculate distances if location toggle is active
+    if (useCurrentLocation && location) {
+      calculateCompanyDistances();
+    }
+
     setIsRefreshing(false);
   };
 
@@ -817,9 +972,9 @@ export const UserDashboardScreen = () => {
         {!isServiceSearchActive && (
         <View style={styles.myAppointmentsSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>My Appointments</Text>
+            <Text style={styles.sectionTitle}>Programările mele</Text>
             <TouchableOpacity style={styles.viewAllButton} onPress={() => navigation.navigate('MyAppointments')}>
-              <Text style={styles.viewAllButtonText}>View All</Text>
+              <Text style={styles.viewAllButtonText}>Vezi toate</Text>
               <Ionicons name="chevron-forward" size={16} color={theme.colors.primary.main} />
             </TouchableOpacity>
           </View>
@@ -832,7 +987,7 @@ export const UserDashboardScreen = () => {
           ) : !hasAnyDashboardEligibleAppointments ? (
             <View style={styles.emptyAppointments}>
               <Ionicons name="calendar-outline" size={48} color={theme.colors.neutral[400]} />
-              <Text style={styles.emptyAppointmentsText}>No upcoming appointments</Text>
+              <Text style={styles.emptyAppointmentsText}>Nu există programări viitoare</Text>
             </View>
           ) : (
             <View>
@@ -960,9 +1115,9 @@ export const UserDashboardScreen = () => {
                                 const hasPrice = !!(s?.price_min || s?.price_max || s?.price);
                                 const priceText = hasPrice
                                   ? (s?.price_min != null && s?.price_max != null
-                                      ? `$${Number(s.price_min)} - $${Number(s.price_max)}`
-                                      : `$${Number(s.price ?? s.price_min ?? s.price_max ?? 0)}`)
-                                  : '$0';
+                                      ? formatPriceRange(s.price_min, s.price_max)
+                                      : formatPriceRange(s.price ?? s.price_min ?? s.price_max, null))
+                                  : '0 RON';
 
                                 return (
                                   <Text key={si} style={styles.detailText}>
@@ -976,8 +1131,8 @@ export const UserDashboardScreen = () => {
                               <Text style={[styles.detailText, { marginTop: theme.spacing.sm }]}>
                                 <Text style={{ fontWeight: '700' }}>Price:</Text>{' '}
                                 {typeof mapped.total_price_min === 'number' && typeof mapped.total_price_max === 'number'
-                                  ? `$${mapped.total_price_min} - $${mapped.total_price_max}`
-                                  : `$0 - $0`}
+                                  ? formatPriceRange(mapped.total_price_min, mapped.total_price_max)
+                                  : '0 RON'}
                               </Text>
 
                               <Text style={styles.detailText}>
@@ -990,7 +1145,7 @@ export const UserDashboardScreen = () => {
                           ) : (
                             <>
                               <Text style={styles.detailText}><Text style={{ fontWeight: '700' }}>Service:</Text> {mapped.service}</Text>
-                              <Text style={styles.detailText}><Text style={{ fontWeight: '700' }}>Price:</Text> {mapped.price ? `$${mapped.price}` : '$0'}</Text>
+                              <Text style={styles.detailText}><Text style={{ fontWeight: '700' }}>Price:</Text> {mapped.price ? formatPriceRange(mapped.price, null) : '0 RON'}</Text>
                               <Text style={styles.detailText}><Text style={{ fontWeight: '700' }}>Duration:</Text> {a.service?.duration_minutes ? `${a.service.duration_minutes} min` : '0 min'}</Text>
                             </>
                           )}
@@ -1027,10 +1182,52 @@ export const UserDashboardScreen = () => {
   </View>
   )}
 
+        {/* Location Toggle - Always Visible */}
+        <View style={styles.findClinicsSection}>
+          <View style={styles.locationToggleContainer}>
+            <TouchableOpacity
+              onPress={handleLocationToggle}
+              style={styles.locationToggle}
+              activeOpacity={0.7}
+            >
+              <View style={styles.locationToggleContent}>
+                <MaterialCommunityIcons
+                  name={useCurrentLocation ? "map-marker" : "map-marker-outline"}
+                  size={24}
+                  color={useCurrentLocation ? theme.colors.primary.main : theme.colors.neutral[600]}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.locationToggleText,
+                      useCurrentLocation && styles.locationToggleTextActive,
+                    ]}
+                  >
+                    Activează locația
+                  </Text>
+                  {!useCurrentLocation && (
+                    <Text style={styles.locationToggleSubtext}>
+                      Apasă pentru a vedea distanțele
+                    </Text>
+                  )}
+                </View>
+                {useCurrentLocation && locationLoading && (
+                  <ActivityIndicator size="small" color={theme.colors.primary.main} />
+                )}
+                {useCurrentLocation && !locationLoading && (
+                  <Chip mode="flat" compact style={styles.locationChip}>
+                    Activ
+                  </Chip>
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* 2. Find Clinics Section (MIDDLE) */}
         {!isServiceSearchActive && (
           <View style={styles.findClinicsSection}>
-            <Text style={styles.sectionTitle}>Find Clinics</Text>
+            <Text style={styles.sectionTitle}>Găsește clinici</Text>
 
             {/* Search moved to top bar */}
 
@@ -1039,7 +1236,7 @@ export const UserDashboardScreen = () => {
               <View style={styles.filterHeader}>
                 <Ionicons name="location" size={20} color={theme.colors.primary.main} />
                 <Text style={styles.filterTitle}>
-                  Filter by Distance
+                  Filtrează după distanță
                 </Text>
                 <TouchableOpacity
                   onPress={openMap}
@@ -1052,6 +1249,24 @@ export const UserDashboardScreen = () => {
                   <Text style={styles.seeMapButtonText}>See map with clinics</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Info message about location and filtering */}
+              {!useCurrentLocation && (
+                <View style={styles.locationInfoBanner}>
+                  <Ionicons name="information-circle" size={16} color="#3b82f6" />
+                  <Text style={styles.locationInfoText}>
+                    Activează locația mai sus pentru a vedea distanțele și a filtra clinicile
+                  </Text>
+                </View>
+              )}
+              {useCurrentLocation && (
+                <View style={[styles.locationInfoBanner, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                  <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                  <Text style={[styles.locationInfoText, { color: '#065f46' }]}>
+                    Locație activă! Selectează o distanță pentru a filtra clinicile
+                  </Text>
+                </View>
+              )}
 
               {/* Distance Options */}
               <View style={styles.distanceOptions}>
@@ -1107,6 +1322,11 @@ export const UserDashboardScreen = () => {
                   Found{' '}
                   <Text style={styles.resultsCount}>{filteredCompanies.length}</Text>{' '}
                   vet clinic{filteredCompanies.length !== 1 ? 's' : ''}
+                  {useCurrentLocation && selectedDistance !== null && (
+                    <Text style={{ fontWeight: '600', color: '#10b981' }}>
+                      {' '}within {selectedDistance < 1 ? `${selectedDistance * 1000} m` : `${selectedDistance} km`}
+                    </Text>
+                  )}
                   {selectedDistance !== null && isLoadingRoutes && ' (loading drive times...)'}
                 </Text>
               </View>
@@ -1184,16 +1404,26 @@ export const UserDashboardScreen = () => {
               </View>
             )}
 
-            {companiesWithDistance.map(({ company, distance, matchedService }) => (
-              <VetCompanyCard
-                key={company.id}
-                company={company}
-                distance={selectedDistance !== null ? distance : undefined}
-                routeDistance={selectedDistance !== null ? getDistance(String(company.id)) : undefined}
-                matchedService={matchedService}
-                onPress={() => handleCompanyPress(company.id)}
-              />
-            ))}
+            {companiesWithDistance.map(({ company, distance, matchedService }) => {
+              const distanceProp = selectedDistance !== null ? distance : (useCurrentLocation ? distance : undefined);
+              console.log('[DEBUG] Rendering card for', company.name, ':', {
+                distance,
+                distanceProp,
+                selectedDistance,
+                useCurrentLocation
+              });
+
+              return (
+                <VetCompanyCard
+                  key={company.id}
+                  company={company}
+                  distance={distanceProp}
+                  routeDistance={selectedDistance !== null ? getDistance(String(company.id)) : undefined}
+                  matchedService={matchedService}
+                  onPress={() => handleCompanyPress(company.id)}
+                />
+              );
+            })}
           </View>
         )}
 
@@ -1860,6 +2090,62 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     marginBottom: theme.spacing.md,
+  },
+  // Location Toggle Styles
+  locationToggleContainer: {
+    marginBottom: theme.spacing.md,
+  },
+  locationToggle: {
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.neutral[50],
+    borderWidth: 1,
+    borderColor: theme.colors.neutral[200],
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  locationToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    gap: 10,
+  },
+  locationToggleText: {
+    fontSize: 16,
+    color: theme.colors.neutral[700],
+    fontWeight: '600',
+  },
+  locationToggleTextActive: {
+    color: theme.colors.primary.main,
+    fontWeight: '700',
+  },
+  locationToggleSubtext: {
+    fontSize: 13,
+    color: theme.colors.neutral[500],
+    marginTop: 2,
+  },
+  locationChip: {
+    backgroundColor: theme.colors.primary.main + '15', // 15% opacity
+    borderColor: theme.colors.primary.main + '30',
+    borderWidth: 1,
+  },
+  locationInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  locationInfoText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#1e40af',
+    fontWeight: '500',
   },
 });
 

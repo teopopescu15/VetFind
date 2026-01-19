@@ -365,9 +365,44 @@ const createApiService = () => {
           throw new Error(data.message || 'Photo upload failed');
         }
 
-        return data.data.photo_url;
+        // Return full response object for consistency
+        return data;
       } catch (error: any) {
         throw new Error(error.message || 'Photo upload failed');
+      }
+    },
+
+    /**
+     * Upload company logo (uses update endpoint)
+     */
+    async uploadCompanyLogo(companyId: number, logo: string | FormData, accessToken?: string): Promise<any> {
+      try {
+        // First upload as photo to get the URL
+        const uploadResponse = await this.uploadCompanyPhoto(companyId, logo, accessToken);
+        const logoUrl = uploadResponse.data.photo_url;
+
+        // Then update company with logo_url
+        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+        const updateResponse = await request(
+          `/companies/${companyId}`,
+          'PATCH',
+          { logo_url: logoUrl },
+          token || undefined
+        );
+
+        if (!updateResponse.success) {
+          throw new Error(updateResponse.message || 'Failed to set logo');
+        }
+
+        return {
+          success: true,
+          message: 'Logo uploaded successfully',
+          data: {
+            logo_url: logoUrl,
+          },
+        };
+      } catch (error: any) {
+        throw new Error(error.message || 'Logo upload failed');
       }
     },
 

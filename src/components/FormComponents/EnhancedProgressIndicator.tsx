@@ -129,7 +129,7 @@ export const EnhancedProgressIndicator = ({
             },
           ]}
         >
-          {progressPercentage}% Complete
+          {progressPercentage}% Completat
         </Text>
       </View>
 

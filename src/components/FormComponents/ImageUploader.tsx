@@ -23,7 +23,7 @@ interface ImageUploaderProps {
 export const ImageUploader = ({
   value,
   onChange,
-  placeholder = 'Upload Image',
+  placeholder = 'Încarcă imagine',
   aspectRatio = [4, 3],
   disabled = false,
   maxWidth,
@@ -39,8 +39,8 @@ export const ImageUploader = ({
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert(
-            'Permission Required',
-            'Camera access is required to take photos. Please enable it in settings.',
+            'Permisiune necesară',
+            'Accesul la cameră este necesar pentru a face fotografii. Activează-l în setări.',
             [{ text: 'OK' }]
           );
           return false;
@@ -49,8 +49,8 @@ export const ImageUploader = ({
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert(
-            'Permission Required',
-            'Gallery access is required to select photos. Please enable it in settings.',
+            'Permisiune necesară',
+            'Accesul la galerie este necesar pentru a selecta fotografii. Activează-l în setări.',
             [{ text: 'OK' }]
           );
           return false;
@@ -67,6 +67,27 @@ export const ImageUploader = ({
   const pickFromCamera = async () => {
     if (disabled) return;
 
+    // Web fallback using HTML5 File API with camera capture
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment'; // Use rear camera on mobile web, webcam on desktop
+      input.onchange = (e: any) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event: any) => {
+            onChange(event.target.result);
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      input.click();
+      return;
+    }
+
+    // Mobile implementation
     const hasPermission = await requestPermissions('camera');
     if (!hasPermission) return;
 
@@ -84,7 +105,7 @@ export const ImageUploader = ({
       }
     } catch (error) {
       console.error('Camera error:', error);
-      Alert.alert('Error', 'Failed to take photo. Please try again.');
+      Alert.alert('Eroare', 'Fotografia nu a putut fi făcută. Te rugăm să încerci din nou.');
     } finally {
       setLoading(false);
     }
@@ -131,7 +152,7 @@ export const ImageUploader = ({
       }
     } catch (error) {
       console.error('Gallery error:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      Alert.alert('Eroare', 'Imaginea nu a putut fi selectată. Te rugăm să încerci din nou.');
     } finally {
       setLoading(false);
     }
@@ -141,20 +162,27 @@ export const ImageUploader = ({
   const showPickerOptions = () => {
     if (disabled) return;
 
+    // On web, directly open file picker (Alert.alert doesn't work on web)
+    if (Platform.OS === 'web') {
+      pickFromGallery();
+      return;
+    }
+
+    // On mobile, show options dialog
     Alert.alert(
-      'Select Image',
-      'Choose an option',
+      'Selectează imagine',
+      'Alege o opțiune',
       [
         {
-          text: 'Take Photo',
+          text: 'Fă fotografie',
           onPress: pickFromCamera,
         },
         {
-          text: 'Choose from Gallery',
+          text: 'Alege din galerie',
           onPress: pickFromGallery,
         },
         {
-          text: 'Cancel',
+          text: 'Anulează',
           style: 'cancel',
         },
       ],
@@ -166,16 +194,25 @@ export const ImageUploader = ({
   const removeImage = () => {
     if (disabled) return;
 
+    // On web, use browser confirm dialog
+    if (Platform.OS === 'web') {
+      if (window.confirm('Ești sigur că vrei să ștergi această imagine?')) {
+        onChange(null);
+      }
+      return;
+    }
+
+    // On mobile, use Alert.alert
     Alert.alert(
-      'Remove Image',
-      'Are you sure you want to remove this image?',
+      'Șterge imaginea',
+      'Ești sigur că vrei să ștergi această imagine?',
       [
         {
-          text: 'Cancel',
+          text: 'Anulează',
           style: 'cancel',
         },
         {
-          text: 'Remove',
+          text: 'Șterge',
           style: 'destructive',
           onPress: () => onChange(null),
         },
@@ -235,7 +272,7 @@ export const ImageUploader = ({
             color={disabled ? '#999' : '#666'}
           />
           <Text style={[styles.uploadText, disabled && styles.uploadTextDisabled]}>
-            {loading ? 'Loading...' : placeholder}
+            {loading ? 'Se încarcă...' : placeholder}
           </Text>
         </TouchableOpacity>
       )}

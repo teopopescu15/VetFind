@@ -517,6 +517,9 @@ export const CompanyModel = {
       rating: row.rating !== undefined && row.rating !== null ? Number(row.rating) : 0,
       review_count: row.review_count !== undefined && row.review_count !== null ? Number(row.review_count) : 0,
       avg_rating: row.avg_rating !== undefined ? Number(row.avg_rating) : (row.rating !== undefined ? Number(row.rating) : 0),
+      latitude: row.latitude !== undefined && row.latitude !== null ? Number(row.latitude) : null,
+      longitude: row.longitude !== undefined && row.longitude !== null ? Number(row.longitude) : null,
+      distance_km: row.distance_km !== undefined && row.distance_km !== null ? Number(row.distance_km) : undefined,
       photos: typeof row.photos === 'string' ? JSON.parse(row.photos) : row.photos,
       opening_hours: typeof row.opening_hours === 'string' ? JSON.parse(row.opening_hours) : row.opening_hours,
     };

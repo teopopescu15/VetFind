@@ -64,9 +64,9 @@ export const AddCustomServiceModal = ({
 
     // Service name validation
     if (!serviceName.trim()) {
-      newErrors.service_name = 'Service name is required';
+      newErrors.service_name = 'Numele serviciului este obligatoriu';
     } else if (serviceName.length > 100) {
-      newErrors.service_name = 'Service name must be 100 characters or less';
+      newErrors.service_name = 'Numele serviciului nu poate depăși 100 de caractere';
     }
 
     // Price validation
@@ -74,7 +74,7 @@ export const AddCustomServiceModal = ({
       const min = parseFloat(priceMin);
       const max = parseFloat(priceMax);
       if (!isNaN(min) && !isNaN(max) && min > max) {
-        newErrors.price_range = 'Minimum price cannot exceed maximum price';
+        newErrors.price_range = 'Prețul minim nu poate depăși prețul maxim';
       }
     }
 
@@ -113,9 +113,9 @@ export const AddCustomServiceModal = ({
 
   // Get selected category name
   const getSelectedCategoryName = (): string => {
-    if (!selectedCategoryId) return 'Select a category (optional)';
+    if (!selectedCategoryId) return 'Selectează o categorie (opțional)';
     const category = categories.find((c) => c.id === selectedCategoryId);
-    return category?.name || 'Select a category (optional)';
+    return category?.name || 'Selectează o categorie (opțional)';
   };
 
   // Render category picker modal
@@ -132,7 +132,7 @@ export const AddCustomServiceModal = ({
       >
         <View style={styles.categoryPickerContainer}>
           <View style={styles.categoryPickerHeader}>
-            <Text style={styles.categoryPickerTitle}>Select Category</Text>
+            <Text style={styles.categoryPickerTitle}>Selectează categoria</Text>
             <TouchableOpacity
               onPress={() => setShowCategoryPicker(false)}
               accessibilityLabel="Close category picker"
@@ -157,7 +157,7 @@ export const AddCustomServiceModal = ({
                 styles.categoryOptionText,
                 !selectedCategoryId && styles.categoryOptionTextSelected,
               ]}>
-                None (Uncategorized)
+                Fără categorie
               </Text>
               {!selectedCategoryId && (
                 <Ionicons name="checkmark" size={20} color="#7c3aed" />
@@ -209,7 +209,7 @@ export const AddCustomServiceModal = ({
               <View style={styles.headerIcon}>
                 <Ionicons name="add-circle" size={24} color="#7c3aed" />
               </View>
-              <Text style={styles.headerTitle}>Add Custom Service</Text>
+              <Text style={styles.headerTitle}>Adaugă serviciu personalizat</Text>
             </View>
             <TouchableOpacity
               onPress={onClose}
@@ -224,10 +224,10 @@ export const AddCustomServiceModal = ({
           <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
             {/* Service Name */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Service Name *</Text>
+              <Text style={styles.label}>Nume serviciu *</Text>
               <TextInput
                 mode="outlined"
-                placeholder="e.g., Senior Pet Wellness Check"
+                placeholder="ex. Consultație geriatrică pentru animale"
                 value={serviceName}
                 onChangeText={setServiceName}
                 maxLength={100}
@@ -244,7 +244,7 @@ export const AddCustomServiceModal = ({
 
             {/* Category Selector */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Category</Text>
+              <Text style={styles.label}>Categorie</Text>
               <TouchableOpacity
                 style={styles.categorySelector}
                 onPress={() => setShowCategoryPicker(true)}
@@ -265,10 +265,10 @@ export const AddCustomServiceModal = ({
 
             {/* Description */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Description</Text>
+              <Text style={styles.label}>Descriere</Text>
               <TextInput
                 mode="outlined"
-                placeholder="Brief description of the service"
+                placeholder="Descriere scurtă a serviciului"
                 value={description}
                 onChangeText={setDescription}
                 multiline
@@ -283,7 +283,7 @@ export const AddCustomServiceModal = ({
 
             {/* Price Range */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Price Range</Text>
+              <Text style={styles.label}>Gamă de prețuri</Text>
               <View style={styles.priceRow}>
                 <View style={styles.priceInputContainer}>
                   <TextInput
@@ -295,14 +295,14 @@ export const AddCustomServiceModal = ({
                     style={styles.priceInput}
                     outlineColor="#e5e7eb"
                     activeOutlineColor="#7c3aed"
-                    left={<TextInput.Affix text="$" />}
+                    right={<TextInput.Affix text="RON" />}
                     error={!!errors.price_min || !!errors.price_range}
-                    accessibilityLabel="Minimum price"
+                    accessibilityLabel="Preț minim"
                   />
                 </View>
 
                 <View style={styles.priceSeparator}>
-                  <Text style={styles.priceSeparatorText}>to</Text>
+                  <Text style={styles.priceSeparatorText}>până la</Text>
                 </View>
 
                 <View style={styles.priceInputContainer}>
@@ -315,9 +315,9 @@ export const AddCustomServiceModal = ({
                     style={styles.priceInput}
                     outlineColor="#e5e7eb"
                     activeOutlineColor="#7c3aed"
-                    left={<TextInput.Affix text="$" />}
+                    right={<TextInput.Affix text="RON" />}
                     error={!!errors.price_max || !!errors.price_range}
-                    accessibilityLabel="Maximum price"
+                    accessibilityLabel="Preț maxim"
                   />
                 </View>
               </View>
@@ -331,13 +331,13 @@ export const AddCustomServiceModal = ({
                 <Text style={styles.errorText}>{errors.price_range}</Text>
               )}
               <Text style={styles.helperText}>
-                Use same value for fixed price, or different values for price range
+                Folosește aceeași valoare pentru preț fix sau valori diferite pentru gamă de prețuri
               </Text>
             </View>
 
             {/* Duration */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Duration</Text>
+              <Text style={styles.label}>Durată</Text>
               <View style={styles.durationContainer}>
                 <TextInput
                   mode="outlined"
@@ -348,7 +348,7 @@ export const AddCustomServiceModal = ({
                   style={styles.durationInput}
                   outlineColor="#e5e7eb"
                   activeOutlineColor="#7c3aed"
-                  right={<TextInput.Affix text="minutes" />}
+                  right={<TextInput.Affix text="minute" />}
                   accessibilityLabel="Service duration"
                 />
               </View>
@@ -363,7 +363,7 @@ export const AddCustomServiceModal = ({
               style={styles.cancelButton}
               labelStyle={styles.cancelButtonLabel}
             >
-              Cancel
+              Anulează
             </Button>
             <Button
               mode="contained"
@@ -371,7 +371,7 @@ export const AddCustomServiceModal = ({
               style={styles.addButton}
               buttonColor="#7c3aed"
             >
-              Add Service
+              Adaugă serviciu
             </Button>
           </View>
         </View>

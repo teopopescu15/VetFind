@@ -26,6 +26,7 @@ import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../../theme';
+import { formatPriceRange } from '../../utils/currency';
 
 /**
  * Appointment interface
@@ -83,41 +84,34 @@ export const AppointmentCard = ({
       bg: theme.colors.warning[100],
       border: theme.colors.warning[300],
       icon: 'time-outline' as const,
-      label: 'Pending',
+      label: 'În așteptare',
     },
     confirmed: {
       color: theme.colors.primary.main,
       bg: theme.colors.primary[100],
       border: theme.colors.primary[300],
       icon: 'checkmark-circle-outline' as const,
-      label: 'Confirmed',
+      label: 'Confirmat',
     },
     completed: {
       color: theme.colors.success.main,
       bg: theme.colors.success[100],
       border: theme.colors.success[300],
       icon: 'checkmark-done-outline' as const,
-      label: 'Completed',
+      label: 'Finalizat',
     },
     cancelled: {
       color: theme.colors.neutral[600],
       bg: theme.colors.neutral[100],
       border: theme.colors.neutral[300],
       icon: 'close-circle-outline' as const,
-      label: 'Cancelled',
+      label: 'Anulat',
     },
   };
 
   const config = statusConfig[appointment.status];
 
-  // Helpers to compute totals and formatting
-  const formatPriceRange = (min?: number | null, max?: number | null) => {
-    const minN = Number(min || 0) || 0;
-    const maxN = Number(max != null ? max : min) || minN;
-    if (minN === maxN) return `$${minN}`;
-    return `$${minN} - $${maxN}`;
-  };
-
+  // Helper to format duration
   const formatDuration = (minutes?: number | null) => {
     const m = Number(minutes || 0) || 0;
     if (m === 0) return '';
@@ -181,19 +175,19 @@ export const AppointmentCard = ({
         <View style={styles.detailsSection}>
           <View style={styles.detailRow}>
             <Ionicons name="calendar-outline" size={20} color={theme.colors.primary.main} />
-            <Text style={styles.detailLabel}>Date:</Text>
+            <Text style={styles.detailLabel}>Data:</Text>
             <Text style={styles.detailValue}>{appointment.date}</Text>
           </View>
 
           <View style={styles.detailRow}>
             <Ionicons name="time-outline" size={20} color={theme.colors.primary.main} />
-            <Text style={styles.detailLabel}>Time:</Text>
+            <Text style={styles.detailLabel}>Ora:</Text>
             <Text style={styles.detailValue}>{appointment.time}</Text>
           </View>
 
           <View style={styles.detailRow}>
             <MaterialCommunityIcons name="paw" size={20} color={theme.colors.primary.main} />
-            <Text style={styles.detailLabel}>Pet:</Text>
+            <Text style={styles.detailLabel}>Animal:</Text>
             <Text style={styles.detailValue}>{appointment.petName}</Text>
           </View>
 
@@ -201,10 +195,10 @@ export const AppointmentCard = ({
           {Array.isArray(appointment.services) && appointment.services.length > 0 ? (
             <View>
               <View style={styles.servicesList}>
-                <Text style={styles.servicesLabel}>Services:</Text>
+                <Text style={styles.servicesLabel}>Servicii:</Text>
                 {appointment.services.map((s, idx) => (
                   <Text key={idx} style={styles.serviceRow}>
-                    {s.service_name || appointment.service || 'Service'} — {formatPriceRange(s.price_min, s.price_max)}{s.duration_minutes ? ` • ${s.duration_minutes} min` : ''}
+                    {s.service_name || appointment.service || 'Serviciu'} — {formatPriceRange(s.price_min, s.price_max)}{s.duration_minutes ? ` • ${s.duration_minutes} min` : ''}
                   </Text>
                 ))}
               </View>
@@ -213,7 +207,7 @@ export const AppointmentCard = ({
               {(totalMin != null || totalMax != null) && (
                 <View style={styles.detailRow}>
                   <Ionicons name="cash-outline" size={20} color={theme.colors.accent.main} />
-                  <Text style={styles.detailLabel}>Price:</Text>
+                  <Text style={styles.detailLabel}>Preț:</Text>
                   <Text style={[styles.detailValue, { color: theme.colors.accent.main, fontWeight: '700' }]}>
                     {formatPriceRange(totalMin, totalMax)}
                   </Text>
@@ -224,7 +218,7 @@ export const AppointmentCard = ({
               {totalDuration != null && (
                 <View style={styles.detailRow}>
                   <Ionicons name="time-outline" size={20} color={theme.colors.primary.main} />
-                  <Text style={styles.detailLabel}>Duration:</Text>
+                  <Text style={styles.detailLabel}>Durată:</Text>
                   <Text style={styles.detailValue}>{formatDuration(totalDuration)}</Text>
                 </View>
               )}
@@ -233,14 +227,14 @@ export const AppointmentCard = ({
             <>
               <View style={styles.detailRow}>
                 <MaterialCommunityIcons name="medical-bag" size={20} color={theme.colors.primary.main} />
-                <Text style={styles.detailLabel}>Service:</Text>
+                <Text style={styles.detailLabel}>Serviciu:</Text>
                 <Text style={styles.detailValue}>{appointment.service}</Text>
               </View>
 
               {(totalMin != null || totalMax != null) && (
                 <View style={styles.detailRow}>
                   <Ionicons name="cash-outline" size={20} color={theme.colors.accent.main} />
-                  <Text style={styles.detailLabel}>Price:</Text>
+                  <Text style={styles.detailLabel}>Preț:</Text>
                   <Text style={[styles.detailValue, { color: theme.colors.accent.main, fontWeight: '700' }]}> {formatPriceRange(totalMin, totalMax)}</Text>
                 </View>
               )}
@@ -248,7 +242,7 @@ export const AppointmentCard = ({
               {totalDuration != null && (
                 <View style={styles.detailRow}>
                   <Ionicons name="time-outline" size={20} color={theme.colors.primary.main} />
-                  <Text style={styles.detailLabel}>Duration:</Text>
+                  <Text style={styles.detailLabel}>Durată:</Text>
                   <Text style={styles.detailValue}>{formatDuration(totalDuration)}</Text>
                 </View>
               )}
@@ -265,7 +259,7 @@ export const AppointmentCard = ({
             textColor={theme.colors.error.main}
             icon={() => <Ionicons name="close-circle-outline" size={18} color={theme.colors.error.main} />}
           >
-            Cancel Appointment
+            Anulează programarea
           </Button>
         )}
       </TouchableOpacity>
@@ -304,7 +298,7 @@ export const AppointmentCard = ({
             textColor={theme.colors.primary.main}
             icon={() => <Ionicons name="refresh-outline" size={16} color={theme.colors.primary.main} />}
           >
-            Rebook
+            Reprogramează
           </Button>
         )}
       </View>

@@ -150,7 +150,7 @@ export const Step4Pricing = ({
 
         <TextInput
           mode="outlined"
-          label="Service Name"
+          label="Nume serviciu"
           value={service.service_name}
           onChangeText={(text) => updateCustomService(index, 'service_name', text)}
           style={styles.customInput}
@@ -169,7 +169,7 @@ export const Step4Pricing = ({
               style={styles.customPriceInput}
               outlineColor="#e5e7eb"
               activeOutlineColor="#7c3aed"
-              left={<TextInput.Affix text="$" />}
+              right={<TextInput.Affix text="RON" />}
               error={!!priceError}
             />
           </View>
@@ -186,7 +186,7 @@ export const Step4Pricing = ({
               style={styles.customPriceInput}
               outlineColor="#e5e7eb"
               activeOutlineColor="#7c3aed"
-              left={<TextInput.Affix text="$" />}
+              right={<TextInput.Affix text="RON" />}
               error={!!priceError}
             />
           </View>
@@ -221,23 +221,23 @@ export const Step4Pricing = ({
       {/* Header */}
       <View style={styles.header}>
         <Text variant="headlineMedium" style={styles.title}>
-          Set Your Pricing & Showcase Your Clinic
+          Setează prețurile și prezintă clinica
         </Text>
         <Text variant="bodyMedium" style={styles.subtitle}>
-          Provide pricing transparency and build trust with photos
+          Oferă transparență prețurilor și construiește încredere cu fotografii
         </Text>
       </View>
 
       {/* Full Description */}
       <View style={styles.section}>
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          Clinic Description *
+          Descrierea clinicii *
         </Text>
         <Text variant="bodySmall" style={styles.sectionDescription}>
-          Provide a detailed description of your clinic (50-500 characters)
+          Oferă o descriere detaliată a clinicii tale (5-100 caractere)
         </Text>
         <TextInput
-          label="Full Description *"
+          label="Descriere completă *"
           value={data.description || ''}
           onChangeText={(text) => updateField('description', text)}
           onFocus={() => handleFocus('description')}
@@ -247,34 +247,34 @@ export const Step4Pricing = ({
           multiline
           numberOfLines={5}
           maxLength={500}
-          placeholder="Tell pet owners about your clinic, your team, your philosophy, and what makes you special..."
+          placeholder="Spune proprietarilor de animale despre clinica ta, echipa ta, filosofia ta și ce te face special..."
           style={[styles.input, styles.textArea]}
           outlineColor="#e5e7eb"
           activeOutlineColor="#7c3aed"
           accessibilityLabel="Clinic Description"
-          accessibilityHint="Detailed description of your clinic (50-500 characters)"
+          accessibilityHint="Descriere detaliată a clinicii tale (5-100 caractere)"
         />
         <HelperText type="error" visible={!!errors.description}>
           {errors.description || ' '}
         </HelperText>
         <HelperText type="info" visible={!errors.description && (isFocused.description || !!data.description)}>
-          {data.description ? `${data.description.length}/500 characters` : '50-500 characters required'}
+          {data.description ? `${data.description.length}/100 caractere` : '5-100 caractere necesare'}
         </HelperText>
       </View>
 
       {/* Services & Pricing Section */}
       <View style={styles.section}>
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          Services & Pricing *
+          Servicii și prețuri *
         </Text>
         <Text variant="bodySmall" style={styles.sectionDescription}>
-          Set pricing for your selected specializations from Step 3
+          Setează prețurile pentru specializările selectate din Pasul 3
         </Text>
 
         {/* Selected Specializations Pricing */}
         {isLoadingCategories ? (
           <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading services...</Text>
+            <Text style={styles.loadingText}>Se încarcă serviciile...</Text>
           </View>
         ) : (
           <SpecializationPricingForm
@@ -291,7 +291,7 @@ export const Step4Pricing = ({
             <View style={styles.customSectionHeader}>
               <View style={styles.customSectionHeaderLeft}>
                 <Ionicons name="add-circle" size={20} color="#7c3aed" />
-                <Text style={styles.customSectionTitle}>Custom Services</Text>
+                <Text style={styles.customSectionTitle}>Servicii personalizate</Text>
               </View>
               <Text style={styles.customCount}>{customServices.length}</Text>
             </View>
@@ -309,7 +309,7 @@ export const Step4Pricing = ({
           accessibilityLabel="Add custom service"
         >
           <Ionicons name="add-circle-outline" size={24} color="#7c3aed" />
-          <Text style={styles.addCustomButtonText}>Add Custom Service</Text>
+          <Text style={styles.addCustomButtonText}>Adaugă serviciu personalizat</Text>
         </TouchableOpacity>
 
         {errors.services && (
@@ -322,10 +322,10 @@ export const Step4Pricing = ({
       {/* Photo Gallery */}
       <View style={styles.section}>
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          Clinic Photos (Optional)
+          Fotografii clinică (Opțional)
         </Text>
         <Text variant="bodySmall" style={styles.sectionDescription}>
-          Showcase your clinic with photos (up to 10). Photos help build trust with pet owners.
+          Prezintă clinica ta cu fotografii (până la 10). Fotografiile ajută la construirea încrederii cu proprietarii de animale.
         </Text>
         <MultiImageUploader
           value={data.photos || []}
@@ -340,24 +340,24 @@ export const Step4Pricing = ({
           </HelperText>
         )}
         <HelperText type="info">
-          Add photos of your clinic's interior, exterior, team, and facilities
+          Adaugă fotografii cu interiorul, exteriorul, echipa și facilitățile clinicii tale
         </HelperText>
       </View>
 
       {/* Required Fields Notice */}
       <View style={styles.notice}>
         <Text variant="bodySmall" style={styles.noticeText}>
-          * Required fields
+          * Câmpuri obligatorii
         </Text>
       </View>
 
       {/* Submission Notice */}
       <View style={styles.submissionNotice}>
         <Text variant="bodyMedium" style={styles.submissionNoticeTitle}>
-          Ready to Submit?
+          Gata să trimiți?
         </Text>
         <Text variant="bodySmall" style={styles.submissionNoticeText}>
-          Review all your information before submitting. You can always edit your profile later.
+          Revizuiește toate informațiile înainte de trimitere. Poți edita profilul mai târziu.
         </Text>
       </View>
 

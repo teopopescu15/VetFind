@@ -29,13 +29,13 @@ type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 's
 const DAYS: DayOfWeek[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 const DAY_LABELS: Record<DayOfWeek, string> = {
-  monday: 'Monday',
-  tuesday: 'Tuesday',
-  wednesday: 'Wednesday',
-  thursday: 'Thursday',
-  friday: 'Friday',
-  saturday: 'Saturday',
-  sunday: 'Sunday',
+  monday: 'Luni',
+  tuesday: 'Marți',
+  wednesday: 'Miercuri',
+  thursday: 'Joi',
+  friday: 'Vineri',
+  saturday: 'Sâmbătă',
+  sunday: 'Duminică',
 };
 
 // Generate time options from 00:00 to 23:30 in 30-minute intervals
@@ -113,8 +113,8 @@ export const OpeningHoursPicker = ({
     if (selectedTimeType === 'close' && newSchedule.open && newSchedule.close) {
       if (!isValidTimeRange(newSchedule.open, newSchedule.close)) {
         Alert.alert(
-          'Invalid Time Range',
-          'Closing time must be after opening time.',
+          'Interval orar invalid',
+          'Ora de închidere trebuie să fie după ora de deschidere.',
           [{ text: 'OK' }]
         );
         setShowTimeModal(false);
@@ -156,15 +156,15 @@ export const OpeningHoursPicker = ({
     if (!sourceSchedule) return;
 
     Alert.alert(
-      'Copy Hours',
-      `Copy ${DAY_LABELS[sourceDay]}'s hours to all other days?`,
+      'Copiază orarul',
+      `Copiezi orarul de ${DAY_LABELS[sourceDay]} pentru toate celelalte zile?`,
       [
         {
-          text: 'Cancel',
+          text: 'Anulează',
           style: 'cancel',
         },
         {
-          text: 'Copy',
+          text: 'Copiază',
           onPress: () => {
             const newHours: OpeningHours = {};
             DAYS.forEach((day) => {
@@ -195,7 +195,7 @@ export const OpeningHoursPicker = ({
                 {schedule.open || '--:--'} - {schedule.close || '--:--'}
               </Text>
             )}
-            {!isOpen && <Text style={styles.closedText}>Closed</Text>}
+            {!isOpen && <Text style={styles.closedText}>Închis</Text>}
           </View>
           <View style={styles.dayActions}>
             <Switch
@@ -230,7 +230,7 @@ export const OpeningHoursPicker = ({
                     !schedule.open && styles.timeSelectTextEmpty,
                   ]}
                 >
-                  {schedule.open || 'Choose time'}
+                  {schedule.open || 'Alege ora'}
                 </Text>
                 <Ionicons
                   name="chevron-down"
@@ -238,7 +238,7 @@ export const OpeningHoursPicker = ({
                   color={schedule.open ? '#7c3aed' : '#999'}
                 />
               </TouchableOpacity>
-              <Text style={styles.inputLabel}>Open</Text>
+              <Text style={styles.inputLabel}>Deschidere</Text>
               {schedule.open && !disabled && (
                 <TouchableOpacity
                   style={styles.clearButtonAbsolute}
@@ -269,7 +269,7 @@ export const OpeningHoursPicker = ({
                     !schedule.close && styles.timeSelectTextEmpty,
                   ]}
                 >
-                  {schedule.close || 'Choose time'}
+                  {schedule.close || 'Alege ora'}
                 </Text>
                 <Ionicons
                   name="chevron-down"
@@ -277,7 +277,7 @@ export const OpeningHoursPicker = ({
                   color={schedule.close ? '#7c3aed' : '#999'}
                 />
               </TouchableOpacity>
-              <Text style={styles.inputLabel}>Close</Text>
+              <Text style={styles.inputLabel}>Închidere</Text>
               {schedule.close && !disabled && (
                 <TouchableOpacity
                   style={styles.clearButtonAbsolute}
@@ -305,8 +305,8 @@ export const OpeningHoursPicker = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Opening Hours</Text>
-        <Text style={styles.subtitle}>Select opening and closing times</Text>
+        <Text style={styles.title}>Program</Text>
+        <Text style={styles.subtitle}>Selectează orele de deschidere și închidere</Text>
       </View>
 
       <ScrollView style={styles.daysContainer} showsVerticalScrollIndicator={false}>
@@ -324,7 +324,7 @@ export const OpeningHoursPicker = ({
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                Select {selectedTimeType === 'open' ? 'Opening' : 'Closing'} Time
+                Selectează ora de {selectedTimeType === 'open' ? 'deschidere' : 'închidere'}
               </Text>
               <TouchableOpacity
                 style={styles.modalCloseButton}

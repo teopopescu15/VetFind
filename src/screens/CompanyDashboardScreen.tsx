@@ -219,7 +219,7 @@ export const CompanyDashboardScreen = () => {
 
       {/* 2. Quick Actions (MIDDLE) */}
       <View style={styles.quickActionsSection}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <Text style={styles.sectionTitle}>Acțiuni rapide</Text>
         <QuickActions
           onNewAppointment={() => navigation.navigate('CompanyManageAppointments')}
           onManageServices={() => navigation.navigate('ManageServices')}
@@ -230,27 +230,12 @@ export const CompanyDashboardScreen = () => {
 
       {/* 3. Stats (BOTTOM - Secondary) */}
       <View style={styles.statsSection}>
-        <Text style={styles.sectionTitle}>Performance Overview</Text>
         <View style={styles.statsGrid}>
-          <StatCard
-            icon="calendar"
-            iconColor={theme.colors.primary.main}
-            value={weeklyAppointmentsDisplay}
-            label="Weekly Appointments"
-            isLoading={false}
-          />
-          <StatCard
-            icon="star"
-            iconColor={theme.colors.warning.main}
-            value={averageRatingDisplay}
-            label="Average Rating"
-            isLoading={false}
-          />
           <StatCard
             icon="trending-up"
             iconColor={theme.colors.success.main}
             value={Number.isFinite(reviewCountValue) ? String(reviewCountValue) : '--'}
-            label="Reviews"
+            label="Recenzii"
             isLoading={false}
           />
         </View>
@@ -262,7 +247,7 @@ export const CompanyDashboardScreen = () => {
           style={styles.seeReviewsButton}
           textColor={theme.colors.primary.main}
         >
-          See reviews
+          Vezi recenzii
         </Button>
       </View>
 

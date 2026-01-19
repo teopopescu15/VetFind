@@ -26,7 +26,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../../theme';
@@ -59,7 +59,20 @@ export const StatCard = ({
   trendValue,
   isLoading = false,
 }: StatCardProps) => {
+  const { width } = useWindowDimensions();
   const IconComponent = iconLibrary === 'Ionicons' ? Ionicons : MaterialCommunityIcons;
+
+  // Responsive breakpoints
+  const isDesktop = width >= 1024;
+  const isTablet = width >= 768 && width < 1024;
+
+  // Responsive sizing
+  const containerPadding = isDesktop ? 12 : isTablet ? 14 : theme.spacing.lg;
+  const iconContainerSize = isDesktop ? 40 : isTablet ? 48 : 56;
+  const iconSize = isDesktop ? 20 : isTablet ? 24 : 28;
+  const minHeight = isDesktop ? 80 : isTablet ? 90 : 100;
+  const valueFontSize = isDesktop ? 24 : isTablet ? 28 : 32;
+  const labelFontSize = isDesktop ? 12 : isTablet ? 13 : 14;
 
   const trendConfig = {
     up: { color: theme.colors.success.main, icon: 'trending-up-outline' as const },
@@ -68,21 +81,25 @@ export const StatCard = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { padding: containerPadding, minHeight, gap: isDesktop ? 8 : theme.spacing.md }]}>
       {/* Icon */}
-      <View style={[styles.iconContainer, { backgroundColor: `${iconColor}15` }]}>
-        <IconComponent name={icon as any} size={28} color={iconColor} />
+      <View style={[styles.iconContainer, {
+        backgroundColor: `${iconColor}15`,
+        width: iconContainerSize,
+        height: iconContainerSize,
+      }]}>
+        <IconComponent name={icon as any} size={iconSize} color={iconColor} />
       </View>
 
       {/* Value */}
       {isLoading ? (
         <ActivityIndicator size="small" color={theme.colors.primary.main} style={styles.loader} />
       ) : (
-        <Text style={styles.value}>{value}</Text>
+        <Text style={[styles.value, { fontSize: valueFontSize }]}>{value}</Text>
       )}
 
       {/* Label */}
-      <Text style={styles.label} numberOfLines={2}>
+      <Text style={[styles.label, { fontSize: labelFontSize, lineHeight: isDesktop ? 16 : 18 }]} numberOfLines={2}>
         {label}
       </Text>
 
@@ -106,33 +123,25 @@ export const StatCard = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.neutral[50],
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.md,
     alignItems: 'center',
-    gap: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.neutral[200],
     ...theme.shadows.sm,
-    minHeight: 140,
     justifyContent: 'center',
   },
   iconContainer: {
-    width: 56,
-    height: 56,
     borderRadius: theme.borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   value: {
-    ...theme.typography.h2,
     fontWeight: '700',
     color: theme.colors.neutral[900],
   },
   label: {
-    ...theme.typography.bodySmall,
     color: theme.colors.neutral[600],
     textAlign: 'center',
-    lineHeight: 18,
   },
   loader: {
     marginVertical: theme.spacing.md,

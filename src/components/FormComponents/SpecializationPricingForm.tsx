@@ -205,7 +205,7 @@ export const SpecializationPricingForm = ({
       const min = parseFloat(service.price_min);
       const max = parseFloat(service.price_max);
       if (!isNaN(min) && !isNaN(max) && min > max) {
-        return 'Min price cannot exceed max price';
+        return 'Prețul minim nu poate depăși prețul maxim';
       }
     }
     return null;
@@ -216,9 +216,9 @@ export const SpecializationPricingForm = ({
     return (
       <View style={styles.emptyContainer}>
         <Ionicons name="pricetags-outline" size={48} color="#9ca3af" />
-        <Text style={styles.emptyTitle}>No Services Selected</Text>
+        <Text style={styles.emptyTitle}>Niciun serviciu selectat</Text>
         <Text style={styles.emptyText}>
-          Go back to Step 3 and select specializations to set pricing for.
+          Revino la Pasul 3 și selectează specializări pentru a seta prețurile.
         </Text>
       </View>
     );
@@ -244,10 +244,10 @@ export const SpecializationPricingForm = ({
           {/* Price Range Row */}
           <View style={styles.priceRow}>
             <View style={styles.priceInputContainer}>
-              <Text style={styles.inputLabel}>Min Price</Text>
+              <Text style={styles.inputLabel}>Preț minim</Text>
               <TextInput
                 mode="outlined"
-                placeholder="$0"
+                placeholder="0"
                 value={serviceData?.price_min || ''}
                 onChangeText={(text) => updateService(spec.id, 'price_min', text)}
                 keyboardType="decimal-pad"
@@ -255,21 +255,21 @@ export const SpecializationPricingForm = ({
                 style={styles.priceInput}
                 outlineColor="#e5e7eb"
                 activeOutlineColor="#7c3aed"
-                left={<TextInput.Affix text="$" />}
+                right={<TextInput.Affix text="RON" />}
                 error={!!priceError}
                 accessibilityLabel={`Minimum price for ${spec.name}`}
               />
             </View>
 
             <View style={styles.priceSeparator}>
-              <Text style={styles.priceSeparatorText}>to</Text>
+              <Text style={styles.priceSeparatorText}>până la</Text>
             </View>
 
             <View style={styles.priceInputContainer}>
-              <Text style={styles.inputLabel}>Max Price</Text>
+              <Text style={styles.inputLabel}>Preț maxim</Text>
               <TextInput
                 mode="outlined"
-                placeholder="$0"
+                placeholder="0"
                 value={serviceData?.price_max || ''}
                 onChangeText={(text) => updateService(spec.id, 'price_max', text)}
                 keyboardType="decimal-pad"
@@ -277,7 +277,7 @@ export const SpecializationPricingForm = ({
                 style={styles.priceInput}
                 outlineColor="#e5e7eb"
                 activeOutlineColor="#7c3aed"
-                left={<TextInput.Affix text="$" />}
+                right={<TextInput.Affix text="RON" />}
                 error={!!priceError}
                 accessibilityLabel={`Maximum price for ${spec.name}`}
               />
@@ -290,7 +290,7 @@ export const SpecializationPricingForm = ({
 
           {/* Duration Row */}
           <View style={styles.durationRow}>
-            <Text style={styles.inputLabel}>Duration</Text>
+            <Text style={styles.inputLabel}>Durată</Text>
             <TextInput
               mode="outlined"
               placeholder="30"

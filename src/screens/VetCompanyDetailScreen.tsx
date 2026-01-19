@@ -43,6 +43,7 @@ import {
   PaymentMethodLabels,
 } from '../types/company.types';
 import { RootStackParamList } from '../types/navigation.types';
+import { formatPriceRange } from '../utils/currency';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'VetCompanyDetail'>;
 type RouteProps = RouteProp<RootStackParamList, 'VetCompanyDetail'>;
@@ -79,25 +80,7 @@ const groupServicesByCategory = (
   return (iconMap[category] || 'paw') as any;
 };
 
-/**
- * Format price range
- */
-const formatPrice = (min?: number | string | null, max?: number | string | null): string => {
-  // Coerce values to numbers safely
-  const nMin = typeof min === 'string' ? parseFloat(min) : (min as any);
-  const nMax = typeof max === 'string' ? parseFloat(max) : (max as any);
-
-  const isMinValid = typeof nMin === 'number' && !isNaN(nMin);
-  const isMaxValid = typeof nMax === 'number' && !isNaN(nMax);
-
-  if (!isMinValid && !isMaxValid) return '—';
-  if (isMinValid && !isMaxValid) return `$${nMin.toFixed(0)}`;
-  if (!isMinValid && isMaxValid) return `$${nMax.toFixed(0)}`;
-
-  // Both valid
-  if (nMin === nMax) return `$${nMin.toFixed(0)}`;
-  return `$${nMin.toFixed(0)} - $${nMax.toFixed(0)}`;
-};
+// formatPrice removed - using formatPriceRange from currency utility
 
 /**
  * Format duration
@@ -220,7 +203,7 @@ const ServiceCategorySection = ({
                 </View>
                 <View style={styles.servicePricing}>
                   <Text style={styles.servicePrice}>
-                    {formatPrice(service.price_min, service.price_max)}
+                    {formatPriceRange(service.price_min, service.price_max)}
                   </Text>
                   {service.duration_minutes && (
                     <View style={styles.durationBadge}>

@@ -74,23 +74,23 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
 
   // Clinic Type Options
   const clinicTypeOptions = [
-    { value: 'general_practice', label: 'General' },
-    { value: 'emergency_care', label: 'Emergency' },
-    { value: 'specialized_care', label: 'Specialty' },
-    { value: 'mobile_vet', label: 'Mobile' },
-    { value: 'emergency_24_7', label: '24/7' }
+    { value: 'general_practice', label: 'Practică generală' },
+    { value: 'emergency_care', label: 'Urgențe' },
+    { value: 'specialized_care', label: 'Specializată' },
+    { value: 'mobile_vet', label: 'Mobil' },
+    { value: 'emergency_24_7', label: 'Urgențe 24/7' }
   ];
 
   // Facility Options
   const facilityOptions = [
-    { label: 'Surgery Suite', value: 'surgery_room', icon: 'cut' as const },
-    { label: 'Pharmacy', value: 'pharmacy', icon: 'medical' as const },
-    { label: 'In-House Lab', value: 'in_house_lab', icon: 'flask' as const },
-    { label: 'Isolation Ward', value: 'isolation_ward', icon: 'shield' as const },
-    { label: 'Grooming Station', value: 'grooming_station', icon: 'cut' as const },
-    { label: 'Parking', value: 'parking', icon: 'car' as const },
-    { label: 'Wheelchair Access', value: 'wheelchair_accessible', icon: 'accessibility' as const },
-    { label: 'Pickup/Dropoff', value: 'pickup_dropoff', icon: 'car' as const }
+    { label: 'Sală de operații', value: 'surgery_room', icon: 'cut' as const },
+    { label: 'Farmacie', value: 'pharmacy', icon: 'medical' as const },
+    { label: 'Laborator propriu', value: 'in_house_lab', icon: 'flask' as const },
+    { label: 'Cameră de izolare', value: 'isolation_ward', icon: 'shield' as const },
+    { label: 'Stație de îngrijire', value: 'grooming_station', icon: 'cut' as const },
+    { label: 'Parcare', value: 'parking', icon: 'car' as const },
+    { label: 'Acces persoane cu dizabilități', value: 'wheelchair_accessible', icon: 'accessibility' as const },
+    { label: 'Ridicare/Livrare', value: 'pickup_dropoff', icon: 'car' as const }
   ];
 
   // Payment Method Options
@@ -107,20 +107,20 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
       {/* Header */}
       <View style={styles.header}>
         <Text variant="headlineMedium" style={styles.title}>
-          What Services Do You Offer?
+          Ce servicii oferiți?
         </Text>
         <Text variant="bodyMedium" style={styles.subtitle}>
-          Showcase your expertise and specializations
+          Prezintă-ți expertiza și specializările
         </Text>
       </View>
 
       {/* Clinic Type */}
       <View style={styles.section}>
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          Clinic Type *
+          Tipul clinicii *
         </Text>
         <Text variant="bodySmall" style={styles.sectionDescription}>
-          Select the primary type of your veterinary clinic
+          Selectează tipul principal al clinicii tale veterinare
         </Text>
         <SegmentedButtons
           value={data.clinic_type || ''}
@@ -138,11 +138,11 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
       {/* Categories & Specializations - NEW Hierarchical Picker */}
       <View style={styles.section}>
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          Services & Specializations *
+          Servicii și specializări *
         </Text>
         <Text variant="bodySmall" style={styles.sectionDescription}>
-          Select the service categories and specific specializations you offer.
-          Expand each category to see available services.
+          Selectează categoriile de servicii și specializările specifice pe care le oferi.
+          Extinde fiecare categorie pentru a vedea serviciile disponibile.
         </Text>
         <CategorySpecializationPicker
           categories={categories}
@@ -163,10 +163,10 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
       {/* Facilities */}
       <View style={styles.section}>
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          Available Facilities *
+          Facilități disponibile *
         </Text>
         <Text variant="bodySmall" style={styles.sectionDescription}>
-          Select all facilities available at your clinic (at least 1 required)
+          Selectează toate facilitățile disponibile la clinica ta (minim 1 necesar)
         </Text>
         <MultiSelectCheckbox
           title=""
@@ -186,10 +186,10 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
       {/* Payment Methods */}
       <View style={styles.section}>
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          Payment Methods *
+          Metode de plată *
         </Text>
         <Text variant="bodySmall" style={styles.sectionDescription}>
-          Select all accepted payment methods (at least 1 required)
+          Selectează toate metodele de plată acceptate (minim 1 necesar)
         </Text>
         <MultiSelectCheckbox
           title=""
@@ -209,7 +209,7 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
       {/* Number of Veterinarians */}
       <View style={styles.section}>
         <TextInput
-          label="Number of Veterinarians (Optional)"
+          label="Număr de veterinari (Opțional)"
           value={data.num_veterinarians ? String(data.num_veterinarians) : ''}
           onChangeText={(text) => {
             const num = parseInt(text, 10);
@@ -220,7 +220,7 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
           mode="outlined"
           error={!!errors.num_veterinarians}
           keyboardType="number-pad"
-          placeholder="e.g., 3"
+          placeholder="ex., 3"
           style={styles.input}
           outlineColor="#e5e7eb"
           activeOutlineColor="#7c3aed"
@@ -235,7 +235,7 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
       {/* Years in Business */}
       <View style={styles.section}>
         <TextInput
-          label="Years in Business (Optional)"
+          label="Ani de activitate (Opțional)"
           value={data.years_in_business ? String(data.years_in_business) : ''}
           onChangeText={(text) => {
             const num = parseInt(text, 10);
@@ -246,7 +246,7 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
           mode="outlined"
           error={!!errors.years_in_business}
           keyboardType="number-pad"
-          placeholder="e.g., 10"
+          placeholder="ex., 10"
           style={styles.input}
           outlineColor="#e5e7eb"
           activeOutlineColor="#7c3aed"
