@@ -80,6 +80,8 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
   signup: (data: SignupData) => Promise<void>;
+  /** Update current user's profile fields (e.g., home address). Returns updated user. */
+  updateUser: (data: Partial<User>) => Promise<User>;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<void>;
 }

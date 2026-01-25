@@ -23,7 +23,7 @@ import {
   BackHandler,
   Platform,
 } from 'react-native';
-import { Text, ActivityIndicator, Chip, TextInput, Button, Snackbar, Portal, Dialog } from 'react-native-paper';
+import { Text, ActivityIndicator, Chip, TextInput, Button, Snackbar, Portal, Dialog, Menu } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -141,6 +141,7 @@ export const UserDashboardScreen = () => {
   // Snackbar for web/native feedback and a deleting indicator for buttons
   const [snackVisible, setSnackVisible] = useState(false);
   const [snackMessage, setSnackMessage] = useState('');
+  const [menuVisible, setMenuVisible] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   // Review modal state
   const [reviewVisible, setReviewVisible] = useState(false);
@@ -628,6 +629,13 @@ export const UserDashboardScreen = () => {
    * Also applies distance filtering when a distance filter is selected
    */
   const calculateCompanyDistances = useCallback(() => {
+    // "All" selected => show ALL clinics, without computing distances
+    if (selectedDistance === null) {
+      setCompaniesWithDistance(companies.map((company) => ({ company })));
+      setFilteredCompanies(companies);
+      return;
+    }
+
     if (!isLocationActive) {
       setCompaniesWithDistance(companies.map((company) => ({ company })));
       setFilteredCompanies(companies);
@@ -648,11 +656,8 @@ export const UserDashboardScreen = () => {
       })
       .filter((item): item is { company: Company; distance: number } => item !== null);
 
-    // Apply distance filter if selected
-    let filtered = companiesWithCalcDistance;
-    if (selectedDistance !== null) {
-      filtered = companiesWithCalcDistance.filter((item) => item.distance <= selectedDistance);
-    }
+    // Apply distance filter (selectedDistance is guaranteed non-null here)
+    const filtered = companiesWithCalcDistance.filter((item) => item.distance <= selectedDistance);
 
     // Sort by distance (closest first)
     filtered.sort((a, b) => a.distance - b.distance);
@@ -871,6 +876,9 @@ export const UserDashboardScreen = () => {
     }
   };
 
+  const openMenu = () => setMenuVisible(true);
+  const closeMenu = () => setMenuVisible(false);
+
   /**
    * Open map with clinics. Uses selected location source:
    * - current: GPS location (when available)
@@ -970,7 +978,7 @@ export const UserDashboardScreen = () => {
               <Text style={styles.compactHeaderTitle}>VetFinder</Text>
             </View>
 
-            {/* Right side: search + sort + logout */}
+            {/* Right side: search + menu */}
             <View style={styles.headerRight}>
               <View style={[styles.headerSearchContainer, !isSearchExpanded && styles.headerSearchContainerCollapsed]}>
                 {isSearchExpanded ? (
@@ -1012,13 +1020,38 @@ export const UserDashboardScreen = () => {
               </View>
 
               <View style={styles.sortControls}>
-                <TouchableOpacity
-                  onPress={handleLogout}
-                  style={styles.logoutButton}
-                  activeOpacity={0.7}
+                <Menu
+                  visible={menuVisible}
+                  onDismiss={closeMenu}
+                  anchor={
+                    <TouchableOpacity
+                      onPress={openMenu}
+                      style={styles.logoutButton}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel="Menu"
+                    >
+                      <Ionicons name="menu" size={24} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  }
                 >
-                  <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
+                  <Menu.Item
+                    title="Setări"
+                    onPress={() => {
+                      closeMenu();
+                      navigation.navigate('UserSettings');
+                    }}
+                    leadingIcon="cog-outline"
+                  />
+                  <Menu.Item
+                    title="Log out"
+                    onPress={async () => {
+                      closeMenu();
+                      await handleLogout();
+                    }}
+                    leadingIcon="logout"
+                  />
+                </Menu>
               </View>
             </View>
           </View>
@@ -1347,7 +1380,7 @@ export const UserDashboardScreen = () => {
                 </View>
 
                 {/* Location Status Message */}
-                {selectedDistance !== null && permissionStatus === 'denied' && (
+                {selectedDistance !== null && locationSource === 'current' && permissionStatus === 'denied' && (
                   <View style={styles.locationWarning}>
                     <Ionicons name="warning" size={16} color="#f59e0b" />
                     <Text style={styles.locationWarningText}>
@@ -1460,7 +1493,8 @@ export const UserDashboardScreen = () => {
             )}
 
             {companiesWithDistance.map(({ company, distance, matchedService }) => {
-              const distanceProp = selectedDistance !== null ? distance : (isLocationActive ? distance : undefined);
+              // Show distance only when a distance filter is selected (not on "All")
+              const distanceProp = selectedDistance !== null ? distance : undefined;
 
               return (
                 <VetCompanyCard

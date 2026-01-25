@@ -230,6 +230,22 @@ const createApiService = () => {
       }
     },
 
+    /**
+     * Update a user profile (used for Pet Owner settings/home address).
+     */
+    async updateUser(id: number, data: Partial<User>, accessToken?: string): Promise<User> {
+      try {
+        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+        const response = await request(`/users/${id}`, 'PUT', data, token || undefined);
+        if (!response?.success || !response?.data) {
+          throw new Error(response?.message || 'Failed to update user');
+        }
+        return response.data as User;
+      } catch (error: any) {
+        throw new Error(error.message || 'Failed to update user');
+      }
+    },
+
     // ==================== Company Methods ====================
 
     /**

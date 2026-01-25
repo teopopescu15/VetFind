@@ -179,6 +179,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const updateUser = async (data: Partial<User>): Promise<User> => {
+    if (!user) throw new Error('Not authenticated');
+    if (!accessToken) throw new Error('No access token available');
+
+    try {
+      setIsLoading(true);
+      const updated = await ApiService.updateUser(user.id, data, accessToken);
+
+      // Persist updated user
+      await Promise.all([
+        AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(updated)),
+      ]);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('userData', JSON.stringify(updated));
+      }
+
+      setUser(updated);
+      setIsLoading(false);
+      return updated;
+    } catch (error) {
+      console.error('Update user failed:', error);
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
   const refreshAccessToken = async () => {
     if (!refreshToken) {
       throw new Error('No refresh token available');
@@ -222,6 +248,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated,
     login,
     signup,
+    updateUser,
     logout,
     refreshAccessToken
   };

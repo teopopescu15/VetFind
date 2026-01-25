@@ -26,6 +26,7 @@ export type RootStackParamList = {
 
   // User (Pet Owner) routes
   UserDashboard: undefined;
+  UserSettings: undefined;
   VetCompanyDetail: {
     companyId: number;
   };

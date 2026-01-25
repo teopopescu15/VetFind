@@ -21,6 +21,7 @@ import { CompanyManageAppointmentsScreen } from '../screens/CompanyManageAppoint
 import { CompanyAddAppointmentScreen } from '../screens/CompanyAddAppointmentScreen';
 import { UserDashboardScreen } from '../screens/UserDashboardScreen';
 import { VetCompanyDetailScreen } from '../screens/VetCompanyDetailScreen';
+import UserSettingsScreen from '../screens/UserSettingsScreen';
 import CompanyReviewsScreen from '../screens/CompanyReviewsScreen';
 import ManageServicesScreen from '../screens/ManageServicesScreen';
 import ManagePricesScreen from '../screens/ManagePricesScreen';
@@ -138,6 +139,7 @@ const AppNavigator: React.FC = () => {
         // main
         Dashboard: 'dashboard',
         UserDashboard: 'dashboard/user',
+        UserSettings: 'dashboard/user/settings',
         // company detail
         VetCompanyDetail: 'company/:companyId',
         // other routes - keep defaults
@@ -196,6 +198,7 @@ const AppNavigator: React.FC = () => {
           <Stack.Screen name="ManagePrices" component={ManagePricesScreen} />
           <Stack.Screen name="ManagePhotos" component={ManagePhotosScreen} />
           <Stack.Screen name="UserDashboard" component={UserDashboardScreen} />
+          <Stack.Screen name="UserSettings" component={UserSettingsScreen} />
           <Stack.Screen name="VetCompanyDetail" component={VetCompanyDetailScreen} />
           <Stack.Screen name="CompanyReviews" component={CompanyReviewsScreen} />
           <Stack.Screen name="ClinicDetail" component={ClinicDetailScreen} />
