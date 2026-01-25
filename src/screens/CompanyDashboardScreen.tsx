@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, Image, Alert, TouchableOpacity } from 'react-native';
-import { Text, Card, Button, ActivityIndicator, Chip } from 'react-native-paper';
+import { Text, Card, Button, ActivityIndicator, Chip, Menu } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Company, CategoryWithSpecializations, CompanyService } from '../types/company.types';
@@ -34,6 +34,7 @@ export const CompanyDashboardScreen = () => {
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [services, setServices] = useState<CompanyService[]>([]);
   const [isLoadingServices, setIsLoadingServices] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => {
     loadCompany();
@@ -94,6 +95,9 @@ export const CompanyDashboardScreen = () => {
       console.error('Logout error:', error);
     }
   };
+
+  const openMenu = () => setMenuVisible(true);
+  const closeMenu = () => setMenuVisible(false);
 
   const calculateProfileCompletion = (company: Company) => {
     let completedFields = 0;
@@ -207,13 +211,38 @@ export const CompanyDashboardScreen = () => {
               )}
             </View>
           </View>
-          <TouchableOpacity
-            onPress={handleLogout}
-            style={styles.logoutButton}
-            activeOpacity={0.7}
+          <Menu
+            visible={menuVisible}
+            onDismiss={closeMenu}
+            anchor={
+              <TouchableOpacity
+                onPress={openMenu}
+                style={styles.logoutButton}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Menu"
+              >
+                <Ionicons name="menu" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            }
           >
-            <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+            <Menu.Item
+              title="Setări"
+              onPress={() => {
+                closeMenu();
+                navigation.navigate('CompanySettings');
+              }}
+              leadingIcon="cog-outline"
+            />
+            <Menu.Item
+              title="Log out"
+              onPress={async () => {
+                closeMenu();
+                await handleLogout();
+              }}
+              leadingIcon="logout"
+            />
+          </Menu>
         </View>
       </LinearGradient>
 
@@ -236,6 +265,13 @@ export const CompanyDashboardScreen = () => {
             iconColor={theme.colors.success.main}
             value={Number.isFinite(reviewCountValue) ? String(reviewCountValue) : '--'}
             label="Recenzii"
+            isLoading={false}
+          />
+          <StatCard
+            icon="star"
+            iconColor="#fbbf24"
+            value={averageRatingDisplay}
+            label="Stele"
             isLoading={false}
           />
         </View>

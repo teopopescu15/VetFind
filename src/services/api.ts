@@ -428,11 +428,13 @@ const createApiService = () => {
     async deleteCompanyPhoto(companyId: number, photoUrl: string, accessToken?: string): Promise<boolean> {
       try {
         const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
-
-        // Extract photo ID or filename from URL
-        const photoId = photoUrl.split('/').pop() || '';
-
-        await request(`/companies/${companyId}/photos/${photoId}`, 'DELETE', undefined, token || undefined);
+        // Backend expects JSON body: { photo_url }
+        await request(
+          `/companies/${companyId}/photos`,
+          'DELETE',
+          { photo_url: photoUrl },
+          token || undefined
+        );
         return true;
       } catch (error: any) {
         console.error('Delete photo error:', error);

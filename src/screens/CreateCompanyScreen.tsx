@@ -10,6 +10,7 @@ import { Step3Services } from './CreateCompany/Step3Services';
 import { Step4Pricing } from './CreateCompany/Step4Pricing';
 import { CompanyFormData, FormErrors, CreateCompanyDTO, CreateServiceDTO, ServicePricingDTO, ServiceCategoryType } from '../types/company.types';
 import { ApiService } from '../services/api';
+import { uploadCompanyPhotoFromUri } from '../services/firebaseStorage';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '../types/navigation.types';
@@ -545,7 +546,13 @@ export const CreateCompanyScreen = () => {
       // Upload photos if provided
       if (formData.step4.photos && formData.step4.photos.length > 0) {
         for (const photo of formData.step4.photos) {
-          await ApiService.uploadCompanyPhoto(createdCompany.id, photo, accessToken || undefined);
+          // 1) Upload to Firebase Storage
+          const downloadUrl = await uploadCompanyPhotoFromUri(createdCompany.id, photo);
+          // 2) Persist URL in backend (append to company.photos)
+          await ApiService.request(`/companies/${createdCompany.id}/photos`, {
+            method: 'POST',
+            body: JSON.stringify({ photo_url: downloadUrl }),
+          });
         }
       }
 

@@ -22,6 +22,7 @@ import { CompanyAddAppointmentScreen } from '../screens/CompanyAddAppointmentScr
 import { UserDashboardScreen } from '../screens/UserDashboardScreen';
 import { VetCompanyDetailScreen } from '../screens/VetCompanyDetailScreen';
 import UserSettingsScreen from '../screens/UserSettingsScreen';
+import CompanySettingsScreen from '../screens/CompanySettingsScreen';
 import CompanyReviewsScreen from '../screens/CompanyReviewsScreen';
 import ManageServicesScreen from '../screens/ManageServicesScreen';
 import ManagePricesScreen from '../screens/ManagePricesScreen';
@@ -149,6 +150,7 @@ const AppNavigator: React.FC = () => {
         CompanyManageAppointments: 'company/appointments',
         CompanyAddAppointment: 'company/appointments/new',
         ManagePhotos: 'company/photos',
+        CompanySettings: 'company/settings',
         ClinicDetail: 'clinic/:clinicId',
         BookAppointment: 'book/:clinicId',
         MyAppointments: 'appointments',
@@ -192,6 +194,7 @@ const AppNavigator: React.FC = () => {
             }}
           />
           <Stack.Screen name="CompanyDashboard" component={CompanyDashboardScreen} />
+          <Stack.Screen name="CompanySettings" component={CompanySettingsScreen} />
           <Stack.Screen name="CompanyManageAppointments" component={CompanyManageAppointmentsScreen} />
           <Stack.Screen name="CompanyAddAppointment" component={CompanyAddAppointmentScreen} />
           <Stack.Screen name="ManageServices" component={ManageServicesScreen} />

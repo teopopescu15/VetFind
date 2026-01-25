@@ -3,6 +3,7 @@ import { View, StyleSheet, Platform } from 'react-native';
 import { Text, Button, IconButton } from 'react-native-paper';
 import { ApiService } from '../services/api';
 import { theme } from '../theme';
+import { deleteByDownloadUrl, uploadCompanyPhotoFromFile } from '../services/firebaseStorage';
 
 interface WebPhotoUploaderProps {
   companyId: number;
@@ -50,12 +51,13 @@ export const WebPhotoUploader = ({
       for (let i = 0; i < filesToUpload.length; i++) {
         const file = filesToUpload[i];
 
-        // Create FormData
-        const formData = new FormData();
-        formData.append('photo', file);
-
-        // Upload
-        const response = await ApiService.uploadCompanyPhoto(companyId, formData);
+        // 1) Upload to Firebase Storage
+        const downloadUrl = await uploadCompanyPhotoFromFile(companyId, file);
+        // 2) Persist URL in backend (append to company.photos)
+        const response = await ApiService.request(`/companies/${companyId}/photos`, {
+          method: 'POST',
+          body: JSON.stringify({ photo_url: downloadUrl }),
+        });
 
         if (response.success) {
           const photoUrl = response.data.photo_url;
@@ -86,6 +88,7 @@ export const WebPhotoUploader = ({
 
     try {
       await ApiService.deleteCompanyPhoto(companyId, photoUrl);
+      try { await deleteByDownloadUrl(photoUrl); } catch {}
       setPhotos(prev => prev.filter(url => url !== photoUrl));
       onDeleteSuccess?.(photoUrl);
     } catch (error) {

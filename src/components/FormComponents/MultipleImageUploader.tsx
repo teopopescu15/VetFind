@@ -4,6 +4,7 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiService } from '../../services/api';
+import { deleteByDownloadUrl, uploadCompanyPhotoFromUri } from '../../services/firebaseStorage';
 
 // ===========================
 // TYPE DEFINITIONS
@@ -35,6 +36,15 @@ export const MultipleImageUploader = ({
   onPhotosChange,
   disabled = false,
 }: MultipleImageUploaderProps) => {
+
+  const getPhotoSrc = (uri: string) => {
+    const u = String(uri || '');
+    // local files / data URIs / absolute URLs
+    if (u.startsWith('file:') || u.startsWith('data:') || u.startsWith('http')) return u;
+    // backend returns relative paths like /uploads/...
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
+    return `${apiUrl}${u}`;
+  };
 
   // Initialize state with existing photos
   const [photos, setPhotos] = useState<Photo[]>(
@@ -153,23 +163,13 @@ export const MultipleImageUploader = ({
     );
 
     try {
-      // Create FormData
-      const formData = new FormData();
-
-      // Platform-specific file handling
-      const fileUri = Platform.OS === 'ios' ? photo.uri.replace('file://', '') : photo.uri;
-      const filename = fileUri.split('/').pop() || 'photo.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-      formData.append('photo', {
-        uri: fileUri,
-        type,
-        name: filename,
-      } as any);
-
-      // Upload to backend
-      const response = await ApiService.uploadCompanyPhoto(companyId!, formData);
+      // 1) Upload to Firebase Storage
+      const downloadUrl = await uploadCompanyPhotoFromUri(companyId!, photo.uri);
+      // 2) Persist URL in backend (append to company.photos)
+      const response = await ApiService.request(`/companies/${companyId}/photos`, {
+        method: 'POST',
+        body: JSON.stringify({ photo_url: downloadUrl }),
+      });
 
       if (response.success) {
         // Mark as uploaded
@@ -231,6 +231,8 @@ export const MultipleImageUploader = ({
             if (photo.uploaded && photo.serverUrl && companyId) {
               try {
                 await ApiService.deleteCompanyPhoto(companyId, photo.serverUrl);
+                // Best-effort delete from Firebase if it's a Firebase URL
+                try { await deleteByDownloadUrl(photo.serverUrl); } catch {}
               } catch (error) {
                 console.error('Delete error:', error);
                 Alert.alert('Error', 'Failed to delete photo from server');
@@ -289,7 +291,7 @@ export const MultipleImageUploader = ({
         {photos.map((photo, index) => (
           <View key={index} style={styles.photoContainer}>
             <Image
-              source={{ uri: photo.uri }}
+              source={{ uri: getPhotoSrc(photo.uri) }}
               style={styles.photo}
               resizeMode="cover"
             />

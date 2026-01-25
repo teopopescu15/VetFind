@@ -23,6 +23,7 @@ export type RootStackParamList = {
   ManageServices: undefined;
   ManagePrices: undefined;
   ManagePhotos: undefined;
+  CompanySettings: undefined;
 
   // User (Pet Owner) routes
   UserDashboard: undefined;

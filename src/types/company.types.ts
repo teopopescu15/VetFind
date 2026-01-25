@@ -78,6 +78,17 @@ export interface Company {
   website?: string;
   description?: string;
 
+  // Romanian Address Structure (preferred)
+  street?: string;
+  street_number?: string;
+  building?: string;
+  apartment?: string;
+  county?: string;
+  postal_code?: string;
+
+  // CUI (Romanian Tax ID)
+  cui?: string;
+
   // Location Information
   address: string;
   city: string;
@@ -111,6 +122,7 @@ export interface Company {
   // Optional analytics/aggregates
   avg_rating?: number;
   review_count?: number;
+  rating?: number;
   distance?: number;
 
   // Timestamps
@@ -164,6 +176,15 @@ export interface UpdateCompanyDTO {
   phone?: string;
   website?: string;
   description?: string;
+  cui?: string;
+
+  // Romanian Address Structure
+  street?: string;
+  street_number?: string;
+  building?: string;
+  apartment?: string;
+  county?: string;
+  postal_code?: string;
 
   // Location Information
   address?: string;

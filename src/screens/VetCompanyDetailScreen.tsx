@@ -10,7 +10,7 @@
  * - Back navigation
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -20,6 +20,13 @@ import {
   Linking,
   Platform,
   Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import { ScrollView, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator, Card, Divider, Button } from 'react-native-paper';
@@ -228,6 +235,7 @@ export const VetCompanyDetailScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
   const { companyId } = route.params;
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   const [company, setCompany] = useState<Company | null>(null);
   const [services, setServices] = useState<CompanyService[]>([]);
@@ -360,6 +368,44 @@ export const VetCompanyDetailScreen = () => {
   const groupedServices = groupServicesByCategory(services);
   const todaySchedule = company ? getTodaySchedule(company.opening_hours) : null;
   const { text: hoursText, isOpen } = formatOpeningHours(todaySchedule);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const [photoViewerVisible, setPhotoViewerVisible] = useState(false);
+  const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
+
+  const companyPhotos = useMemo(() => {
+    const raw = (company?.photos || []) as any[];
+    return raw.filter((p) => typeof p === 'string' && p.trim().length > 0) as string[];
+  }, [company?.photos]);
+
+  const resolveCompanyPhotoUrl = (photoUrl: string) => {
+    if (!photoUrl) return photoUrl;
+    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) return photoUrl;
+
+    // If EXPO_PUBLIC_API_URL includes /api, strip it for static assets (/uploads)
+    const apiBase = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
+    const origin = apiBase.replace(/\/api\/?$/i, '');
+    const normalized = photoUrl.startsWith('/') ? photoUrl : `/${photoUrl}`;
+    return `${origin}${normalized}`;
+  };
+
+  const onBannerScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const w = Math.max(1, windowWidth);
+    const x = e.nativeEvent.contentOffset.x || 0;
+    const idx = Math.round(x / w);
+    setActivePhotoIndex(Math.max(0, Math.min(idx, companyPhotos.length - 1)));
+  };
+
+  const openPhotoViewer = (index: number) => {
+    setPhotoViewerIndex(Math.max(0, Math.min(index, companyPhotos.length - 1)));
+    setPhotoViewerVisible(true);
+  };
+
+  const onViewerScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const w = Math.max(1, windowWidth);
+    const x = e.nativeEvent.contentOffset.x || 0;
+    const idx = Math.round(x / w);
+    setPhotoViewerIndex(Math.max(0, Math.min(idx, companyPhotos.length - 1)));
+  };
 
   /**
    * Render full weekly schedule. Expects company.opening_hours with keys sunday..saturday
@@ -442,6 +488,59 @@ export const VetCompanyDetailScreen = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Full-screen photo viewer */}
+      <Modal
+        visible={photoViewerVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setPhotoViewerVisible(false)}
+      >
+        <View style={styles.viewerRoot}>
+          <Pressable style={styles.viewerBackdrop} onPress={() => setPhotoViewerVisible(false)} />
+
+          <View style={styles.viewerContent}>
+            <TouchableOpacity
+              style={styles.viewerCloseButton}
+              onPress={() => setPhotoViewerVisible(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Close photo viewer"
+            >
+              <Ionicons name="close" size={26} color="#ffffff" />
+            </TouchableOpacity>
+
+            {companyPhotos.length > 0 && (
+              <Text style={styles.viewerCounter}>
+                {photoViewerIndex + 1} / {companyPhotos.length}
+              </Text>
+            )}
+
+            <FlatList
+              data={companyPhotos}
+              horizontal
+              pagingEnabled
+              initialScrollIndex={photoViewerIndex}
+              getItemLayout={(_, index) => ({
+                length: Math.max(1, windowWidth),
+                offset: Math.max(1, windowWidth) * index,
+                index,
+              })}
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={onViewerScrollEnd}
+              keyExtractor={(item, index) => `viewer-${index}-${item}`}
+              renderItem={({ item }) => (
+                <View style={{ width: windowWidth, height: windowHeight }}>
+                  <Image
+                    source={{ uri: resolveCompanyPhotoUrl(item) }}
+                    style={styles.viewerImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
   <GestureHandlerRootView style={{ flex: 1 }}>
         <ScrollView
           style={styles.scrollView}
@@ -452,12 +551,58 @@ export const VetCompanyDetailScreen = () => {
         >
         {/* Photo Banner */}
         <View style={styles.bannerContainer}>
-          <LinearGradient
-            colors={['#7c3aed', '#9333ea']}
-            style={styles.bannerGradient}
-          >
-            <MaterialCommunityIcons name="hospital-building" size={64} color="rgba(255,255,255,0.3)" />
-          </LinearGradient>
+          {companyPhotos.length > 0 ? (
+            <>
+              <FlatList
+                data={companyPhotos}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item, index) => `${index}-${item}`}
+                onMomentumScrollEnd={onBannerScrollEnd}
+                renderItem={({ item, index }) => (
+                  <TouchableOpacity
+                    activeOpacity={0.95}
+                    onPress={() => openPhotoViewer(index)}
+                    accessibilityRole="imagebutton"
+                    accessibilityLabel="Open clinic photo"
+                  >
+                    <Image
+                      source={{ uri: resolveCompanyPhotoUrl(item) }}
+                      style={[styles.bannerImage, { width: windowWidth || Dimensions.get('window').width }]}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                )}
+              />
+
+              {/* Dark overlay to keep text readable */}
+              <LinearGradient
+                colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.55)']}
+                pointerEvents="none"
+                style={styles.bannerOverlay}
+              />
+
+              {/* Dots indicator */}
+              {companyPhotos.length > 1 && (
+                <View pointerEvents="none" style={styles.bannerDots}>
+                  {companyPhotos.map((_, i) => (
+                    <View
+                      key={i}
+                      style={[styles.bannerDot, i === activePhotoIndex ? styles.bannerDotActive : null]}
+                    />
+                  ))}
+                </View>
+              )}
+            </>
+          ) : (
+            <LinearGradient
+              colors={['#7c3aed', '#9333ea']}
+              style={styles.bannerGradient}
+            >
+              <MaterialCommunityIcons name="hospital-building" size={64} color="rgba(255,255,255,0.3)" />
+            </LinearGradient>
+          )}
 
           {/* Rating Badge */}
           <View style={styles.ratingRow}>
@@ -710,11 +855,77 @@ const styles = StyleSheet.create({
   bannerContainer: {
     position: 'relative',
     height: 200,
+    overflow: 'hidden',
   },
   bannerGradient: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  bannerImage: {
+    height: 200,
+  },
+  bannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  bannerDots: {
+    position: 'absolute',
+    left: 16,
+    bottom: 18,
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  bannerDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  bannerDotActive: {
+    width: 18,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+  },
+  viewerRoot: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+  },
+  viewerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  viewerContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  viewerCloseButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewerCounter: {
+    position: 'absolute',
+    top: 20,
+    left: 16,
+    zIndex: 10,
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    overflow: 'hidden',
+  },
+  viewerImage: {
+    width: '100%',
+    height: '100%',
   },
   ratingRow: {
     position: 'absolute',

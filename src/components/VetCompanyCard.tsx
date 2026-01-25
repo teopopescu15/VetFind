@@ -17,6 +17,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
+  Image,
 } from 'react-native';
 import { memo as performanceMemo } from '../utils/performance';
 import { Text, Card } from 'react-native-paper';
@@ -144,10 +145,24 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
   };
 
   // Use persisted rating from backend; fall back to legacy avg_rating; default to 0
-  const rating = typeof company.rating === 'number'
-    ? company.rating
+  const persistedRating = (company as any).rating as unknown;
+  const rating = typeof persistedRating === 'number'
+    ? persistedRating
     : (typeof company.avg_rating === 'number' ? company.avg_rating : 0);
   const reviewCount = typeof company.review_count === 'number' ? company.review_count : 0;
+
+  const resolveCompanyPhotoUrl = (photoUrl: string) => {
+    if (!photoUrl) return photoUrl;
+    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) return photoUrl;
+
+    // If EXPO_PUBLIC_API_URL includes /api, strip it for static assets (/uploads)
+    const apiBase = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
+    const origin = apiBase.replace(/\/api\/?$/i, '');
+    const normalized = photoUrl.startsWith('/') ? photoUrl : `/${photoUrl}`;
+    return `${origin}${normalized}`;
+  };
+
+  const heroPhoto = company.photos && company.photos.length > 0 ? company.photos[0] : null;
 
   return (
     <Animated.View style={[styles.container, {
@@ -167,15 +182,20 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
         }]}>
           {/* Photo Section */}
           <View style={[styles.photoContainer, { height: responsive.getValue(120, 140, 160) }]}>
-            {company.photos && company.photos.length > 0 ? (
-              // TODO: Add actual image when photos are available
-              <LinearGradient
-                colors={[colors.primary.lightest, colors.primary.light]}
-                style={styles.photoPlaceholder}
-              >
-                <MaterialCommunityIcons name="camera" size={40} color={colors.primary.main} />
-                <Text style={[styles.photoPlaceholderText, { color: colors.primary.main }]}>Fotografie</Text>
-              </LinearGradient>
+            {heroPhoto ? (
+              <>
+                <Image
+                  source={{ uri: resolveCompanyPhotoUrl(heroPhoto) }}
+                  style={styles.photoImage}
+                  resizeMode="cover"
+                />
+                {/* subtle overlay so badges/text remain readable */}
+                <LinearGradient
+                  colors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.55)']}
+                  style={styles.photoOverlay}
+                  pointerEvents="none"
+                />
+              </>
             ) : (
               <LinearGradient
                 colors={[colors.primary.lightest, colors.primary.light]}
@@ -340,6 +360,14 @@ const styles = StyleSheet.create({
   photoContainer: {
     position: 'relative',
     // height set inline with responsive values
+  },
+  photoImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  photoOverlay: {
+    ...StyleSheet.absoluteFillObject,
   },
   photoPlaceholder: {
     flex: 1,

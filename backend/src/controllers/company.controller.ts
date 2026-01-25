@@ -503,8 +503,11 @@ export const createCompanyController = () => {
         // FILE UPLOAD VALIDATION
         // ===========================
 
-        // NEW: Check if file was uploaded by multer middleware
-        if (!req.file) {
+        // Accept either:
+        // - multipart/form-data with req.file (local upload), OR
+        // - JSON body with { photo_url } (e.g., Firebase Storage download URL)
+        const bodyPhotoUrl = typeof (req.body as any)?.photo_url === 'string' ? String((req.body as any).photo_url).trim() : '';
+        if (!req.file && !bodyPhotoUrl) {
           res.status(400).json({
             success: false,
             message: 'No file uploaded. Please select a photo.',
@@ -514,8 +517,8 @@ export const createCompanyController = () => {
 
         // Check maximum photo limit (10)
         if (company.photos.length >= 10) {
-          // Delete the uploaded file since we're rejecting it
-          if (req.file.path && fs.existsSync(req.file.path)) {
+          // Delete the uploaded file since we're rejecting it (only for multipart uploads)
+          if (req.file?.path && fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
           }
 
@@ -530,17 +533,26 @@ export const createCompanyController = () => {
         // GENERATE PHOTO URL
         // ===========================
 
-        // Generate relative URL from backend root
-        // Format: /uploads/companies/{companyId}/photo_{timestamp}.jpg
-        const photoUrl = `/uploads/companies/${companyId}/${req.file.filename}`;
+        // Generate URL:
+        // - if uploaded locally: /uploads/companies/{companyId}/{filename}
+        // - if provided via JSON: use provided URL (e.g., Firebase)
+        let photoUrl = bodyPhotoUrl;
+        if (!photoUrl) {
+          // req.file is guaranteed here because we checked earlier (!req.file && !bodyPhotoUrl) return;
+          photoUrl = `/uploads/companies/${companyId}/${req.file!.filename}`;
+        }
 
-        console.log('Photo uploaded:', {
-          originalName: req.file.originalname,
-          savedAs: req.file.filename,
-          size: req.file.size,
-          path: req.file.path,
-          url: photoUrl,
-        });
+        if (req.file) {
+          console.log('Photo uploaded:', {
+            originalName: req.file.originalname,
+            savedAs: req.file.filename,
+            size: req.file.size,
+            path: req.file.path,
+            url: photoUrl,
+          });
+        } else {
+          console.log('Photo URL attached:', { url: photoUrl });
+        }
 
         // ===========================
         // UPDATE DATABASE
