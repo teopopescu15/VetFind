@@ -56,6 +56,7 @@ const runMigrations = async () => {
       '016_add_rating_fields_to_companies.sql',
       '017_add_expired_status_to_appointments.sql',
       '018_add_description_constraints.sql',
+      '019_add_user_address_fields.sql',
     ];
 
     console.log(`\n📋 Found ${migrations.length} migration files to execute\n`);

@@ -10,7 +10,7 @@
  * - Location-based filtering when distance is selected
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -29,7 +29,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
+import WebView from 'react-native-webview';
 
 // Web map is rendered via Leaflet inside a WebView/HTML snippet (no Google Maps API key required).
 
@@ -45,6 +45,7 @@ import { useAuth } from '../context/AuthContext';
 import { AppointmentCard, type AppointmentData } from '../components/Dashboard/AppointmentCard';
 import { theme } from '../theme';
 import { formatPriceRange } from '../utils/currency';
+import LeafletMapWeb from '../components/LeafletMapWeb';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'UserDashboard'>;
 
@@ -59,9 +60,61 @@ const DISTANCE_OPTIONS = [
   { label: '10 km', value: 10 },
 ];
 
+/** Leaflet map HTML (works in WebView on native and in iframe/WebView-like HTML). */
+function getMapHtml(
+  center: { latitude: number; longitude: number; label?: string },
+  companies: Company[]
+): string {
+  const isUserLocation = center.label === 'My Location' || center.label === 'Home';
+  const clinics = (companies || [])
+    .filter((c) => typeof (c as any)?.latitude === 'number' && typeof (c as any)?.longitude === 'number')
+    .map((c) => ({ id: c.id, name: c.name, lat: (c as any).latitude, lng: (c as any).longitude }));
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <style>html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; }</style>
+  </head>
+  <body><div id="map"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script>
+      (function () {
+        var center = [${center.latitude}, ${center.longitude}];
+        var isUserLocation = ${isUserLocation ? 'true' : 'false'};
+        var map = L.map('map', { zoomControl: true }).setView(center, 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OSM' }).addTo(map);
+        if (isUserLocation) {
+          L.circleMarker(center, { radius: 7, color: '#2563eb', weight: 2, fillColor: '#2563eb', fillOpacity: 0.7 })
+            .addTo(map).bindPopup(${JSON.stringify(center.label === 'Home' ? 'Home' : 'You')});
+        }
+        var clinics = ${JSON.stringify(clinics)};
+        var markers = [];
+        clinics.forEach(function(c) {
+          var m = L.circleMarker([c.lat, c.lng], { radius: 7, color: '#ef4444', weight: 2, fillColor: '#ef4444', fillOpacity: 0.75 })
+            .addTo(map).bindPopup(c.name);
+          m.on('click', function() {
+            try {
+              var p = JSON.stringify({ type: 'clinic_select', id: c.id, name: c.name });
+              if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) window.ReactNativeWebView.postMessage(p);
+            } catch (e) {}
+          });
+          markers.push(m);
+        });
+        if (markers.length) {
+          var group = L.featureGroup((isUserLocation ? [L.marker(center)] : []).concat(markers));
+          map.fitBounds(group.getBounds().pad(0.25));
+        }
+      })();
+    </script>
+  </body>
+</html>`;
+}
+
 export const UserDashboardScreen = () => {
   const navigation = useNavigation<NavigationProp>();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { location, permissionStatus, requestPermission, refreshLocation, isLoading: locationLoading } = useLocation();
   const {
     fetchDistances,
@@ -101,9 +154,23 @@ export const UserDashboardScreen = () => {
   // Map modal state
   const [mapVisible, setMapVisible] = useState(false);
   const [selectedMapClinic, setSelectedMapClinic] = useState<{ id: number; name: string } | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; label?: string } | null>(null);
 
-  // Location toggle state for "Use Current Location" feature
-  const [useCurrentLocation, setUseCurrentLocation] = useState(false);
+  // Location source: 'current' = GPS, 'home' = user's home address from DB
+  const [locationSource, setLocationSource] = useState<'current' | 'home' | null>(null);
+  const isLocationActive = locationSource === 'current' || locationSource === 'home';
+
+  // Coordinates for distance and map: from GPS when 'current', from user record when 'home'.
+  // useMemo avoids new object each render → prevents useEffect/useCallback dependency churn.
+  const effectiveLocation = useMemo((): { latitude: number; longitude: number } | null => {
+    if (locationSource === 'current' && location?.latitude != null && location?.longitude != null) {
+      return { latitude: location.latitude, longitude: location.longitude };
+    }
+    if (locationSource === 'home' && user?.latitude != null && user?.longitude != null) {
+      return { latitude: Number(user.latitude), longitude: Number(user.longitude) };
+    }
+    return null;
+  }, [locationSource, location?.latitude, location?.longitude, user?.latitude, user?.longitude]);
 
   // Web map is rendered via Leaflet in an iframe/WebView-like HTML (no API key required).
 
@@ -291,7 +358,7 @@ export const UserDashboardScreen = () => {
    */
   useEffect(() => {
     // Skip if location toggle is active - new system handles filtering
-    if (useCurrentLocation) return;
+    if (isLocationActive) return;
 
     if (!companies.length) {
       setFilteredCompanies([]);
@@ -342,7 +409,7 @@ export const UserDashboardScreen = () => {
 
     setFilteredCompanies(withDistances.map((item) => item.company));
     setCompaniesWithDistance(withDistances);
-  }, [companies, selectedDistance, location, useCurrentLocation]);
+  }, [companies, selectedDistance, location, isLocationActive]);
 
   /**
    * Search companies for a given service name and attach matched service/pricing
@@ -353,7 +420,7 @@ export const UserDashboardScreen = () => {
       if (!q) {
         // Clear search - do NOT reset distances when location is active
         // Simply trigger recalculation through the existing distance system
-        if (useCurrentLocation) {
+        if (isLocationActive) {
           // When location is active, just clear the search but keep distances
           // The calculateCompanyDistances useEffect will handle distance display
           setIsSearching(false);
@@ -386,8 +453,9 @@ export const UserDashboardScreen = () => {
             if (found) {
               // calculate haversine distance if location is available
               let d: number | undefined = undefined;
-              if (location && company.latitude && company.longitude) {
-                d = calculateDistance(location.latitude, location.longitude, company.latitude, company.longitude);
+              const orig = effectiveLocation || location;
+              if (orig && company.latitude && company.longitude) {
+                d = calculateDistance(orig.latitude, orig.longitude, company.latitude, company.longitude);
               }
               matches.push({ company, matchedService: found, distance: d });
             }
@@ -439,7 +507,7 @@ export const UserDashboardScreen = () => {
     },
     // NOTE: Do NOT include companiesWithDistance in dependencies to avoid infinite loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [companies, filteredCompanies, location, selectedDistance, sortMode, useCurrentLocation]
+    [companies, filteredCompanies, location, effectiveLocation, selectedDistance, sortMode, isLocationActive]
   );
 
   // Debounce search queries
@@ -459,11 +527,12 @@ export const UserDashboardScreen = () => {
   // automatically re-run the search so distances are computed and the list is sorted properly.
   useEffect(() => {
     if (sortMode !== 'closest') return;
-    if (!location) return;
+    const orig = effectiveLocation || location;
+    if (!orig) return;
     if ((searchQuery || '').trim().length === 0) return;
 
     searchCompaniesByService(searchQuery);
-  }, [location, searchCompaniesByService, searchQuery, sortMode]);
+  }, [effectiveLocation, location, searchCompaniesByService, searchQuery, sortMode]);
 
   useEffect(() => {
     if (isSearchExpanded) {
@@ -482,7 +551,8 @@ export const UserDashboardScreen = () => {
     // 1. Location filter is active (selectedDistance !== null)
     // 2. User location is available
     // 3. We have filtered companies with coordinates
-    if (selectedDistance === null || !location || filteredCompanies.length === 0) {
+    const origin = effectiveLocation || location;
+    if (selectedDistance === null || !origin || filteredCompanies.length === 0) {
       return;
     }
 
@@ -499,9 +569,9 @@ export const UserDashboardScreen = () => {
     const accessToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
 
     if (accessToken) {
-      fetchDistances(location, companyIdsWithCoords, accessToken);
+      fetchDistances(origin, companyIdsWithCoords, accessToken);
     }
-  }, [selectedDistance, location, filteredCompanies, fetchDistances]);
+  }, [selectedDistance, effectiveLocation, location, filteredCompanies, fetchDistances]);
 
   /**
    * Handle distance selection
@@ -510,11 +580,7 @@ export const UserDashboardScreen = () => {
   const handleDistanceSelect = async (distance: number | null) => {
     setSelectedDistance(distance);
 
-    // If location toggle is active, filtering will happen automatically via useEffect
-    if (useCurrentLocation) {
-      // Distance calculation and filtering will be triggered by the useEffect
-      return;
-    }
+    if (isLocationActive) return;
 
     // Old system: Request location permission if selecting a distance and not already granted
     if (distance !== null && permissionStatus !== 'granted') {
@@ -522,44 +588,38 @@ export const UserDashboardScreen = () => {
     }
   };
 
-  /**
-   * Handle location toggle for "Use Current Location" feature
-   * Activates location mode with fallback to Bucharest coordinates if GPS unavailable
-   */
-  const handleLocationToggle = async () => {
-    console.log('[DEBUG] Location toggle clicked, current state:', useCurrentLocation);
-
-    if (!useCurrentLocation) {
-      // Turning ON location
-      console.log('[DEBUG] Requesting location permission...');
-      const granted = await requestPermission();
-
-      console.log('[DEBUG] Permission result:', granted);
-
-      if (granted) {
-        console.log('[DEBUG] Setting useCurrentLocation = true');
-        setUseCurrentLocation(true);
-        // Will trigger distance generation via useEffect
-        // If GPS fails, calculateCompanyDistances will use fallback coordinates
-      } else {
-        // Permission denied - use mocked location as fallback
-        console.log('[DEBUG] Location permission denied, using fallback location (Bucharest)');
-
-        // Still activate location mode with fallback coordinates
-        // This allows the feature to work even without GPS permission
-        setUseCurrentLocation(true);
-
-        // Distance calculation will use fallback coordinates (44.4268, 26.1025)
-        // from calculateCompanyDistances function
-      }
-    } else {
-      // Turning OFF location
-      console.log('[DEBUG] Turning OFF location, clearing distances');
-      setUseCurrentLocation(false);
-      // Clear distance filter when turning off location
+  /** Use GPS for distance and map. Toggle off if already 'current'. */
+  const handleUseCurrentLocation = async () => {
+    if (locationSource === 'current') {
+      setLocationSource(null);
       setSelectedDistance(null);
-      // Will clear distances and reset sorting via useEffect
+      return;
     }
+    if (Platform.OS === 'web') {
+      await refreshLocation();
+    } else {
+      await requestPermission();
+    }
+    setLocationSource('current');
+  };
+
+  /** Use Home Address from user record. Toggle off if already 'home'. */
+  const handleUseHomeAddress = () => {
+    if (locationSource === 'home') {
+      setLocationSource(null);
+      setSelectedDistance(null);
+      return;
+    }
+    const lat = user?.latitude;
+    const lng = user?.longitude;
+    if (lat == null || lng == null || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
+      Alert.alert(
+        'Adresă de acasă lipsă',
+        'Nu ai adresa de acasă completată. Adaugă-o la înregistrare sau în setările contului.'
+      );
+      return;
+    }
+    setLocationSource('home');
   };
 
   /**
@@ -568,79 +628,46 @@ export const UserDashboardScreen = () => {
    * Also applies distance filtering when a distance filter is selected
    */
   const calculateCompanyDistances = useCallback(() => {
-    console.log('[DEBUG] calculateCompanyDistances called', {
-      useCurrentLocation,
-      hasLocation: !!location,
-      location,
-      selectedDistance,
-      companiesCount: companies.length
-    });
-
-    if (!useCurrentLocation) {
-      // Location mode is OFF - clear distances and show all companies
-      console.log('[DEBUG] Location mode OFF - clearing distances');
+    if (!isLocationActive) {
       setCompaniesWithDistance(companies.map((company) => ({ company })));
       setFilteredCompanies(companies);
       return;
     }
 
-    // Use actual location or fallback to mocked coordinates if GPS fails
-    // Mocked coordinates: Bucharest, Romania (central location)
-    const userLatitude = location?.latitude || 44.4268;
-    const userLongitude = location?.longitude || 26.1025;
+    const fallback = { latitude: 44.4268, longitude: 26.1025 };
+    const coords = effectiveLocation || (locationSource === 'current' ? (location || fallback) : null);
+    const userLatitude = coords?.latitude ?? fallback.latitude;
+    const userLongitude = coords?.longitude ?? fallback.longitude;
 
-    console.log('[DEBUG] User coordinates:', { userLatitude, userLongitude, isGPS: !!location });
-
-    // Calculate real straight-line distance using Haversine formula
+    // Calculate straight-line distance using Haversine formula
     const companiesWithCalcDistance = companies
       .map((company) => {
-        if (!company.latitude || !company.longitude) {
-          console.log('[DEBUG] Company missing coordinates:', company.name);
-          return null; // Filter out companies without coordinates
-        }
-
-        const distance = calculateDistance(
-          userLatitude,
-          userLongitude,
-          company.latitude,
-          company.longitude
-        );
-
-        console.log('[DEBUG] Calculated distance for', company.name, ':', distance, 'km');
-
-        return {
-          company,
-          distance, // in kilometers, rounded to 1 decimal
-        };
+        if (!company.latitude || !company.longitude) return null;
+        const distance = calculateDistance(userLatitude, userLongitude, company.latitude, company.longitude);
+        return { company, distance };
       })
       .filter((item): item is { company: Company; distance: number } => item !== null);
-
-    console.log('[DEBUG] Companies with distances:', companiesWithCalcDistance.length);
 
     // Apply distance filter if selected
     let filtered = companiesWithCalcDistance;
     if (selectedDistance !== null) {
       filtered = companiesWithCalcDistance.filter((item) => item.distance <= selectedDistance);
-      console.log('[DEBUG] Filtered by distance <=', selectedDistance, 'km:', filtered.length, 'companies');
     }
 
     // Sort by distance (closest first)
     filtered.sort((a, b) => a.distance - b.distance);
 
-    console.log('[DEBUG] Setting companiesWithDistance to', filtered.length, 'companies');
     setCompaniesWithDistance(filtered);
     setFilteredCompanies(filtered.map((item) => item.company));
-  }, [companies, useCurrentLocation, location, selectedDistance]);
+  }, [companies, isLocationActive, effectiveLocation, locationSource, location, selectedDistance]);
 
   /**
    * Calculate distances when location toggle is activated or distance filter changes
    */
   useEffect(() => {
-    // Only run if location toggle is active OR if we're in the old distance filter system
-    if (!useCurrentLocation && selectedDistance === null) return;
-
+    if (!isLocationActive && selectedDistance === null) return;
     calculateCompanyDistances();
-  }, [calculateCompanyDistances, useCurrentLocation, selectedDistance]);
+  }, [calculateCompanyDistances, isLocationActive, selectedDistance]);
 
   /**
    * Handle pull-to-refresh
@@ -651,8 +678,7 @@ export const UserDashboardScreen = () => {
     clearRouteCache();
     await Promise.all([fetchCompanies(), fetchUserAppointments()]);
 
-    // Recalculate distances if location toggle is active
-    if (useCurrentLocation && location) {
+    if (isLocationActive) {
       calculateCompanyDistances();
     }
 
@@ -845,25 +871,54 @@ export const UserDashboardScreen = () => {
     }
   };
 
+  /**
+   * Open map with clinics. Uses selected location source:
+   * - current: GPS location (when available)
+   * - home: user home coordinates from DB
+   * Fallback: Timișoara center.
+   */
   const openMap = async () => {
-    // Always open the popup so the user gets feedback (and can grant permission from inside).
-    setMapVisible(true);
+    const TIMISOARA_CENTER = { latitude: 45.75372, longitude: 21.22571, label: 'Timișoara Centru' };
+    let coords: { latitude: number; longitude: number; label?: string } | null = null;
 
-    // Reset selection on open
-    setSelectedMapClinic(null);
-
-    // If we don't have a fix yet, try to request permission / refresh location in the background.
-    if (!location) {
-      try {
-        if (Platform.OS !== 'web') {
-          await requestPermission();
-        } else {
-          await refreshLocation();
+    if (locationSource === 'home' && user?.latitude != null && user?.longitude != null) {
+      coords = { latitude: Number(user.latitude), longitude: Number(user.longitude), label: 'Home' };
+    } else if (locationSource === 'current') {
+      if (location && typeof location.latitude === 'number' && typeof location.longitude === 'number') {
+        coords = { latitude: location.latitude, longitude: location.longitude, label: 'My Location' };
+      } else {
+        try {
+          if (Platform.OS === 'web') await refreshLocation();
+          else await requestPermission();
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
+        if (location && typeof location.latitude === 'number' && typeof location.longitude === 'number') {
+          coords = { latitude: location.latitude, longitude: location.longitude, label: 'My Location' };
+        }
       }
     }
+
+    // Fallback: try to obtain current location (if nothing selected)
+    if (!coords) {
+      if (!location) {
+        try {
+          if (Platform.OS === 'web') await refreshLocation();
+          else await requestPermission();
+        } catch {
+          // ignore
+        }
+      }
+      if (location && typeof location.latitude === 'number' && typeof location.longitude === 'number') {
+        coords = { latitude: location.latitude, longitude: location.longitude, label: 'My Location' };
+      }
+    }
+
+    if (!coords) coords = TIMISOARA_CENTER;
+
+    setMapCenter(coords);
+    setSelectedMapClinic(null);
+    setMapVisible(true);
   };
 
   const handleMapClinicOpen = () => {
@@ -1182,49 +1237,7 @@ export const UserDashboardScreen = () => {
   </View>
   )}
 
-        {/* Location Toggle - Always Visible */}
-        <View style={styles.findClinicsSection}>
-          <View style={styles.locationToggleContainer}>
-            <TouchableOpacity
-              onPress={handleLocationToggle}
-              style={styles.locationToggle}
-              activeOpacity={0.7}
-            >
-              <View style={styles.locationToggleContent}>
-                <MaterialCommunityIcons
-                  name={useCurrentLocation ? "map-marker" : "map-marker-outline"}
-                  size={24}
-                  color={useCurrentLocation ? theme.colors.primary.main : theme.colors.neutral[600]}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[
-                      styles.locationToggleText,
-                      useCurrentLocation && styles.locationToggleTextActive,
-                    ]}
-                  >
-                    Activează locația
-                  </Text>
-                  {!useCurrentLocation && (
-                    <Text style={styles.locationToggleSubtext}>
-                      Apasă pentru a vedea distanțele
-                    </Text>
-                  )}
-                </View>
-                {useCurrentLocation && locationLoading && (
-                  <ActivityIndicator size="small" color={theme.colors.primary.main} />
-                )}
-                {useCurrentLocation && !locationLoading && (
-                  <Chip mode="flat" compact style={styles.locationChip}>
-                    Activ
-                  </Chip>
-                )}
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 2. Find Clinics Section (MIDDLE) */}
+        {/* Find Clinics Section */}
         {!isServiceSearchActive && (
           <View style={styles.findClinicsSection}>
             <Text style={styles.sectionTitle}>Găsește clinici</Text>
@@ -1250,16 +1263,58 @@ export const UserDashboardScreen = () => {
                 </TouchableOpacity>
               </View>
 
+              {/* Location source: current GPS or Home Address */}
+              <View style={styles.locationSourceRow}>
+                <TouchableOpacity
+                  onPress={handleUseCurrentLocation}
+                  style={[
+                    styles.locationSourceButton,
+                    locationSource === 'current' && styles.locationSourceButtonSelected,
+                  ]}
+                  activeOpacity={0.8}
+                >
+                  {locationSource === 'current' && locationLoading && (
+                    <ActivityIndicator size="small" color="#fff" style={{ marginRight: 6 }} />
+                  )}
+                  <MaterialCommunityIcons
+                    name={locationSource === 'current' ? 'map-marker' : 'map-marker-outline'}
+                    size={18}
+                    color={locationSource === 'current' ? '#fff' : theme.colors.neutral[600]}
+                  />
+                  <Text style={[styles.locationSourceButtonText, locationSource === 'current' && styles.locationSourceButtonTextSelected]}>
+                    Folosește locația curentă
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleUseHomeAddress}
+                  style={[
+                    styles.locationSourceButton,
+                    locationSource === 'home' && styles.locationSourceButtonSelected,
+                  ]}
+                  activeOpacity={0.8}
+                >
+                  <MaterialCommunityIcons
+                    name={locationSource === 'home' ? 'home' : 'home-outline'}
+                    size={18}
+                    color={locationSource === 'home' ? '#fff' : theme.colors.neutral[600]}
+                  />
+                  <Text style={[styles.locationSourceButtonText, locationSource === 'home' && styles.locationSourceButtonTextSelected]}>
+                    Folosește Home Address
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               {/* Info message about location and filtering */}
-              {!useCurrentLocation && (
+              {!isLocationActive && (
                 <View style={styles.locationInfoBanner}>
                   <Ionicons name="information-circle" size={16} color="#3b82f6" />
                   <Text style={styles.locationInfoText}>
-                    Activează locația mai sus pentru a vedea distanțele și a filtra clinicile
+                    Alege locația curentă sau adresa de acasă pentru a vedea distanțele și a filtra clinicile
                   </Text>
                 </View>
               )}
-              {useCurrentLocation && (
+              {isLocationActive && (
                 <View style={[styles.locationInfoBanner, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                   <Ionicons name="checkmark-circle" size={16} color="#10b981" />
                   <Text style={[styles.locationInfoText, { color: '#065f46' }]}>
@@ -1322,7 +1377,7 @@ export const UserDashboardScreen = () => {
                   Found{' '}
                   <Text style={styles.resultsCount}>{filteredCompanies.length}</Text>{' '}
                   vet clinic{filteredCompanies.length !== 1 ? 's' : ''}
-                  {useCurrentLocation && selectedDistance !== null && (
+                  {isLocationActive && selectedDistance !== null && (
                     <Text style={{ fontWeight: '600', color: '#10b981' }}>
                       {' '}within {selectedDistance < 1 ? `${selectedDistance * 1000} m` : `${selectedDistance} km`}
                     </Text>
@@ -1405,13 +1460,7 @@ export const UserDashboardScreen = () => {
             )}
 
             {companiesWithDistance.map(({ company, distance, matchedService }) => {
-              const distanceProp = selectedDistance !== null ? distance : (useCurrentLocation ? distance : undefined);
-              console.log('[DEBUG] Rendering card for', company.name, ':', {
-                distance,
-                distanceProp,
-                selectedDistance,
-                useCurrentLocation
-              });
+              const distanceProp = selectedDistance !== null ? distance : (isLocationActive ? distance : undefined);
 
               return (
                 <VetCompanyCard
@@ -1435,7 +1484,7 @@ export const UserDashboardScreen = () => {
         <Dialog visible={mapVisible} onDismiss={() => setMapVisible(false)} style={{ maxWidth: 720, alignSelf: 'center', width: '92%' }}>
           <Dialog.Title>Map</Dialog.Title>
           <Dialog.Content>
-            {!location ? (
+            {!mapCenter ? (
               <View style={{ gap: 12 }}>
                 <Text>Nu avem încă locația curentă.</Text>
                 {locationLoading ? (
@@ -1460,6 +1509,14 @@ export const UserDashboardScreen = () => {
             ) : (
               <View style={{ gap: 12 }}>
                 <View style={{ height: 420, width: '100%', borderRadius: 12, overflow: 'hidden' }}>
+                  {Platform.OS === 'web' ? (
+                    <LeafletMapWeb
+                      center={mapCenter}
+                      companies={filteredCompanies}
+                      onClinicSelect={(id, name) => setSelectedMapClinic({ id, name })}
+                      style={{ width: '100%', height: 420, borderRadius: 12, overflow: 'hidden' }}
+                    />
+                  ) : (
                   <WebView
                     originWhitelist={['*']}
                     javaScriptEnabled
@@ -1498,7 +1555,7 @@ export const UserDashboardScreen = () => {
     ></script>
     <script>
       (function () {
-        const center = [${location.latitude}, ${location.longitude}];
+        const center = [${mapCenter.latitude}, ${mapCenter.longitude}];
 
         const map = L.map('map', {
           zoomControl: true,
@@ -1519,7 +1576,7 @@ export const UserDashboardScreen = () => {
           fillOpacity: 0.7,
         })
           .addTo(map)
-          .bindPopup('You');
+          .bindPopup(${JSON.stringify(mapCenter.label === 'Home' ? 'Home' : 'You')});
 
         const clinics = ${JSON.stringify(
           (filteredCompanies || [])
@@ -1563,6 +1620,7 @@ export const UserDashboardScreen = () => {
 </html>`,
                     }}
                   />
+                  )}
                 </View>
 
                 {selectedMapClinic ? (
@@ -2091,45 +2149,34 @@ const styles = StyleSheet.create({
   searchContainer: {
     marginBottom: theme.spacing.md,
   },
-  // Location Toggle Styles
-  locationToggleContainer: {
-    marginBottom: theme.spacing.md,
+  locationSourceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
   },
-  locationToggle: {
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.neutral[50],
-    borderWidth: 1,
-    borderColor: theme.colors.neutral[200],
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  locationToggleContent: {
+  locationSourceButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: theme.spacing.md,
-    gap: 10,
-  },
-  locationToggleText: {
-    fontSize: 16,
-    color: theme.colors.neutral[700],
-    fontWeight: '600',
-  },
-  locationToggleTextActive: {
-    color: theme.colors.primary.main,
-    fontWeight: '700',
-  },
-  locationToggleSubtext: {
-    fontSize: 13,
-    color: theme.colors.neutral[500],
-    marginTop: 2,
-  },
-  locationChip: {
-    backgroundColor: theme.colors.primary.main + '15', // 15% opacity
-    borderColor: theme.colors.primary.main + '30',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#f3f4f6',
     borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  locationSourceButtonSelected: {
+    backgroundColor: theme.colors.primary.main,
+    borderColor: theme.colors.primary.main,
+  },
+  locationSourceButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  locationSourceButtonTextSelected: {
+    color: '#ffffff',
   },
   locationInfoBanner: {
     flexDirection: 'row',

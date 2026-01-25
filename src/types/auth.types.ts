@@ -5,6 +5,17 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  // Home address fields (pet owner)
+  street?: string;
+  street_number?: string;
+  building?: string;
+  apartment?: string;
+  city?: string;
+  county?: string;
+  postal_code?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
   created_at: string;
   updated_at: string;
 }
@@ -24,6 +35,17 @@ export interface SignupData {
   email: string;
   password: string;
   role: UserRole;
+  // Optional home address fields (pet owner)
+  street?: string;
+  street_number?: string;
+  building?: string;
+  apartment?: string;
+  city?: string;
+  county?: string;
+  postal_code?: string;
+  country?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface AuthResponse {

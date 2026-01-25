@@ -18,6 +18,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { blurActiveElementIfWeb } from '../utils/dom';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { CountyPicker } from '../components/FormComponents/CountyPicker';
+import { LocalityPicker } from '../components/FormComponents/LocalityPicker';
+import { CountyCode } from '../constants/romania';
+import { buildAddressForGeocoding, geocodeAddress } from '../utils/geocoding';
+import { validateRomanianPostalCode } from '../utils/romanianValidation';
 
 const { width, height } = Dimensions.get('window');
 
@@ -25,6 +30,20 @@ type UserRole = 'user' | 'vetcompany';
 
 interface SignUpScreenProps {
   navigation?: any;
+}
+
+// Address state interface
+interface HomeAddress {
+  street: string;
+  streetNumber: string;
+  building: string;
+  apartment: string;
+  city: string;
+  county: CountyCode | '';
+  postalCode: string;
+  country: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
@@ -39,6 +58,22 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  // Home address state (for pet owners)
+  const [homeAddress, setHomeAddress] = useState<HomeAddress>({
+    street: '',
+    streetNumber: '',
+    building: '',
+    apartment: '',
+    city: '',
+    county: '',
+    postalCode: '',
+    country: 'Romania',
+    latitude: null,
+    longitude: null,
+  });
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
 
   // Inline validation state (keeps user on the same progress with data preserved)
   const [touched, setTouched] = useState({
@@ -107,6 +142,79 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
   const isFormValid = !errors.fullName && !errors.email && !errors.password && !errors.confirmPassword;
 
+  // Update address field
+  const updateAddress = (field: keyof HomeAddress, value: any) => {
+    setHomeAddress((prev) => ({ ...prev, [field]: value }));
+    // Clear error for this field
+    if (addressErrors[field]) {
+      setAddressErrors((prev) => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  // Handle county change (reset city when county changes)
+  const handleCountyChange = (county: CountyCode) => {
+    setHomeAddress((prev) => ({
+      ...prev,
+      county,
+      city: prev.county !== county ? '' : prev.city,
+    }));
+  };
+
+  // Geocoding ONLY on button press; address is validated here before computing coords.
+  const geocodeHomeAddress = async () => {
+    const errs: Record<string, string> = {};
+    if (!homeAddress.street?.trim()) errs.street = 'Strada este obligatorie';
+    if (!homeAddress.streetNumber?.trim()) errs.streetNumber = 'Numărul este obligatoriu';
+    if (!homeAddress.city?.trim()) errs.city = 'Localitatea este obligatorie';
+    if (!homeAddress.county?.trim()) errs.county = 'Județul este obligatoriu';
+    if (!homeAddress.postalCode?.trim()) {
+      errs.postalCode = 'Codul poștal este obligatoriu';
+    } else if (!validateRomanianPostalCode(homeAddress.postalCode)) {
+      errs.postalCode = 'Format invalid (6 cifre)';
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setAddressErrors(errs);
+      return;
+    }
+
+    try {
+      setIsGeocoding(true);
+      const address = buildAddressForGeocoding({
+        street: homeAddress.street,
+        streetNumber: homeAddress.streetNumber,
+        building: homeAddress.building,
+        apartment: homeAddress.apartment,
+        city: homeAddress.city,
+        county: homeAddress.county,
+        postalCode: homeAddress.postalCode,
+        country: homeAddress.country,
+      });
+      const coords = await geocodeAddress(address);
+      if (coords) {
+        setHomeAddress((prev) => ({
+          ...prev,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        }));
+        setAddressErrors({});
+        Alert.alert('Coordonate obținute', `Lat: ${coords.latitude.toFixed(6)}, Lng: ${coords.longitude.toFixed(6)}`);
+      } else {
+        setAddressErrors({
+          street: 'Adresa nu a putut fi găsită',
+          streetNumber: 'Verifică numărul',
+          postalCode: 'Verifică codul poștal',
+        });
+        Alert.alert('Adresă invalidă', 'Adresa nu a putut fi găsită. Verifică strada, numărul și codul poștal.');
+      }
+    } catch (e: any) {
+      console.error('[VetFind] Geocoding error:', e);
+      Alert.alert('Eroare', e?.message || 'Nu s-au putut obține coordonatele.');
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
   const handleSignUp = async () => {
     // Inline validation UX: keep user on same screen, preserve inputs,
     // highlight invalid fields and show what needs to be fixed.
@@ -122,12 +230,28 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     try {
       setLoading(true);
 
-      await signup({
+      const signupData: any = {
         name: fullName,
         email: email.toLowerCase(),
         password,
         role,
-      });
+      };
+
+      // Include address data for pet owners
+      if (role === 'user' && homeAddress.street?.trim()) {
+        signupData.street = homeAddress.street.trim();
+        signupData.street_number = homeAddress.streetNumber?.trim() || null;
+        signupData.building = homeAddress.building?.trim() || null;
+        signupData.apartment = homeAddress.apartment?.trim() || null;
+        signupData.city = homeAddress.city?.trim() || null;
+        signupData.county = homeAddress.county || null;
+        signupData.postal_code = homeAddress.postalCode?.trim() || null;
+        signupData.country = homeAddress.country?.trim() || 'Romania';
+        signupData.latitude = homeAddress.latitude;
+        signupData.longitude = homeAddress.longitude;
+      }
+
+      await signup(signupData);
 
       // No need to navigate - AuthContext will handle it automatically
     } catch (error: any) {
@@ -382,6 +506,131 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   </View>
                 </TouchableOpacity>
               </Modal>
+
+              {/* Home Address Section - Only for Pet Owners (right after Role) */}
+              {role === 'user' && (
+                <View style={styles.addressSection}>
+                  <View style={styles.addressHeader}>
+                    <Ionicons name="home-outline" size={22} color="#8b5cf6" />
+                    <Text style={styles.addressTitle}>Adresa de acasă</Text>
+                    <Text style={styles.addressOptional}>(opțional)</Text>
+                  </View>
+                  <Text style={styles.addressDescription}>
+                    Adaugă adresa ta pentru a calcula distanța până la clinici
+                  </Text>
+
+                  <View style={styles.addressRow}>
+                    <View style={styles.addressFlex3}>
+                      <Text style={styles.addressLabel}>Strada</Text>
+                      <TextInput
+                        style={[styles.addressInput, !!addressErrors.street && styles.inputError]}
+                        placeholder="Strada Mihai Eminescu"
+                        placeholderTextColor="#a0a0a0"
+                        value={homeAddress.street}
+                        onChangeText={(t) => updateAddress('street', t)}
+                      />
+                      {!!addressErrors.street && (
+                        <Text style={styles.addressErrorText}>{addressErrors.street}</Text>
+                      )}
+                    </View>
+                    <View style={styles.addressFlex1}>
+                      <Text style={styles.addressLabel}>Nr.</Text>
+                      <TextInput
+                        style={[styles.addressInput, !!addressErrors.streetNumber && styles.inputError]}
+                        placeholder="15"
+                        placeholderTextColor="#a0a0a0"
+                        value={homeAddress.streetNumber}
+                        onChangeText={(t) => updateAddress('streetNumber', t)}
+                      />
+                      {!!addressErrors.streetNumber && (
+                        <Text style={styles.addressErrorText}>{addressErrors.streetNumber}</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.addressRow}>
+                    <View style={styles.addressHalf}>
+                      <Text style={styles.addressLabel}>Bloc (opțional)</Text>
+                      <TextInput
+                        style={styles.addressInput}
+                        placeholder="A2"
+                        placeholderTextColor="#a0a0a0"
+                        value={homeAddress.building}
+                        onChangeText={(t) => updateAddress('building', t)}
+                      />
+                    </View>
+                    <View style={styles.addressHalf}>
+                      <Text style={styles.addressLabel}>Apartament (opțional)</Text>
+                      <TextInput
+                        style={styles.addressInput}
+                        placeholder="23"
+                        placeholderTextColor="#a0a0a0"
+                        value={homeAddress.apartment}
+                        onChangeText={(t) => updateAddress('apartment', t)}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.addressField}>
+                    <CountyPicker
+                      value={homeAddress.county}
+                      onChange={handleCountyChange}
+                      error={addressErrors.county}
+                      disabled={false}
+                    />
+                  </View>
+
+                  <View style={styles.addressField}>
+                    <LocalityPicker
+                      county={homeAddress.county}
+                      value={homeAddress.city}
+                      onChange={(locality) => updateAddress('city', locality)}
+                      error={addressErrors.city}
+                      disabled={false}
+                    />
+                  </View>
+
+                  <View style={styles.addressField}>
+                    <Text style={styles.addressLabel}>Cod Poștal</Text>
+                    <TextInput
+                      style={[styles.addressInput, !!addressErrors.postalCode && styles.inputError]}
+                      placeholder="010101"
+                      placeholderTextColor="#a0a0a0"
+                      value={homeAddress.postalCode}
+                      onChangeText={(t) => updateAddress('postalCode', t)}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                    />
+                    {!!addressErrors.postalCode && (
+                      <Text style={styles.addressErrorText}>{addressErrors.postalCode}</Text>
+                    )}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.geocodeButton, isGeocoding && styles.geocodeButtonDisabled]}
+                    onPress={geocodeHomeAddress}
+                    disabled={isGeocoding}
+                  >
+                    {isGeocoding ? (
+                      <ActivityIndicator size="small" color="#8b5cf6" />
+                    ) : (
+                      <>
+                        <Ionicons name="location-outline" size={18} color="#8b5cf6" />
+                        <Text style={styles.geocodeButtonText}>Obține coordonate din adresă</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+
+                  {homeAddress.latitude != null && homeAddress.longitude != null && (
+                    <View style={styles.coordsContainer}>
+                      <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                      <Text style={styles.coordsText}>
+                        Coordonate: {homeAddress.latitude.toFixed(6)}, {homeAddress.longitude.toFixed(6)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
 
               {/* Password Input */}
               <View style={styles.inputContainer}>
@@ -863,6 +1112,111 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666666',
     fontWeight: '600',
+  },
+  // Address section styles
+  addressSection: {
+    marginTop: 10,
+    marginBottom: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e8e8e8',
+  },
+  addressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  addressTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333333',
+    marginLeft: 8,
+  },
+  addressOptional: {
+    fontSize: 12,
+    color: '#999999',
+    marginLeft: 6,
+    fontStyle: 'italic',
+  },
+  addressDescription: {
+    fontSize: 13,
+    color: '#666666',
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  addressFlex1: {
+    flex: 1,
+  },
+  addressFlex3: {
+    flex: 3,
+  },
+  addressHalf: {
+    flex: 1,
+  },
+  addressField: {
+    marginBottom: 12,
+  },
+  addressLabel: {
+    fontSize: 12,
+    color: '#666666',
+    fontWeight: '500',
+    marginBottom: 6,
+  },
+  addressInput: {
+    backgroundColor: '#f8f8f8',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#333333',
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+  },
+  addressErrorText: {
+    fontSize: 11,
+    color: '#ff4444',
+    marginTop: 4,
+  },
+  geocodeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#8b5cf6',
+    backgroundColor: '#f5f3ff',
+    marginTop: 4,
+  },
+  geocodeButtonDisabled: {
+    opacity: 0.6,
+  },
+  geocodeButtonText: {
+    fontSize: 14,
+    color: '#8b5cf6',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  coordsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#ecfdf5',
+    borderRadius: 8,
+  },
+  coordsText: {
+    fontSize: 12,
+    color: '#10b981',
+    marginLeft: 6,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 });
 
