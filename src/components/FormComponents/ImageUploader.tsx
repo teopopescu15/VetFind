@@ -232,11 +232,34 @@ export const ImageUploader = ({
     maxHeight && { height: maxHeight },
   ];
 
+  const isExternalUrl = typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'));
+  const imageDimensions = (maxWidth && maxHeight) ? { width: maxWidth, height: maxHeight } : undefined;
+
   return (
     <View style={containerStyles}>
       {value ? (
         <View style={[styles.imageContainer, ...uploaderStyles]}>
-          <Image source={{ uri: value }} style={styles.image} resizeMode="cover" />
+          {Platform.OS === 'web' && isExternalUrl ? (
+            <img
+              src={value}
+              alt=""
+              style={{
+                width: imageDimensions?.width ?? '100%',
+                height: imageDimensions?.height ?? '100%',
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'cover',
+                display: 'block',
+                borderRadius: 12,
+              } as React.CSSProperties}
+            />
+          ) : (
+            <Image
+              source={{ uri: value }}
+              style={[styles.image, imageDimensions]}
+              resizeMode="cover"
+            />
+          )}
           {!disabled && (
             <TouchableOpacity
               style={styles.removeButton}

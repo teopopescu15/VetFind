@@ -60,6 +60,23 @@ export async function uploadCompanyPhotoFromFile(companyId: number, file: File):
   return await getDownloadURL(rref);
 }
 
+/** Upload company logo from local URI (mobile / data URL). Same storage as dashboard. */
+export async function uploadCompanyLogoFromUri(companyId: number, uri: string): Promise<string> {
+  const blob = await uriToBlob(uri);
+  const path = `companies/${companyId}/logo/${Date.now()}_${randomId()}.jpg`;
+  const rref = ref(storage, path);
+  await uploadBytes(rref, blob, { contentType: blob.type || 'image/jpeg' });
+  return await getDownloadURL(rref);
+}
+
+/** Upload company logo from File (web). Same storage as dashboard. */
+export async function uploadCompanyLogoFromFile(companyId: number, file: File): Promise<string> {
+  const path = `companies/${companyId}/logo/${Date.now()}_${randomId()}_${file.name || 'logo.jpg'}`;
+  const rref = ref(storage, path);
+  await uploadBytes(rref, file, { contentType: file.type || 'image/jpeg' });
+  return await getDownloadURL(rref);
+}
+
 export async function deleteByDownloadUrl(url: string): Promise<void> {
   // Works for Firebase download URLs
   const rref = refFromURL(url);

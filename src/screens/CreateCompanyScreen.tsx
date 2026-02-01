@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, BackHandler, Alert, Platform } from 'react-native';
+import { View, StyleSheet, BackHandler, Alert, Platform, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button, ActivityIndicator } from 'react-native-paper';
 import { ProgressIndicator } from '../components/ProgressIndicator';
@@ -10,7 +10,7 @@ import { Step3Services } from './CreateCompany/Step3Services';
 import { Step4Pricing } from './CreateCompany/Step4Pricing';
 import { CompanyFormData, FormErrors, CreateCompanyDTO, CreateServiceDTO, ServicePricingDTO, ServiceCategoryType } from '../types/company.types';
 import { ApiService } from '../services/api';
-import { uploadCompanyPhotoFromUri } from '../services/firebaseStorage';
+import { uploadCompanyPhotoFromUri, uploadCompanyLogoFromUri } from '../services/firebaseStorage';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '../types/navigation.types';
@@ -403,9 +403,6 @@ export const CreateCompanyScreen = () => {
 
   // Handle Submit
   const handleSubmit = async () => {
-    // Immediate alert to confirm button click
-    Alert.alert('Debug', 'Submit button clicked!');
-
     console.log('=== SUBMIT BUTTON CLICKED ===');
     console.log('Current step:', currentStep);
     console.log('Form data:', JSON.stringify(formData, null, 2));
@@ -465,17 +462,11 @@ export const CreateCompanyScreen = () => {
         num_veterinarians: formData.step3.num_veterinarians,
         years_in_business: formData.step3.years_in_business,
 
-        // From Step 4
-        photos: formData.step4.photos || []
+        // From Step 4 - do NOT send local photo URIs; photos are added after create via Firebase upload + POST /photos
+        photos: []
       };
 
       console.log('=== COMPANY DATA TO SEND ===', JSON.stringify(companyData, null, 2));
-
-      // Upload logo if provided (Step 1)
-      if (formData.step1.logo_url) {
-        // Note: Logo upload will be handled separately after company creation
-        // or as part of the company creation if the backend supports it
-      }
 
       // Create company
       console.log('🔐 ACCESS TOKEN from useAuth():', accessToken ? `${accessToken.substring(0, 30)}...` : 'NULL/UNDEFINED');
@@ -534,30 +525,56 @@ export const CreateCompanyScreen = () => {
         }
       }
 
-      // Upload logo if provided
+      let finalLogoUrl = createdCompany.logo_url;
+      const uploadedPhotoUrls: string[] = [...(createdCompany.photos || [])];
+
+      // Validate logo dimensions (100–2000 px) before upload
+      const LOGO_MIN = 100;
+      const LOGO_MAX = 2000;
+      const validateLogoDimensions = (uri: string): Promise<{ valid: boolean; width?: number; height?: number }> => {
+        return new Promise((resolve) => {
+          Image.getSize(uri, (width, height) => {
+            const valid =
+              width >= LOGO_MIN && height >= LOGO_MIN && width <= LOGO_MAX && height <= LOGO_MAX;
+            resolve({ valid, width, height });
+          }, () => resolve({ valid: false }));
+        });
+      };
+
       if (formData.step1.logo_url) {
-        await ApiService.uploadCompanyLogo(
-          createdCompany.id,
-          formData.step1.logo_url,
-          accessToken || undefined
-        );
+        const { valid, width, height } = await validateLogoDimensions(formData.step1.logo_url);
+        if (!valid) {
+          Alert.alert(
+            'Dimensiuni nepermise',
+            `Imaginea logo trebuie să aibă între ${LOGO_MIN}×${LOGO_MIN} și ${LOGO_MAX}×${LOGO_MAX} pixeli.${
+              width != null && height != null ? ` Imaginea selectată: ${width}×${height} pixeli.` : ''
+            }`
+          );
+          setIsSubmitting(false);
+          return;
+        }
+        const logoUrl = await uploadCompanyLogoFromUri(createdCompany.id, formData.step1.logo_url);
+        await ApiService.request(`/companies/${createdCompany.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ logo_url: logoUrl }),
+        });
+        finalLogoUrl = logoUrl;
       }
 
-      // Upload photos if provided
+      // Upload photos to Firebase (same as dashboard) then persist URLs in backend
       if (formData.step4.photos && formData.step4.photos.length > 0) {
         for (const photo of formData.step4.photos) {
-          // 1) Upload to Firebase Storage
           const downloadUrl = await uploadCompanyPhotoFromUri(createdCompany.id, photo);
-          // 2) Persist URL in backend (append to company.photos)
           await ApiService.request(`/companies/${createdCompany.id}/photos`, {
             method: 'POST',
             body: JSON.stringify({ photo_url: downloadUrl }),
           });
+          uploadedPhotoUrls.push(downloadUrl);
         }
       }
 
-      // Update company context with new company
-      setCompany(createdCompany);
+      // Update company context with company including logo and photos
+      setCompany({ ...createdCompany, logo_url: finalLogoUrl, photos: uploadedPhotoUrls });
       console.log('Company created successfully:', createdCompany);
 
       // Success! Navigate to Success Screen

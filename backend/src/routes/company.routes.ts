@@ -19,7 +19,8 @@ router.route('/')
 // Parameterized routes (must come after specific routes)
 router.route('/:id')
   .get(companyController.getById) // Public: Get company by ID
-  .put(authMiddleware, companyController.update) // Protected: Update company
+  .put(authMiddleware, companyController.update) // Protected: Update company (full)
+  .patch(authMiddleware, companyController.update) // Protected: Update company (partial, e.g. logo_url)
   .delete(authMiddleware, companyController.delete); // Protected: Delete company
 
 // ===========================

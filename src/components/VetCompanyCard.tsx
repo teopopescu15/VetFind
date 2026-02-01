@@ -162,7 +162,8 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
     return `${origin}${normalized}`;
   };
 
-  const heroPhoto = company.photos && company.photos.length > 0 ? company.photos[0] : null;
+  // Prefer logo as card background; fallback to first gallery photo
+  const heroPhoto = company.logo_url || (company.photos && company.photos.length > 0 ? company.photos[0] : null);
 
   return (
     <Animated.View style={[styles.container, {
@@ -337,8 +338,10 @@ export const VetCompanyCard = memo(
     // Return true if props are equal (should NOT re-render)
     return (
       prevProps.company.id === nextProps.company.id &&
+      prevProps.company.logo_url === nextProps.company.logo_url &&
+      prevProps.company.photos?.[0] === nextProps.company.photos?.[0] &&
       prevProps.distance === nextProps.distance &&
-  prevProps.routeDistance?.distanceMeters === nextProps.routeDistance?.distanceMeters &&
+      prevProps.routeDistance?.distanceMeters === nextProps.routeDistance?.distanceMeters &&
       prevProps.matchedService?.id === nextProps.matchedService?.id
     );
   }
