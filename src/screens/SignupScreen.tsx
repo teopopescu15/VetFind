@@ -110,35 +110,35 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
   const getPasswordIssues = (pass: string): string[] => {
     const issues: string[] = [];
-    if ((pass || '').length < MIN_PASSWORD_LENGTH) issues.push(`at least ${MIN_PASSWORD_LENGTH} characters`);
-    if (!/[A-Z]/.test(pass)) issues.push('an uppercase letter');
-    if (!/[a-z]/.test(pass)) issues.push('a lowercase letter');
-    if (!/[0-9]/.test(pass)) issues.push('a number');
-    if (!SPECIAL_CHAR_REGEX.test(pass)) issues.push('a special character');
+    if ((pass || '').length < MIN_PASSWORD_LENGTH) issues.push(`cel puțin ${MIN_PASSWORD_LENGTH} caractere`);
+    if (!/[A-Z]/.test(pass)) issues.push('o literă mare');
+    if (!/[a-z]/.test(pass)) issues.push('o literă mică');
+    if (!/[0-9]/.test(pass)) issues.push('o cifră');
+    if (!SPECIAL_CHAR_REGEX.test(pass)) issues.push('un caracter special');
     return issues;
   };
 
   const shouldShowError = (field: keyof typeof touched) => submitAttempted || touched[field];
 
   const errors = {
-    fullName: !fullName.trim() ? 'Please enter your full name' : '',
-    email: !email.trim() ? 'Please enter your email' : (!isValidEmail(email) ? 'Please enter a valid email address' : ''),
+    fullName: !fullName.trim() ? 'Introdu numele complet' : '',
+    email: !email.trim() ? 'Introdu emailul' : (!isValidEmail(email) ? 'Introdu o adresă de email validă' : ''),
     password: '',
     confirmPassword: '',
   };
 
   const passwordIssues = getPasswordIssues(password);
   if (!password) {
-    errors.password = 'Please enter a password';
+    errors.password = 'Introdu o parolă';
   } else if (passwordIssues.length > 0) {
     // Make it explicit: too short / missing special chars etc.
-    errors.password = `Password must include ${passwordIssues.join(', ')}`;
+    errors.password = `Parola trebuie să conțină: ${passwordIssues.join(', ')}`;
   }
 
   if (!confirmPassword) {
-    errors.confirmPassword = 'Please confirm your password';
+    errors.confirmPassword = 'Confirmă parola';
   } else if (password !== confirmPassword) {
-    errors.confirmPassword = 'Passwords do not match';
+    errors.confirmPassword = 'Parolele nu coincid';
   }
 
   const isFormValid = !errors.fullName && !errors.email && !errors.password && !errors.confirmPassword;
@@ -224,7 +224,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
     if (!isFormValid) {
       // Optional: keep a gentle top-level hint, but the main feedback is inline.
-      Alert.alert('Fix the highlighted fields', 'Please correct the errors shown in red.');
+      Alert.alert('Corectează câmpurile evidențiate', 'Corectează erorile afișate cu roșu.');
       return;
     }
 
@@ -264,9 +264,9 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
       // Friendly mapping for duplicate emails (backend returns 409 with a clear message)
       if (msgLower.includes('email already exists') || msgLower.includes('account with this email already exists')) {
-        Alert.alert('Email already in use', 'An account with this email already exists. Try logging in instead.');
+        Alert.alert('Email deja folosit', 'Există deja un cont cu acest email. Încearcă să te autentifici.');
       } else {
-        Alert.alert('Signup Failed', rawMsg || 'An error occurred during signup');
+        Alert.alert('Înregistrare eșuată', rawMsg || 'A apărut o eroare la înregistrare.');
       }
     } finally {
       setLoading(false);
@@ -337,18 +337,18 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               </View>
 
               {/* Title */}
-              <Text style={styles.title}>Create Account</Text>
-              <Text style={styles.subtitle}>🐾 Find the best vet for your beloved animal! 🐾</Text>
+              <Text style={styles.title}>Creează cont</Text>
+              <Text style={styles.subtitle}>🐾 Găsește cel mai bun veterinar pentru animalul tău! 🐾</Text>
 
               {/* Full Name Input */}
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="person-outline" size={20} color="#8b5cf6" style={styles.inputIcon} />
-                  <Text style={styles.inputLabel}>Full Name</Text>
+                  <Text style={styles.inputLabel}>Nume complet</Text>
                 </View>
                 <TextInput
                     style={[styles.input, shouldShowError('fullName') && !!errors.fullName && styles.inputError]}
-                  placeholder="John Doe"
+                  placeholder="Ion Popescu"
                   placeholderTextColor="#a0a0a0"
                   value={fullName}
                     onChangeText={(t) => {
@@ -371,11 +371,11 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="mail-outline" size={20} color="#8b5cf6" style={styles.inputIcon} />
-                  <Text style={styles.inputLabel}>Email Address</Text>
+                  <Text style={styles.inputLabel}>Adresă email</Text>
                 </View>
                 <TextInput
                     style={[styles.input, shouldShowError('email') && !!errors.email && styles.inputError]}
-                  placeholder="username@domain.com"
+                  placeholder="email@domeniu.com"
                   placeholderTextColor="#a0a0a0"
                   value={email}
                     onChangeText={(t) => {
@@ -399,7 +399,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="person-circle-outline" size={20} color="#8b5cf6" style={styles.inputIcon} />
-                  <Text style={styles.inputLabel}>I am a</Text>
+                  <Text style={styles.inputLabel}>Sunt</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.roleSelector}
@@ -407,7 +407,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   activeOpacity={0.7}
                 >
                   <Text style={styles.roleSelectorText}>
-                    {role === 'user' ? 'Pet Owner' : 'Vet Company'}
+                    {role === 'user' ? 'Stăpân de animal' : 'Clinica veterinară'}
                   </Text>
                   <Ionicons name="chevron-down" size={20} color="#8b5cf6" />
                 </TouchableOpacity>
@@ -432,7 +432,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   }}
                 >
                   <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>Select Your Role</Text>
+                    <Text style={styles.modalTitle}>Alege rolul</Text>
 
                     <TouchableOpacity
                       style={[
@@ -455,10 +455,10 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                           styles.roleOptionTitle,
                           role === 'user' && styles.roleOptionTitleSelected
                         ]}>
-                          Pet Owner
+                          Stăpân de animal
                         </Text>
                         <Text style={styles.roleOptionDescription}>
-                          Find the best vet for your pet
+                          Găsește cel mai bun veterinar pentru animalul tău
                         </Text>
                       </View>
                       {role === 'user' && (
@@ -487,10 +487,10 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                           styles.roleOptionTitle,
                           role === 'vetcompany' && styles.roleOptionTitleSelected
                         ]}>
-                          Vet Company
+                          Clinica veterinară
                         </Text>
                         <Text style={styles.roleOptionDescription}>
-                          Provide veterinary services
+                          Oferă servicii veterinare
                         </Text>
                       </View>
                       {role === 'vetcompany' && (
@@ -505,7 +505,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                         setShowRolePicker(false);
                       }}
                     >
-                      <Text style={styles.modalCloseButtonText}>Cancel</Text>
+                      <Text style={styles.modalCloseButtonText}>Anulare</Text>
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -653,7 +653,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="lock-closed-outline" size={20} color="#8b5cf6" style={styles.inputIcon} />
-                  <Text style={styles.inputLabel}>Password</Text>
+                  <Text style={styles.inputLabel}>Parolă</Text>
                   {password.length > 0 && (
                     <View style={styles.strengthIndicator}>
                       <View style={styles.strengthBar}>
@@ -714,8 +714,8 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                       ]}
                     >
                       {passwordIssues.length === 0
-                        ? 'Password looks good'
-                        : `Missing: ${passwordIssues.join(', ')}`}
+                        ? 'Parola este ok'
+                        : `Lipsesc: ${passwordIssues.join(', ')}`}
                     </Text>
                   </View>
                 )}
@@ -732,7 +732,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="lock-closed-outline" size={20} color="#8b5cf6" style={styles.inputIcon} />
-                  <Text style={styles.inputLabel}>Confirm Password</Text>
+                  <Text style={styles.inputLabel}>Confirmă parola</Text>
                 </View>
                 <View style={styles.passwordInputContainer}>
                   <TextInput
@@ -789,7 +789,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                     <ActivityIndicator size="small" color="#ffffff" />
                   ) : (
                     <>
-                      <Text style={styles.signUpButtonText}>Sign Up</Text>
+                      <Text style={styles.signUpButtonText}>Înregistrare</Text>
                       <Ionicons name="arrow-forward" size={20} color="#ffffff" style={styles.arrowIcon} />
                     </>
                   )}
@@ -798,9 +798,9 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
               {/* Login Link */}
               <View style={styles.loginContainer}>
-                <Text style={styles.loginText}>Already have an account? </Text>
+                <Text style={styles.loginText}>Ai deja cont? </Text>
                 <TouchableOpacity onPress={() => navigation?.navigate('Login')}>
-                  <Text style={styles.loginLink}>Login</Text>
+                  <Text style={styles.loginLink}>Autentificare</Text>
                 </TouchableOpacity>
               </View>
                 </View>

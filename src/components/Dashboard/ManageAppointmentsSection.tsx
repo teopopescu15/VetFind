@@ -30,7 +30,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
       setAppointments(data);
     } catch (error) {
       console.error('Error loading appointments:', error);
-      Alert.alert('Error', 'Failed to load appointments');
+      Alert.alert('Eroare', 'Nu s-au putut încărca programările.');
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +59,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
       // revert and show detailed error
       setAppointments((prev) => prev.map((a) => (a.id === appointment.id ? { ...a, status: prevStatus } : a)));
       console.error('Accept appointment error:', error);
-      Alert.alert('Error accepting appointment', (error && (error.message || String(error))) || 'Failed to accept appointment');
+      Alert.alert('Eroare la acceptare', (error && (error.message || String(error))) || 'Nu s-a putut accepta programarea.');
     } finally {
       setBusyIds((b) => b.filter((id) => id !== appointment.id));
     }
@@ -95,7 +95,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
         // revert optimistic change
         setAppointments((prev) => prev.map((a) => (a.id === appointment.id ? { ...a, status: prevStatus } : a)));
         console.error('Cancel appointment error (fallback):', fallbackError);
-        Alert.alert('Error cancelling appointment', (fallbackError && (fallbackError.message || String(fallbackError))) || 'Failed to cancel appointment');
+        Alert.alert('Eroare la anulare', (fallbackError && (fallbackError.message || String(fallbackError))) || 'Nu s-a putut anula programarea.');
       }
     } finally {
       setBusyIds((b) => b.filter((id) => id !== appointment.id));
@@ -107,13 +107,13 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
 
     try {
       await ApiService.updateAppointment(selectedAppointment.id!, updatedData);
-      Alert.alert('Success', 'Appointment updated successfully');
+      Alert.alert('Succes', 'Programarea a fost actualizată.');
       setIsEditModalVisible(false);
       setSelectedAppointment(null);
       loadAppointments();
       onRefresh?.();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update appointment');
+      Alert.alert('Eroare', error.message || 'Nu s-a putut actualiza programarea.');
     }
   };
 
@@ -187,7 +187,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
         <View style={styles.headerLeft}>
           <Ionicons name="calendar" size={24} color={theme.colors.primary.main} />
           <Text variant="titleLarge" style={styles.title}>
-            Manage Appointments
+            Gestionează programări
           </Text>
         </View>
         <Chip
@@ -219,7 +219,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
           textStyle={statusFilter === 'pending' ? styles.filterChipTextActive : styles.filterChipText}
           compact
         >
-          Pending
+          În așteptare
         </Chip>
         <Chip
           mode={statusFilter === 'confirmed' ? 'flat' : 'outlined'}
@@ -229,7 +229,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
           textStyle={statusFilter === 'confirmed' ? styles.filterChipTextActive : styles.filterChipText}
           compact
         >
-          Confirmed
+          Confirmat
         </Chip>
         <Chip
           mode={statusFilter === 'completed' ? 'flat' : 'outlined'}
@@ -239,7 +239,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
           textStyle={statusFilter === 'completed' ? styles.filterChipTextActive : styles.filterChipText}
           compact
         >
-          Completed
+          Finalizat
         </Chip>
         <Chip
           mode={statusFilter === 'cancelled' ? 'flat' : 'outlined'}
@@ -249,7 +249,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
           textStyle={statusFilter === 'cancelled' ? styles.filterChipTextActive : styles.filterChipText}
           compact
         >
-          Cancelled
+          Anulate
         </Chip>
       </View>
 
@@ -258,12 +258,12 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
         <View style={styles.emptyContainer}>
           <Ionicons name="calendar-outline" size={64} color={theme.colors.neutral[300]} />
           <Text variant="titleMedium" style={styles.emptyTitle}>
-            No appointments found
+            Nu s-au găsit programări
           </Text>
           <Text variant="bodyMedium" style={styles.emptyText}>
             {statusFilter
-              ? `No ${statusFilter} appointments at the moment`
-              : 'Your appointments will appear here'}
+              ? `Nicio programare ${({ pending: 'în așteptare', confirmed: 'confirmată', completed: 'finalizată', cancelled: 'anulată' } as Record<string, string>)[statusFilter] || statusFilter} în acest moment`
+              : 'Programările tale vor apărea aici'}
           </Text>
         </View>
       ) : (
@@ -297,7 +297,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
                       variant="bodySmall"
                       style={[styles.statusText, { color: getStatusColor(appointment.status) }]}
                     >
-                      {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                      {({ pending: 'În așteptare', confirmed: 'Confirmat', completed: 'Finalizat', cancelled: 'Anulat' } as Record<string, string>)[appointment.status] || appointment.status}
                     </Text>
                   </View>
                 </View>
@@ -306,7 +306,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
                 <View style={styles.clientInfo}>
                   <Ionicons name="person" size={16} color={theme.colors.neutral[600]} />
                   <Text variant="bodyMedium" style={styles.clientName}>
-                    {(appointment as any).user_name || 'Unknown Client'}
+                    {(appointment as any).user_name || 'Client necunoscut'}
                   </Text>
                 </View>
                 {(appointment as any).user_email && (
@@ -332,7 +332,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
                 {appointment.notes && (
                   <View style={styles.notesContainer}>
                     <Text variant="bodySmall" style={styles.notesLabel}>
-                      Notes:
+                      Note:
                     </Text>
                     <Text variant="bodySmall" style={styles.notesText}>
                       {appointment.notes}
@@ -350,7 +350,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
                     labelStyle={styles.editButtonLabel}
                     compact
                   >
-                    Edit
+                    Editează
                   </Button>
                   {appointment.status === 'pending' && (
                     <View style={styles.pendingActions}>
@@ -361,7 +361,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
                         compact
                         disabled={busyIds.includes(appointment.id)}
                       >
-                        {busyIds.includes(appointment.id) ? 'Processing...' : 'Accept'}
+                        {busyIds.includes(appointment.id) ? 'Se procesează...' : 'Acceptă'}
                       </Button>
                       <Button
                         mode="outlined"
@@ -370,7 +370,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
                         compact
                         disabled={busyIds.includes(appointment.id)}
                       >
-                        {busyIds.includes(appointment.id) ? 'Processing...' : 'Cancel'}
+                        {busyIds.includes(appointment.id) ? 'Se procesează...' : 'Anulare'}
                       </Button>
                     </View>
                   )}

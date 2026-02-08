@@ -13,6 +13,7 @@ import { CategoryCard } from '../components/Dashboard/CategoryCard';
 import { QuickActions } from '../components/Dashboard/QuickActions';
 import { StatCard } from '../components/Dashboard/StatCard';
 import { theme } from '../theme';
+import { getCategoryLabelRO } from '../constants/serviceTranslations';
 
 /**
  * CompanyDashboardScreen - Main dashboard for vet company users
@@ -82,7 +83,7 @@ export const CompanyDashboardScreen = () => {
       }
     } catch (error) {
       console.error('Error loading company:', error);
-      Alert.alert('Error', 'Failed to load company profile');
+      Alert.alert('Eroare', 'Nu s-a putut încărca profilul companiei.');
     } finally {
       setIsLoading(false);
     }
@@ -142,7 +143,7 @@ export const CompanyDashboardScreen = () => {
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary.main} />
         <Text variant="bodyLarge" style={styles.loadingText}>
-          Loading your company profile...
+          Se încarcă profilul companiei...
         </Text>
       </View>
     );
@@ -153,7 +154,7 @@ export const CompanyDashboardScreen = () => {
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={64} color="#ef4444" />
         <Text variant="headlineSmall" style={styles.errorText}>
-          Company profile not found
+          Profilul companiei nu a fost găsit
         </Text>
         <Button
           mode="contained"
@@ -161,7 +162,7 @@ export const CompanyDashboardScreen = () => {
           buttonColor={theme.colors.primary.main}
           style={styles.retryButton}
         >
-          Retry
+          Reîncearcă
         </Button>
       </View>
     );
@@ -235,7 +236,7 @@ export const CompanyDashboardScreen = () => {
               leadingIcon="cog-outline"
             />
             <Menu.Item
-              title="Log out"
+              title="Deconectare"
               onPress={async () => {
                 closeMenu();
                 await handleLogout();
@@ -292,14 +293,14 @@ export const CompanyDashboardScreen = () => {
         <View style={styles.categoriesContainer}>
           <View style={styles.categoriesHeader}>
             <Text variant="titleLarge" style={styles.sectionTitle}>
-              Services you might offer
+              Servicii pe care le poți oferi
             </Text>
             <Chip
               style={styles.totalServicesChip}
               textStyle={styles.totalServicesChipText}
               compact
             >
-              {categories.reduce((sum, cat) => sum + cat.specializations.length, 0)} Total Services
+              {categories.reduce((sum, cat) => sum + cat.specializations.length, 0)} Total servicii
             </Chip>
           </View>
 
@@ -307,7 +308,7 @@ export const CompanyDashboardScreen = () => {
             <View style={styles.categoriesLoading}>
               <ActivityIndicator size="small" color={theme.colors.primary.main} />
               <Text variant="bodyMedium" style={styles.categoriesLoadingText}>
-                Loading services...
+                Se încarcă serviciile...
               </Text>
             </View>
           ) : (
@@ -324,12 +325,12 @@ export const CompanyDashboardScreen = () => {
       {company.specializations && company.specializations.length > 0 && (
         <View style={styles.specializationsContainer}>
           <Text variant="titleMedium" style={styles.sectionTitle}>
-            Specializations
+            Specializări
           </Text>
           <View style={styles.chipsContainer}>
             {company.specializations.map((spec, index) => (
               <Chip key={index} mode="outlined" style={styles.chip}>
-                {spec.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                {getCategoryLabelRO(spec as any)}
               </Chip>
             ))}
           </View>

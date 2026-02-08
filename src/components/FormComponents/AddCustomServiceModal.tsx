@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity, Pressable 
 import { TextInput, Button } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { CategoryWithSpecializations, ServicePricingDTO } from '../../types/company.types';
+import { translateCategoryName } from '../../constants/serviceTranslations';
 
 /**
  * AddCustomServiceModal Component
@@ -80,10 +81,10 @@ export const AddCustomServiceModal = ({
 
     // Price format validation
     if (priceMin && isNaN(parseFloat(priceMin))) {
-      newErrors.price_min = 'Enter a valid price';
+      newErrors.price_min = 'Introdu un preț valid';
     }
     if (priceMax && isNaN(parseFloat(priceMax))) {
-      newErrors.price_max = 'Enter a valid price';
+      newErrors.price_max = 'Introdu un preț valid';
     }
 
     setErrors(newErrors);
@@ -115,7 +116,7 @@ export const AddCustomServiceModal = ({
   const getSelectedCategoryName = (): string => {
     if (!selectedCategoryId) return 'Selectează o categorie (opțional)';
     const category = categories.find((c) => c.id === selectedCategoryId);
-    return category?.name || 'Selectează o categorie (opțional)';
+    return category ? translateCategoryName(category.name) : 'Selectează o categorie (opțional)';
   };
 
   // Render category picker modal
@@ -181,7 +182,7 @@ export const AddCustomServiceModal = ({
                   styles.categoryOptionText,
                   selectedCategoryId === category.id && styles.categoryOptionTextSelected,
                 ]}>
-                  {category.name}
+                  {translateCategoryName(category.name)}
                 </Text>
                 {selectedCategoryId === category.id && (
                   <Ionicons name="checkmark" size={20} color="#7c3aed" />
@@ -235,7 +236,7 @@ export const AddCustomServiceModal = ({
                 outlineColor="#e5e7eb"
                 activeOutlineColor="#7c3aed"
                 error={!!errors.service_name}
-                accessibilityLabel="Service name"
+                accessibilityLabel="Numele serviciului"
               />
               {errors.service_name && (
                 <Text style={styles.errorText}>{errors.service_name}</Text>
@@ -248,7 +249,7 @@ export const AddCustomServiceModal = ({
               <TouchableOpacity
                 style={styles.categorySelector}
                 onPress={() => setShowCategoryPicker(true)}
-                accessibilityLabel="Select category"
+                accessibilityLabel="Selectează categoria"
               >
                 <Text style={[
                   styles.categorySelectorText,
@@ -277,7 +278,7 @@ export const AddCustomServiceModal = ({
                 style={[styles.input, styles.textArea]}
                 outlineColor="#e5e7eb"
                 activeOutlineColor="#7c3aed"
-                accessibilityLabel="Service description"
+                accessibilityLabel="Descrierea serviciului"
               />
             </View>
 
@@ -349,7 +350,7 @@ export const AddCustomServiceModal = ({
                   outlineColor="#e5e7eb"
                   activeOutlineColor="#7c3aed"
                   right={<TextInput.Affix text="minute" />}
-                  accessibilityLabel="Service duration"
+                  accessibilityLabel="Durata serviciului"
                 />
               </View>
             </View>

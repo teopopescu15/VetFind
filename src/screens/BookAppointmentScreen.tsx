@@ -39,6 +39,7 @@ import { CompanyService } from '../types/company.types';
 import { DayAvailability, TimeSlot } from '../types/appointment.types';
 import { useAuth } from '../context/AuthContext';
 import AnimatedConfirmation from '../components/AnimatedConfirmation';
+import { translateSpecializationName } from '../constants/serviceTranslations';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -227,7 +228,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
       setAvailableDays(slots || []);
     } catch (error: any) {
       console.error('Failed to load available slots:', error);
-      Alert.alert('Error', 'Failed to load available time slots. Please try again.');
+      Alert.alert('Eroare', 'Nu s-au putut încărca intervalele orare. Te rugăm să încerci din nou.');
     } finally {
       setLoading(false);
     }
@@ -288,7 +289,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
    */
   const handleBookAppointment = async () => {
     if (!selectedSlot) {
-      Alert.alert('Selection Required', 'Please select a date and time for your appointment.');
+      Alert.alert('Selectare necesară', 'Te rugăm să alegi data și ora pentru programare.');
       return;
     }
 
@@ -300,7 +301,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
   const otherServices = selectedServicesState.length > 1 ? selectedServicesState.slice(1) : [];
 
       if (!user || !user.id) {
-        Alert.alert('Authentication required', 'Please sign in to book an appointment.');
+        Alert.alert('Autentificare necesară', 'Te rugăm să te autentifici pentru a face o programare.');
         setLoading(false);
         return;
       }
@@ -319,7 +320,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
 
           if (!matching || !matching.available) {
             // Slot no longer available — refresh slots for the range and inform user
-            Alert.alert('Slot unavailable', 'The selected time slot is no longer available. Please choose another time.');
+            Alert.alert('Interval indisponibil', 'Intervalul ales nu mai este disponibil. Te rugăm să alegi altă oră.');
             // Refresh all available slots (this will update UI)
             loadAvailableSlots();
             setSelectedSlot(null);
@@ -341,7 +342,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
         appointment_date: selectedSlot.datetime,
         notes: [
           notes.trim(),
-          otherServices.length > 0 ? `Also includes services: ${otherServices.map((s: CompanyService) => s.service_name).join(', ')}` : undefined,
+          otherServices.length > 0 ? `Servicii incluse: ${otherServices.map((s: CompanyService) => translateSpecializationName(s.service_name) || s.service_name).join(', ')}` : undefined,
         ].filter(Boolean).join('\n') || undefined,
       } as any;
 
@@ -359,22 +360,22 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
 
       // Fallback behaviour for other roles (e.g. vet companies): show the existing success alert
       Alert.alert(
-        'Success!',
-        'Your appointment has been confirmed.',
+        'Succes!',
+        'Programarea ta a fost confirmată.',
         [
           {
-            text: 'View Appointments',
+            text: 'Vezi programările',
             onPress: () => navigation.navigate('MyAppointments'),
           },
           {
-            text: 'Done',
+            text: 'Gata',
             onPress: () => navigation.goBack(),
           },
         ]
       );
     } catch (error: any) {
       console.error('Booking error:', error);
-      Alert.alert('Error', error.message || 'Failed to book appointment. Please try again.');
+      Alert.alert('Eroare', error.message || 'Nu s-a putut crea programarea. Te rugăm să încerci din nou.');
     } finally {
       setLoading(false);
     }
@@ -525,7 +526,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                   style={styles.selectedServiceChip}
                   closeIcon={() => <Ionicons name="close" size={14} color="#374151" />}
                 >
-                  {s.service_name}
+                  {translateSpecializationName(s.service_name) || s.service_name}
                 </Chip>
               ))}
             </ScrollView>
@@ -538,7 +539,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
 
         {/* Calendar Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select Date</Text>
+          <Text style={styles.sectionTitle}>Alege data</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -564,7 +565,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                   activeOpacity={0.7}
                   {...a11yProps.button(
                     a11yLabels.datePicker(dateStr, dayName, isAvailable),
-                    isAvailable ? 'Select this date to view available appointment times' : 'No appointments available on this date',
+                    isAvailable ? 'Alege această dată pentru a vedea orele disponibile' : 'Nu există programări disponibile în această zi',
                     !isAvailable || isPast
                   )}
                 >
@@ -608,13 +609,13 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                 {...a11yProps.header(a11yLabels.loading('available appointment slots'), 2)}
               >
                 <ActivityIndicator size="large" color="#2563eb" />
-                <Text style={styles.loadingText}>Loading available slots...</Text>
+                <Text style={styles.loadingText}>Se încarcă intervalele...</Text>
               </View>
             ) : slots.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <MaterialCommunityIcons name="calendar-remove" size={48} color="#d1d5db" />
-                <Text style={styles.emptyText}>No available time slots</Text>
-                <Text style={styles.emptySubtext}>Please select another date</Text>
+                <Text style={styles.emptyText}>Nu există intervale disponibile</Text>
+                <Text style={styles.emptySubtext}>Te rugăm să alegi altă dată</Text>
               </View>
             ) : (
               <View style={styles.slotsGrid}>
@@ -665,7 +666,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
             <Text style={styles.sectionTitle}>Additional Notes (Optional)</Text>
             <TextInput
               mode="outlined"
-              placeholder="Any special requests or information about your pet..."
+              placeholder="Cere speciale sau informații despre animalul tău..."
               value={notes}
               onChangeText={setNotes}
               multiline
@@ -698,11 +699,11 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
               labelStyle={styles.bookButtonLabel}
               buttonColor="#ea580c"
               {...a11yProps.button(
-                'Confirm booking',
-                'Proceed to confirm your appointment booking'
+                'Confirmă programarea',
+                'Continuă pentru a confirma programarea'
               )}
             >
-              Confirm Booking
+              Confirmă programarea
             </Button>
           </View>
         </Surface>
@@ -719,35 +720,35 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
             <Card.Content>
               <View style={styles.modalHeader}>
                 <MaterialCommunityIcons name="check-circle" size={48} color="#7c3aed" />
-                <Text style={styles.modalTitle}>Confirm Appointment</Text>
+                <Text style={styles.modalTitle}>Confirmă programarea</Text>
               </View>
 
               <Divider style={styles.modalDivider} />
 
               <View style={styles.confirmationDetails}>
                 <View style={styles.confirmRow}>
-                  <Text style={styles.confirmLabel}>Company:</Text>
+                  <Text style={styles.confirmLabel}>Clinica:</Text>
                   <Text style={styles.confirmValue}>{companyName}</Text>
                 </View>
                 <View style={styles.confirmRow}>
-                  <Text style={styles.confirmLabel}>Service(s):</Text>
+                  <Text style={styles.confirmLabel}>Servicii:</Text>
                   <View style={styles.confirmValue}>
                     {selectedServicesState.length > 0 ? (
                       selectedServicesState.map((s) => (
                         <View key={s.id} style={styles.confirmServiceRow}>
-                          <Text style={styles.confirmValue}>{s.service_name}</Text>
+                          <Text style={styles.confirmValue}>{translateSpecializationName(s.service_name) || s.service_name}</Text>
                           <TouchableOpacity onPress={() => removeServiceById(s.id)}>
                             <Ionicons name="close-circle" size={18} color="#ef4444" />
                           </TouchableOpacity>
                         </View>
                       ))
                     ) : (
-                      <Text style={styles.confirmValue}>{primaryService?.service_name ?? '—'}</Text>
+                      <Text style={styles.confirmValue}>{primaryService ? (translateSpecializationName(primaryService.service_name) || primaryService.service_name) : '—'}</Text>
                     )}
                   </View>
                 </View>
                 <View style={styles.confirmRow}>
-                  <Text style={styles.confirmLabel}>Date & Time:</Text>
+                  <Text style={styles.confirmLabel}>Data și ora:</Text>
                   <Text style={styles.confirmValue}>
                     {selectedDate?.toLocaleDateString('en-US', {
                       weekday: 'short',
@@ -759,13 +760,13 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                   </Text>
                 </View>
                 <View style={styles.confirmRow}>
-                  <Text style={styles.confirmLabel}>Duration:</Text>
+                  <Text style={styles.confirmLabel}>Durată:</Text>
                   <Text style={styles.confirmValue}>
                     {formatDuration(totalRequiredDuration)}
                   </Text>
                 </View>
                 <View style={styles.confirmRow}>
-                  <Text style={styles.confirmLabel}>Price:</Text>
+                  <Text style={styles.confirmLabel}>Preț:</Text>
                   <Text style={styles.confirmValue}>
                     {selectedServicesState.length > 0 ? formatPrice(totalPrice.min, totalPrice.max) : (primaryService ? formatPrice(primaryService.price_min, primaryService.price_max) : '—')}
                   </Text>
@@ -775,7 +776,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
 
             <Card.Actions style={styles.modalActions}>
               <Button onPress={() => setShowConfirmModal(false)} textColor="#6b7280">
-                Cancel
+                Anulare
               </Button>
               <Button
                 mode="contained"
@@ -784,7 +785,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                 disabled={loading}
                 buttonColor="#7c3aed"
               >
-                Confirm
+                Confirmă
               </Button>
             </Card.Actions>
           </Card>

@@ -266,7 +266,7 @@ export const EditAppointmentModal = ({
                       status === 'cancelled' && { color: theme.colors.error.main },
                     ]}
                   >
-                    Cancelled
+                    Anulat
                   </Chip>
                 </View>
               </View>
@@ -274,13 +274,13 @@ export const EditAppointmentModal = ({
               {/* Notes */}
               <View style={styles.section}>
                 <Text variant="titleSmall" style={styles.sectionTitle}>
-                  Notes
+                  Note
                 </Text>
                 <TextInput
                   mode="outlined"
                   value={notes}
                   onChangeText={setNotes}
-                  placeholder="Add any notes or comments..."
+                  placeholder="Adaugă note sau comentarii..."
                   multiline
                   numberOfLines={4}
                   style={styles.notesInput}
@@ -298,7 +298,7 @@ export const EditAppointmentModal = ({
                 style={styles.cancelButton}
                 labelStyle={styles.cancelButtonLabel}
               >
-                Cancel
+                Anulare
               </Button>
               <Button
                 mode="contained"
@@ -307,7 +307,7 @@ export const EditAppointmentModal = ({
                 labelStyle={styles.saveButtonLabel}
                 buttonColor={theme.colors.primary.main}
               >
-                Save Changes
+                Salvează modificările
               </Button>
             </View>
           </View>

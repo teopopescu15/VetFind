@@ -26,7 +26,8 @@ import {
   IconButton,
 } from 'react-native-paper';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import { CompanyService, ServiceCategoryLabels, ServiceCategoryType } from '../types/company.types';
+import { CompanyService, ServiceCategoryType } from '../types/company.types';
+import { getCategoryLabelRO, translateSpecializationName } from '../constants/serviceTranslations';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -150,7 +151,7 @@ export const ServiceSelectionSheet = ({
               <View style={styles.headerTitleContainer}>
                 <MaterialCommunityIcons name="medical-bag" size={24} color="#7c3aed" />
                 <View style={styles.headerTextContainer}>
-                  <Text style={styles.headerTitle}>Select a Service</Text>
+                  <Text style={styles.headerTitle}>Alege un serviciu</Text>
                   <Text style={styles.headerSubtitle}>{companyName}</Text>
                 </View>
               </View>
@@ -165,7 +166,7 @@ export const ServiceSelectionSheet = ({
 
             {/* Search Bar */}
             <Searchbar
-              placeholder="Search services..."
+              placeholder="Caută servicii..."
               onChangeText={setSearchQuery}
               value={searchQuery}
               style={styles.searchBar}
@@ -183,8 +184,8 @@ export const ServiceSelectionSheet = ({
             {filteredServices.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <MaterialCommunityIcons name="magnify" size={48} color="#d1d5db" />
-                <Text style={styles.emptyText}>No services found</Text>
-                <Text style={styles.emptySubtext}>Try adjusting your search</Text>
+                <Text style={styles.emptyText}>Nu s-au găsit servicii</Text>
+                <Text style={styles.emptySubtext}>Încearcă să modifici căutarea</Text>
               </View>
             ) : (
               Object.entries(groupedServices).map(([category, categoryServices]) => (
@@ -199,7 +200,7 @@ export const ServiceSelectionSheet = ({
                       />
                     </View>
                     <Text style={styles.categoryTitle}>
-                      {ServiceCategoryLabels[category as ServiceCategoryType] || 'Other Services'}
+                      {getCategoryLabelRO(category as ServiceCategoryType) || 'Alte servicii'}
                     </Text>
                   </View>
 
@@ -230,7 +231,7 @@ export const ServiceSelectionSheet = ({
                     >
                       <View style={styles.serviceCardContent}>
                         <View style={styles.serviceInfo}>
-                          <Text style={styles.serviceName}>{service.service_name}</Text>
+                          <Text style={styles.serviceName}>{translateSpecializationName(service.service_name) || service.service_name}</Text>
                           {service.description && (
                             <Text style={styles.serviceDescription} numberOfLines={2}>
                               {service.description}
@@ -277,7 +278,7 @@ export const ServiceSelectionSheet = ({
                   onDismiss();
                 }}
               >
-                <Text style={styles.cancelText}>Cancel</Text>
+                <Text style={styles.cancelText}>Anulare</Text>
               </TouchableOpacity>
 
               <TouchableOpacity

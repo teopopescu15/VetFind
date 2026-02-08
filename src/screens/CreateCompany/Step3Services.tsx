@@ -41,7 +41,7 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
         setCategories(data);
       } catch (error: any) {
         console.error('Failed to fetch categories:', error);
-        setCategoriesError(error.message || 'Failed to load categories');
+        setCategoriesError(error.message || 'Nu s-au putut încărca categoriile.');
       } finally {
         setCategoriesLoading(false);
       }
@@ -96,10 +96,10 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
   // Payment Method Options
   const paymentMethodOptions = [
     { label: 'Cash', value: 'cash', icon: 'cash' as const },
-    { label: 'Credit Card', value: 'credit_card', icon: 'card' as const },
-    { label: 'Debit Card', value: 'debit_card', icon: 'card' as const },
-    { label: 'Mobile Payment', value: 'mobile_payment', icon: 'phone-portrait' as const },
-    { label: 'Pet Insurance', value: 'pet_insurance', icon: 'shield' as const }
+    { label: 'Card de credit', value: 'credit_card', icon: 'card' as const },
+    { label: 'Card de debit', value: 'debit_card', icon: 'card' as const },
+    { label: 'Plată mobilă', value: 'mobile_payment', icon: 'phone-portrait' as const },
+    { label: 'Asigurare pentru animale', value: 'pet_insurance', icon: 'shield' as const }
   ];
 
   return (
@@ -224,8 +224,8 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
           style={styles.input}
           outlineColor="#e5e7eb"
           activeOutlineColor="#7c3aed"
-          accessibilityLabel="Number of Veterinarians"
-          accessibilityHint="Optional number of veterinarians at your clinic"
+          accessibilityLabel="Număr de veterinari"
+          accessibilityHint="Număr opțional de veterinari la clinica ta"
         />
         <HelperText type="error" visible={!!errors.num_veterinarians}>
           {errors.num_veterinarians || ' '}
@@ -250,8 +250,8 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
           style={styles.input}
           outlineColor="#e5e7eb"
           activeOutlineColor="#7c3aed"
-          accessibilityLabel="Years in Business"
-          accessibilityHint="Optional number of years your clinic has been operating"
+          accessibilityLabel="Ani de activitate"
+          accessibilityHint="Număr opțional de ani de când clinica funcționează"
         />
         <HelperText type="error" visible={!!errors.years_in_business}>
           {errors.years_in_business || ' '}
@@ -261,7 +261,7 @@ export const Step3Services = ({ data, onChange, errors = {} }: Step3ServicesProp
       {/* Required Fields Notice */}
       <View style={styles.notice}>
         <Text variant="bodySmall" style={styles.noticeText}>
-          * Required fields
+          * Câmpuri obligatorii
         </Text>
       </View>
     </ScrollContainer>

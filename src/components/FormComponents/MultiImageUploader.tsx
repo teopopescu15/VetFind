@@ -260,7 +260,7 @@ export const MultiImageUploader = ({
         <TouchableOpacity
           style={styles.removeButton}
           onPress={() => removeImage(index)}
-          accessibilityLabel={`Remove photo ${index + 1}`}
+          accessibilityLabel={`Elimină fotografia ${index + 1}`}
           accessibilityRole="button"
         >
           <Ionicons name="close-circle" size={24} color="#fff" />

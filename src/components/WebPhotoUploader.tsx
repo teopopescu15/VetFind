@@ -38,7 +38,7 @@ export const WebPhotoUploader = ({
     // Check limit
     const remainingSlots = maxPhotos - photos.length;
     if (remainingSlots <= 0) {
-      alert(`Maximum ${maxPhotos} photos allowed`);
+      alert(`Maximum ${maxPhotos} fotografii permise`);
       return;
     }
 
@@ -140,7 +140,7 @@ export const WebPhotoUploader = ({
           buttonColor={theme.colors.accent.main}
           icon="camera"
         >
-          {uploading ? 'Uploading...' : 'Camera'}
+          {uploading ? 'Se încarcă...' : 'Cameră'}
         </Button>
 
         {/* Gallery button */}
@@ -152,7 +152,7 @@ export const WebPhotoUploader = ({
           buttonColor={theme.colors.primary.main}
           icon="image"
         >
-          {uploading ? `${Math.round(uploadProgress * 100)}%` : 'Gallery'}
+          {uploading ? `${Math.round(uploadProgress * 100)}%` : 'Galerie'}
         </Button>
       </View>
 
@@ -163,7 +163,7 @@ export const WebPhotoUploader = ({
             <View style={[styles.progressFill, { width: `${uploadProgress * 100}%` }]} />
           </View>
           <Text style={styles.progressText}>
-            Uploading {Math.round(uploadProgress * 100)}%
+            Se încarcă {Math.round(uploadProgress * 100)}%
           </Text>
         </View>
       )}
@@ -193,7 +193,7 @@ export const WebPhotoUploader = ({
       {/* Info text */}
       <Text style={styles.infoText}>
         {photos.length} of {maxPhotos} photos
-        {photos.length >= maxPhotos && ' (Maximum reached)'}
+        {photos.length >= maxPhotos && ' (Limită atinsă)'}
       </Text>
     </View>
   );

@@ -73,7 +73,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
       >
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.white} />
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={styles.loadingText}>Se încarcă...</Text>
         </View>
       </LinearGradient>
     );
@@ -96,7 +96,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
             onPress={handleLogout}
             activeOpacity={0.8}
           >
-            <Text style={styles.logoutButtonText}>Logout</Text>
+            <Text style={styles.logoutButtonText}>Deconectare</Text>
           </TouchableOpacity>
         </SafeAreaView>
       </LinearGradient>
@@ -124,7 +124,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
         <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Welcome to Dashboard</Text>
+            <Text style={styles.title}>Bine ai venit</Text>
             <Text style={styles.subtitle}>VetFinder</Text>
           </View>
 
@@ -177,7 +177,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
             onPress={handleLogout}
             activeOpacity={0.8}
           >
-            <Text style={styles.logoutButtonText}>Logout</Text>
+            <Text style={styles.logoutButtonText}>Deconectare</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

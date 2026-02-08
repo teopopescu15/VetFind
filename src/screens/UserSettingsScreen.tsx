@@ -2,9 +2,11 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, TextInput, Button, Snackbar } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import { useAuth } from '../context/AuthContext';
+import { BackHeader } from '../components/BackHeader';
 import { CountyPicker } from '../components/FormComponents/CountyPicker';
 import { LocalityPicker } from '../components/FormComponents/LocalityPicker';
 import { CountyCode } from '../constants/romania';
@@ -23,7 +25,16 @@ type HomeAddressForm = {
 };
 
 export const UserSettingsScreen = () => {
+  const navigation = useNavigation();
   const { user, updateUser } = useAuth();
+
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('UserDashboard' as never);
+    }
+  };
 
   const initial = useMemo<HomeAddressForm>(() => ({
     street: String(user?.street ?? ''),
@@ -150,6 +161,7 @@ export const UserSettingsScreen = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BackHeader title="Setări" onBack={handleBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Ionicons name="settings-outline" size={22} color={theme.colors.primary.main} />
@@ -278,8 +290,8 @@ export const UserSettingsScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.neutral[100] },
   content: { padding: theme.spacing.lg, gap: 10 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
-  title: { fontSize: 22, fontWeight: '800', color: theme.colors.neutral[900] },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  title: { fontSize: 20, fontWeight: '800', color: theme.colors.neutral[900] },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: theme.colors.neutral[800], marginTop: 8 },
   sectionSubtitle: { color: theme.colors.neutral[600], marginBottom: 6 },
   input: { backgroundColor: theme.colors.neutral[50] },

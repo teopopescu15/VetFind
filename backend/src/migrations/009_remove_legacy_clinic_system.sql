@@ -14,16 +14,29 @@
 -- If you need this data, export it BEFORE running this migration.
 
 -- =============================================================================
--- SAFETY CHECK: Display data before deletion
+-- SAFETY CHECK: Record if legacy exists, then display data before deletion
 -- =============================================================================
+
+CREATE TEMP TABLE IF NOT EXISTS _migration_009_legacy (has_legacy BOOLEAN);
+DELETE FROM _migration_009_legacy;
+INSERT INTO _migration_009_legacy SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'clinics');
 
 DO $$
 DECLARE
-  clinics_count INTEGER;
-  services_count INTEGER;
-  reviews_count INTEGER;
-  appointments_count INTEGER;
+  clinics_count INTEGER := 0;
+  services_count INTEGER := 0;
+  reviews_count INTEGER := 0;
+  appointments_count INTEGER := 0;
+  legacy_exists BOOLEAN;
 BEGIN
+  SELECT has_legacy INTO legacy_exists FROM _migration_009_legacy;
+  IF NOT legacy_exists THEN
+    RAISE NOTICE '========================================';
+    RAISE NOTICE 'Legacy clinic system not present (clinics table missing). Skipping data count.';
+    RAISE NOTICE '========================================';
+    RETURN;
+  END IF;
+
   SELECT COUNT(*) INTO clinics_count FROM clinics;
   SELECT COUNT(*) INTO services_count FROM services;
   SELECT COUNT(*) INTO reviews_count FROM reviews;
@@ -41,31 +54,44 @@ BEGIN
 END $$;
 
 -- =============================================================================
--- Step 1: Drop dependent tables (with CASCADE for safety)
+-- Step 1: Drop legacy tables only (do NOT drop new appointments/reviews with company_id)
 -- =============================================================================
 
--- Drop appointments table (references services and clinics)
-DROP TABLE IF EXISTS appointments CASCADE;
-COMMENT ON FUNCTION update_appointments_updated_at() IS 'ORPHANED: Original appointments table removed';
+-- Drop legacy appointments table only if it has clinic_id (not the new company_id schema)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'appointments' AND column_name = 'clinic_id') THEN
+    DROP TABLE appointments CASCADE;
+  END IF;
+END $$;
 
--- Drop reviews table (references clinics)
-DROP TABLE IF EXISTS reviews CASCADE;
-COMMENT ON FUNCTION update_reviews_updated_at() IS 'ORPHANED: Original reviews table removed';
+-- Drop legacy reviews table only if it has clinic_id (not the new company_id schema)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'reviews' AND column_name = 'clinic_id') THEN
+    DROP TABLE reviews CASCADE;
+  END IF;
+END $$;
 
--- Drop services table (references clinics)
+-- Drop legacy services table (references clinics; new system uses company_services)
 DROP TABLE IF EXISTS services CASCADE;
-COMMENT ON FUNCTION update_services_updated_at() IS 'ORPHANED: Original services table removed';
 
--- Drop clinics table
+-- Drop legacy clinics table
 DROP TABLE IF EXISTS clinics CASCADE;
-COMMENT ON FUNCTION update_clinics_updated_at() IS 'ORPHANED: Original clinics table removed';
 
 -- =============================================================================
--- Step 2: Drop related enums and types
+-- Step 2: Drop related enums and types (only if legacy existed; new schema uses appointment_status)
 -- =============================================================================
 
--- Drop appointment_status enum (used by appointments table)
-DROP TYPE IF EXISTS appointment_status CASCADE;
+-- Drop appointment_status enum only when we had legacy (so 011 can recreate it). Do NOT drop when new schema.
+DO $$
+DECLARE has_legacy BOOLEAN;
+BEGIN
+  SELECT _migration_009_legacy.has_legacy INTO has_legacy FROM _migration_009_legacy;
+  IF has_legacy THEN
+    DROP TYPE IF EXISTS appointment_status CASCADE;
+  END IF;
+END $$;
 
 -- =============================================================================
 -- Step 3: Drop orphaned trigger functions

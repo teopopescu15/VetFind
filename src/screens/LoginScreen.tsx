@@ -9,7 +9,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image,
   Dimensions,
   Alert,
   ActivityIndicator,
@@ -35,12 +34,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const handleLogin = async () => {
     // Validate input
     if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email');
+      Alert.alert('Eroare', 'Introdu adresa de email.');
       return;
     }
 
     if (!password) {
-      Alert.alert('Error', 'Please enter your password');
+      Alert.alert('Eroare', 'Introdu parola.');
       return;
     }
 
@@ -54,15 +53,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
       // No need to navigate - AuthContext will handle it automatically
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'Invalid email or password');
+      Alert.alert('Autentificare eșuată', error.message || 'Email sau parolă invalidă.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleLogin = () => {
-    // Google login logic will be implemented later
-    console.log('Google login pressed');
   };
 
   return (
@@ -83,19 +77,22 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.contentWrapper}>
-              {/* Decorative Floating Paw Prints */}
+              {/* Background: labe de lăbuțe și motive animale */}
               <View style={styles.floatingPawsContainer}>
-                <Ionicons name="paw" size={30} color="rgba(37, 99, 235, 0.1)" style={styles.floatingPaw1} />
-                <Ionicons name="paw" size={24} color="rgba(234, 88, 12, 0.12)" style={styles.floatingPaw2} />
-                <Ionicons name="paw" size={36} color="rgba(37, 99, 235, 0.08)" style={styles.floatingPaw3} />
-                <Ionicons name="paw" size={28} color="rgba(234, 88, 12, 0.1)" style={styles.floatingPaw4} />
-                <Ionicons name="paw" size={32} color="rgba(37, 99, 235, 0.09)" style={styles.floatingPaw5} />
-                <Ionicons name="paw" size={26} color="rgba(234, 88, 12, 0.11)" style={styles.floatingPaw6} />
+                <Ionicons name="paw" size={42} color="rgba(37, 99, 235, 0.12)" style={styles.floatingPaw1} />
+                <Ionicons name="paw" size={38} color="rgba(234, 88, 12, 0.14)" style={styles.floatingPaw2} />
+                <Ionicons name="paw" size={48} color="rgba(37, 99, 235, 0.1)" style={styles.floatingPaw3} />
+                <Ionicons name="paw" size={36} color="rgba(234, 88, 12, 0.11)" style={styles.floatingPaw4} />
+                <Ionicons name="paw" size={44} color="rgba(37, 99, 235, 0.11)" style={styles.floatingPaw5} />
+                <Ionicons name="paw" size={34} color="rgba(234, 88, 12, 0.12)" style={styles.floatingPaw6} />
+                <Ionicons name="paw" size={28} color="rgba(37, 99, 235, 0.08)" style={styles.floatingPaw7} />
+                <Ionicons name="paw" size={32} color="rgba(234, 88, 12, 0.09)" style={styles.floatingPaw8} />
+                <Ionicons name="paw" size={26} color="rgba(37, 99, 235, 0.07)" style={styles.floatingPaw9} />
               </View>
 
               <View style={styles.cardContainer}>
                 <View style={styles.content}>
-              {/* Logo with Paw Icon */}
+              {/* Logo cu lăbuță */}
               <View style={styles.logoContainer}>
                 <LinearGradient
                   colors={['#2563eb', '#60a5fa']}
@@ -103,46 +100,26 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <Ionicons name="paw" size={44} color="#ffffff" />
+                  <Ionicons name="paw" size={52} color="#ffffff" />
                 </LinearGradient>
-                {/* Small decorative paws around logo */}
-                <Ionicons name="paw" size={16} color="rgba(37, 99, 235, 0.3)" style={styles.decorativePaw1} />
-                <Ionicons name="paw" size={14} color="rgba(234, 88, 12, 0.3)" style={styles.decorativePaw2} />
+                <Ionicons name="paw" size={20} color="rgba(37, 99, 235, 0.35)" style={styles.decorativePaw1} />
+                <Ionicons name="paw" size={18} color="rgba(234, 88, 12, 0.35)" style={styles.decorativePaw2} />
               </View>
 
-              {/* Title */}
+              {/* Titlu mare */}
               <Text style={styles.title}>VetFinder</Text>
-              <Text style={styles.subtitle}>🐾 Welcome back! Continue your journey. 🐾</Text>
-
-              {/* Google Sign In Button */}
-              <TouchableOpacity
-                style={styles.googleButton}
-                onPress={handleGoogleLogin}
-                activeOpacity={0.8}
-              >
-                <Image
-                  source={{ uri: 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg' }}
-                  style={styles.googleIcon}
-                />
-                <Text style={styles.googleButtonText}>Continue with Google</Text>
-              </TouchableOpacity>
-
-              {/* Divider */}
-              <View style={styles.dividerContainer}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>OR CONTINUE WITH EMAIL</Text>
-                <View style={styles.divider} />
-              </View>
+              <Text style={styles.subtitle}>🐾 Bine ai revenit! </Text>
+              <Text style={styles.subtitle}>Găsește veterinarul potrivit pentru animalul tău. 🐾</Text>
 
               {/* Email Input */}
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="mail-outline" size={20} color="#2563eb" style={styles.inputIcon} />
-                  <Text style={styles.inputLabel}>Email Address</Text>
+                  <Text style={styles.inputLabel}>Adresă email</Text>
                 </View>
                 <TextInput
                   style={styles.input}
-                  placeholder="username@domain.com"
+                  placeholder="email@domeniu.com"
                   placeholderTextColor="#a0a0a0"
                   value={email}
                   onChangeText={setEmail}
@@ -157,7 +134,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="lock-closed-outline" size={20} color="#2563eb" style={styles.inputIcon} />
-                  <Text style={styles.inputLabel}>Password</Text>
+                  <Text style={styles.inputLabel}>Parolă</Text>
                 </View>
                 <View style={styles.passwordInputContainer}>
                   <TextInput
@@ -203,7 +180,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                     <ActivityIndicator size="small" color="#ffffff" />
                   ) : (
                     <>
-                      <Text style={styles.loginButtonText}>Login</Text>
+                      <Text style={styles.loginButtonText}>Autentificare</Text>
                       <Ionicons name="arrow-forward" size={20} color="#ffffff" style={styles.arrowIcon} />
                     </>
                   )}
@@ -212,9 +189,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
               {/* Sign Up Link */}
               <View style={styles.signUpContainer}>
-                <Text style={styles.signUpText}>Don't have an account? </Text>
+                <Text style={styles.signUpText}>Nu ai cont? </Text>
                 <TouchableOpacity onPress={() => navigation?.navigate('SignUp')}>
-                  <Text style={styles.signUpLink}>Create account</Text>
+                  <Text style={styles.signUpLink}>Creează cont</Text>
                 </TouchableOpacity>
               </View>
                 </View>
@@ -294,6 +271,24 @@ const styles = StyleSheet.create({
     right: '15%',
     transform: [{ rotate: '-10deg' }],
   },
+  floatingPaw7: {
+    position: 'absolute',
+    top: '28%',
+    right: '20%',
+    transform: [{ rotate: '12deg' }],
+  },
+  floatingPaw8: {
+    position: 'absolute',
+    bottom: '35%',
+    left: '18%',
+    transform: [{ rotate: '-8deg' }],
+  },
+  floatingPaw9: {
+    position: 'absolute',
+    top: '70%',
+    left: '22%',
+    transform: [{ rotate: '18deg' }],
+  },
   cardContainer: {
     backgroundColor: '#fafaf9',
     borderRadius: 24,
@@ -307,87 +302,48 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   content: {
-    paddingHorizontal: 30,
-    paddingVertical: 40,
+    paddingHorizontal: 32,
+    paddingVertical: 44,
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: 28,
     position: 'relative',
   },
   decorativePaw1: {
     position: 'absolute',
-    top: -10,
-    right: 80,
+    top: -6,
+    right: 100,
     transform: [{ rotate: '-25deg' }],
   },
   decorativePaw2: {
     position: 'absolute',
-    top: -8,
-    left: 82,
+    top: -4,
+    left: 100,
     transform: [{ rotate: '20deg' }],
   },
   logoGradient: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
+    width: 96,
+    height: 96,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     boxShadow: '0 4px 10px rgba(37, 99, 235, 0.3)',
     elevation: 8,
   },
   title: {
-    fontSize: 36,
+    fontSize: 42,
     fontWeight: 'bold',
     color: '#2563eb',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666666',
+    fontSize: 20,
+    color: '#555555',
     textAlign: 'center',
-    marginBottom: 30,
-  },
-  googleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-  },
-  googleIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 10,
-  },
-  googleButtonText: {
-    fontSize: 16,
-    color: '#333333',
-    fontWeight: '600',
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#e0e0e0',
-  },
-  dividerText: {
-    marginHorizontal: 10,
-    fontSize: 12,
-    color: '#999999',
-    fontWeight: '500',
+    marginBottom: 32,
+    lineHeight: 28,
   },
   inputContainer: {
     marginBottom: 20,
@@ -401,16 +357,16 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   inputLabel: {
-    fontSize: 14,
-    color: '#666666',
+    fontSize: 17,
+    color: '#444444',
     fontWeight: '600',
   },
   input: {
     backgroundColor: '#f8f8f8',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    fontSize: 18,
     color: '#333333',
     borderWidth: 1,
     borderColor: '#e8e8e8',
@@ -443,25 +399,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   loginButtonText: {
-    fontSize: 18,
+    fontSize: 20,
     color: '#ffffff',
     fontWeight: 'bold',
   },
   arrowIcon: {
-    marginLeft: 8,
+    marginLeft: 10,
   },
   signUpContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 14,
   },
   signUpText: {
-    fontSize: 14,
-    color: '#666666',
+    fontSize: 17,
+    color: '#555555',
   },
   signUpLink: {
-    fontSize: 14,
+    fontSize: 17,
     color: '#2563eb',
     fontWeight: 'bold',
   },

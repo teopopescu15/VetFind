@@ -8,6 +8,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useCompany } from '../../context/CompanyContext';
 import { useAuth } from '../../context/AuthContext';
 import { ApiService } from '../../services/api';
+import { translateCategoryName, translateSpecializationName, translateCategoryDescription, translateSpecializationDescription } from '../../constants/serviceTranslations';
 
 /**
  * CategoryCard - Expandable category card showing specializations
@@ -96,16 +97,16 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
 
   const handleDoneAddService = async (specializationId: number, specializationName: string) => {
     if (!company) {
-      Alert.alert('Error', 'Company not loaded');
+      Alert.alert('Eroare', 'Compania nu este încărcată.');
       return;
     }
 
     if (!priceMin.trim()) {
-      Alert.alert('Validation', 'Pret min is required');
+      Alert.alert('Validare', 'Prețul minim este obligatoriu.');
       return;
     }
     if (!duration.trim()) {
-      Alert.alert('Validation', 'Duration (min) is required');
+      Alert.alert('Validare', 'Durata (min) este obligatorie.');
       return;
     }
 
@@ -114,20 +115,20 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
     const dur = parseInt(duration, 10);
 
     if (!Number.isFinite(pm) || pm < 0) {
-      Alert.alert('Validation', 'Pret min must be a valid number');
+      Alert.alert('Validare', 'Prețul minim trebuie să fie un număr valid.');
       return;
     }
     if (!Number.isFinite(dur) || dur <= 0) {
-      Alert.alert('Validation', 'Duration must be a positive number');
+      Alert.alert('Validare', 'Durata trebuie să fie un număr pozitiv.');
       return;
     }
     if (priceMax.trim() && (!Number.isFinite(px) || px < 0)) {
-      Alert.alert('Validation', 'Pret max must be a valid number');
+      Alert.alert('Validare', 'Prețul maxim trebuie să fie un număr valid.');
       return;
     }
 
     if (px < pm) {
-      Alert.alert('Validation', 'Max price must be >= min price');
+      Alert.alert('Validare', 'Prețul maxim trebuie să fie >= prețul minim.');
       return;
     }
 
@@ -148,10 +149,10 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
       try { await refreshCompany(); } catch (e) { /* ignore */ }
 
       setActiveSpecializationId(null);
-      Alert.alert('Success', 'Service added');
+      Alert.alert('Succes', 'Serviciu adăugat.');
     } catch (err: any) {
       console.error('Add service error:', err);
-      Alert.alert('Error', err.message || 'Failed to add service');
+      Alert.alert('Eroare', err.message || 'Nu s-a putut adăuga serviciul.');
     } finally {
       setIsSaving(false);
     }
@@ -192,7 +193,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                   variant="titleMedium"
                   style={[styles.categoryName, { fontSize: isDesktop ? 15 : isTablet ? 16 : 18 }]}
                 >
-                  {category.name}
+                  {translateCategoryName(category.name)}
                 </Text>
                 <Chip
                   style={[styles.countChip, { height: isDesktop ? 24 : 28 }]}
@@ -209,7 +210,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                   style={[styles.description, { fontSize: isDesktop ? 12 : 14 }]}
                   numberOfLines={isDesktop ? 1 : 2}
                 >
-                  {category.description}
+                  {translateCategoryDescription(category.name) || category.description}
                 </Text>
               )}
             </View>
@@ -235,7 +236,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                   variant="bodyMedium"
                   style={[styles.fullDescription, { fontSize: isDesktop ? 13 : 14, marginBottom: isDesktop ? 14 : 20 }]}
                 >
-                  {category.description}
+                  {translateCategoryDescription(category.name) || category.description}
                 </Text>
               )}
 
@@ -245,7 +246,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                   variant="titleSmall"
                   style={[styles.specializationsTitle, { fontSize: isDesktop ? 14 : 16, marginBottom: isDesktop ? 8 : 12 }]}
                 >
-                  Services Offered:
+                  Servicii oferite:
                 </Text>
 
                 {category.specializations.map((specialization, index) => (
@@ -263,7 +264,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                           variant="bodyMedium"
                           style={[styles.specializationName, { fontSize: isDesktop ? 13 : 15 }]}
                         >
-                          {specialization.name}
+                          {translateSpecializationName(specialization.name)}
                         </Text>
                         {isSpecializationAlreadyAdded(specialization.id, specialization.name) ? (
                           <Chip
@@ -271,7 +272,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                             textStyle={[styles.addedChipText, { fontSize: isDesktop ? 10 : 12 }]}
                             compact
                           >
-                            Added
+                            Adăugat
                           </Chip>
                         ) : (
                           <Button
@@ -282,7 +283,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                             style={[styles.addServiceButton, { height: isDesktop ? 24 : 28 }]}
                             labelStyle={[styles.addServiceButtonLabel, { fontSize: isDesktop ? 10 : 12 }]}
                           >
-                            {activeSpecializationId === specialization.id ? 'Cancel' : 'Add service'}
+                            {activeSpecializationId === specialization.id ? 'Anulare' : 'Adaugă serviciu'}
                           </Button>
                         )}
                       </View>
@@ -315,7 +316,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                           <View style={styles.inlineRow}>
                             <View style={styles.inlineField}>
                               <TextInput
-                                placeholder="Duration (min)*"
+                                placeholder="Durată (min)*"
                                 keyboardType="numeric"
                                 value={duration}
                                 onChangeText={setDuration}
@@ -331,7 +332,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                                 style={styles.doneButton}
                                 labelStyle={styles.doneButtonLabel}
                               >
-                                Done
+                                Finalizare
                               </Button>
                               {isSaving && (
                                 <ActivityIndicator size="small" color={colors.primary.main} style={styles.savingSpinner} />
@@ -349,7 +350,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
                             { fontSize: isDesktop ? 11 : 13, paddingLeft: isDesktop ? 26 : 32 }
                           ]}
                         >
-                          {specialization.description}
+                          {translateSpecializationDescription(category.name, specialization.name) || specialization.description}
                         </Text>
                       )}
                     </View>

@@ -43,7 +43,6 @@ import {
   Company,
   CompanyService,
   ClinicTypeLabels,
-  ServiceCategoryLabels,
   ServiceCategoryType,
   DaySchedule,
   OpeningHours,
@@ -51,6 +50,7 @@ import {
 } from '../types/company.types';
 import { RootStackParamList } from '../types/navigation.types';
 import { formatPriceRange } from '../utils/currency';
+import { getCategoryLabelRO, translateSpecializationName } from '../constants/serviceTranslations';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'VetCompanyDetail'>;
 type RouteProps = RouteProp<RootStackParamList, 'VetCompanyDetail'>;
@@ -122,7 +122,7 @@ const getTodaySchedule = (openingHours?: OpeningHours): DaySchedule | null => {
  */
 const formatOpeningHours = (schedule: DaySchedule | null): { text: string; isOpen: boolean } => {
   if (!schedule || schedule.closed || !schedule.open || !schedule.close) {
-    return { text: 'Closed today', isOpen: false };
+    return { text: 'Închis azi', isOpen: false };
   }
   const now = new Date();
   const currentTime = now.getHours() * 60 + now.getMinutes();
@@ -182,7 +182,7 @@ const ServiceCategorySection = ({
           </View>
           <View style={styles.categoryTitleContainer}>
             <Text style={styles.categoryTitle}>
-              {ServiceCategoryLabels[category as ServiceCategoryType] || 'Other Services'}
+              {getCategoryLabelRO(category as ServiceCategoryType) || 'Alte servicii'}
             </Text>
             <Text style={styles.categoryCount}>
               {services.length} service{services.length !== 1 ? 's' : ''}
@@ -201,7 +201,7 @@ const ServiceCategorySection = ({
             <View key={service.id}>
               <View style={styles.serviceItem}>
                 <View style={styles.serviceInfo}>
-                  <Text style={styles.serviceName}>{service.service_name}</Text>
+                  <Text style={styles.serviceName}>{translateSpecializationName(service.service_name) || service.service_name}</Text>
                   {service.description && (
                     <Text style={styles.serviceDescription} numberOfLines={2}>
                       {service.description}
@@ -256,7 +256,7 @@ export const VetCompanyDetailScreen = () => {
         const companyData = await ApiService.getCompanyById(companyId);
 
         if (!companyData) {
-          setError('Company not found');
+          setError('Compania nu a fost găsită.');
           return;
         }
 
@@ -286,7 +286,7 @@ export const VetCompanyDetailScreen = () => {
           setExpandedCategories(new Set([firstCategory]));
         }
       } catch (err: any) {
-        setError(err.message || 'Failed to load company details');
+        setError(err.message || 'Nu s-au putut încărca detaliile companiei.');
         console.error('Error fetching company:', err);
       } finally {
         // If any element kept focus (e.g. from previous page/modal), blur it on web so it doesn't block interactions
@@ -414,13 +414,13 @@ export const VetCompanyDetailScreen = () => {
     if (!openingHours) return null;
 
     const days: { key: keyof OpeningHours; label: string }[] = [
-      { key: 'sunday', label: 'Sunday' },
-      { key: 'monday', label: 'Monday' },
-      { key: 'tuesday', label: 'Tuesday' },
-      { key: 'wednesday', label: 'Wednesday' },
-      { key: 'thursday', label: 'Thursday' },
-      { key: 'friday', label: 'Friday' },
-      { key: 'saturday', label: 'Saturday' },
+      { key: 'sunday', label: 'Duminică' },
+      { key: 'monday', label: 'Luni' },
+      { key: 'tuesday', label: 'Marți' },
+      { key: 'wednesday', label: 'Miercuri' },
+      { key: 'thursday', label: 'Joi' },
+      { key: 'friday', label: 'Vineri' },
+      { key: 'saturday', label: 'Sâmbătă' },
     ];
 
     return (
@@ -428,7 +428,7 @@ export const VetCompanyDetailScreen = () => {
         {days.map(d => {
           const sched = openingHours[d.key] as DaySchedule | undefined | null;
           const isClosed = !sched || sched.closed || !sched.open || !sched.close;
-          const hoursText = isClosed ? 'Closed' : `${sched!.open} - ${sched!.close}`;
+          const hoursText = isClosed ? 'Închis' : `${sched!.open} - ${sched!.close}`;
           return (
             <View key={d.key} style={styles.dayRow}>
               <Text style={styles.dayName}>{d.label}</Text>
@@ -453,7 +453,7 @@ export const VetCompanyDetailScreen = () => {
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#7c3aed" />
-          <Text style={styles.loadingText}>Loading clinic details...</Text>
+          <Text style={styles.loadingText}>Se încarcă detaliile clinicii...</Text>
         </View>
       </SafeAreaView>
     );
@@ -465,9 +465,9 @@ export const VetCompanyDetailScreen = () => {
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <View style={styles.errorContainer}>
           <MaterialCommunityIcons name="alert-circle" size={64} color="#ef4444" />
-          <Text style={styles.errorText}>{error || 'Company not found'}</Text>
+          <Text style={styles.errorText}>{error || 'Compania nu a fost găsită.'}</Text>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.backButtonText}>Go Back</Text>
+            <Text style={styles.backButtonText}>Înapoi</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -503,7 +503,7 @@ export const VetCompanyDetailScreen = () => {
               style={styles.viewerCloseButton}
               onPress={() => setPhotoViewerVisible(false)}
               accessibilityRole="button"
-              accessibilityLabel="Close photo viewer"
+              accessibilityLabel="Închide vizualizatorul foto"
             >
               <Ionicons name="close" size={26} color="#ffffff" />
             </TouchableOpacity>
@@ -565,7 +565,7 @@ export const VetCompanyDetailScreen = () => {
                     activeOpacity={0.95}
                     onPress={() => openPhotoViewer(index)}
                     accessibilityRole="imagebutton"
-                    accessibilityLabel="Open clinic photo"
+                    accessibilityLabel="Deschide fotografia clinicii"
                   >
                     <Image
                       source={{ uri: resolveCompanyPhotoUrl(item) }}
@@ -623,7 +623,7 @@ export const VetCompanyDetailScreen = () => {
               accessibilityRole="button"
               accessibilityLabel="See reviews"
             >
-              <Text style={styles.seeReviewsText}>See reviews</Text>
+              <Text style={styles.seeReviewsText}>Vezi recenziile</Text>
               <Ionicons name="chevron-forward" size={14} color="#ffffff" />
             </TouchableOpacity>
           </View>
@@ -678,7 +678,7 @@ export const VetCompanyDetailScreen = () => {
                 <View style={styles.hoursContainer}>
                   <View style={[styles.statusDot, isOpen ? styles.dotOpen : styles.dotClosed]} />
                   <Text style={[styles.hoursStatus, isOpen ? styles.hoursOpen : styles.hoursClosed]}>
-                    {isOpen ? 'Open' : 'Closed'}
+                    {isOpen ? 'Deschis' : 'Închis'}
                   </Text>
                   <Text style={styles.hoursText}>{hoursText}</Text>
                 </View>
@@ -698,7 +698,7 @@ export const VetCompanyDetailScreen = () => {
             {services.length === 0 ? (
               <View style={styles.noServicesContainer}>
                 <MaterialCommunityIcons name="clipboard-list-outline" size={48} color="#d1d5db" />
-                <Text style={styles.noServicesText}>No services listed yet</Text>
+                <Text style={styles.noServicesText}>Niciun serviciu listat încă</Text>
               </View>
             ) : (
               Object.entries(groupedServices).map(([category, categoryServices]) => (
@@ -763,7 +763,7 @@ export const VetCompanyDetailScreen = () => {
                   </View>
                 ))
               ) : (
-                <Text style={styles.contactText}>Not specified</Text>
+                <Text style={styles.contactText}>Nespecificat</Text>
               )}
             </View>
           </Card.Content>

@@ -264,7 +264,7 @@ export const ImageUploader = ({
             <TouchableOpacity
               style={styles.removeButton}
               onPress={removeImage}
-              accessibilityLabel="Remove image"
+              accessibilityLabel="Elimină imaginea"
               accessibilityRole="button"
             >
               <Ionicons name="close-circle" size={32} color="#fff" />

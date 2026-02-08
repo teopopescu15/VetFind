@@ -15,7 +15,7 @@ import type { DayAvailability, TimeSlot } from '../types/appointment.types';
 /**
  * CompanyAddAppointmentScreen
  *
- * Allows a clinic/company to add appointments manually (e.g. phone bookings).
+ * Allows a clinic/company to add appointments manually (ex. phone bookings).
  * This is intentionally lightweight: it asks for the client's user id, service id and datetime.
  */
 export const CompanyAddAppointmentScreen = () => {
@@ -80,7 +80,7 @@ export const CompanyAddAppointmentScreen = () => {
 	};
 
 	const getDayName = (date: Date) =>
-		date.toLocaleDateString('en-US', { weekday: 'short' });
+		date.toLocaleDateString('ro-RO', { weekday: 'short' });
 
 	const getAvailabilityForDate = (date: Date): DayAvailability | undefined => {
 		const dateStr = formatDate(date);
@@ -130,11 +130,11 @@ export const CompanyAddAppointmentScreen = () => {
 
 	const handleSubmit = async () => {
 		if (!companyId) {
-			Alert.alert('Missing company', 'Could not identify your clinic. Please re-login and try again.');
+			Alert.alert('Companie lipsă', 'Nu s-a putut identifica clinica. Te rugăm să te autentifici din nou.');
 			return;
 		}
 		if (!parsed.isDurationValid || !selectedSlot?.datetime) {
-			Alert.alert('Invalid data', 'Please fill in all required fields correctly.');
+			Alert.alert('Date invalide', 'Completează corect toate câmpurile obligatorii.');
 			return;
 		}
 
@@ -163,7 +163,7 @@ export const CompanyAddAppointmentScreen = () => {
 			await ApiService.createAppointment(payload as any);
 			navigation.navigate('CompanyManageAppointments');
 		} catch (e: any) {
-			Alert.alert('Error', e?.message || 'Failed to create appointment.');
+			Alert.alert('Eroare', e?.message || 'Nu s-a putut crea programarea.');
 		} finally {
 			setSubmitting(false);
 		}
@@ -178,39 +178,39 @@ export const CompanyAddAppointmentScreen = () => {
 						iconColor={theme.colors.primary.main}
 						size={24}
 						onPress={() => navigation.goBack()}
-						accessibilityLabel="Go back"
+						accessibilityLabel="Înapoi"
 					/>
 					<Text variant="titleLarge" style={styles.headerTitle}>
-						Add New Appointment
+						Adaugă programare nouă
 					</Text>
 					<View style={styles.headerRightSpacer} />
 				</View>
 
 				<ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 					<Text variant="bodyMedium" style={styles.subtitle}>
-								Add a manual blocking slot (e.g. phone booking). This won’t appear for any client, but will block the interval.
+								Adaugă un interval blocat manual (ex. programare telefonică). Nu va apărea pentru clienți, dar va bloca intervalul.
 					</Text>
 
 					{!companyId && (
 						<HelperText type="error" visible>
-							Missing company context. If you’re logged in as a clinic, please re-login.
+							Lipsește contextul companiei. Dacă ești autentificat ca clinică, te rugăm să te autentifici din nou.
 						</HelperText>
 					)}
 
 								<TextInput
 									mode="outlined"
-									label="Duration (minutes)"
+									label="Durată (minute)"
 									value={durationMinutes}
 									onChangeText={setDurationMinutes}
 									keyboardType="number-pad"
 									style={styles.input}
 								/>
 								<HelperText type={parsed.isDurationValid || durationMinutes.length === 0 ? 'info' : 'error'} visible>
-									{parsed.isDurationValid || durationMinutes.length === 0 ? 'Used to block the interval.' : 'Please enter a valid duration in minutes.'}
+									{parsed.isDurationValid || durationMinutes.length === 0 ? 'Folosit pentru a bloca intervalul.' : 'Introdu o durată validă în minute.'}
 								</HelperText>
 
 								<View style={styles.section}>
-									<Text style={styles.sectionTitle}>Select Date</Text>
+									<Text style={styles.sectionTitle}>Alege data</Text>
 										<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.calendarScroll}>
 											{calendarDates.map((date, index) => {
 												const isSelected = selectedDate && formatDate(selectedDate) === formatDate(date);
@@ -248,16 +248,16 @@ export const CompanyAddAppointmentScreen = () => {
 								{selectedDate && (
 									<View style={styles.section}>
 										<Text style={styles.sectionTitle}>
-											Available Times - {selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+											Intervale disponibile - {selectedDate.toLocaleDateString('ro-RO', { month: 'long', day: 'numeric' })}
 										</Text>
 										{loadingSlots ? (
 											<View style={styles.loadingContainer}>
 												<ActivityIndicator size="small" color={theme.colors.primary.main} />
-												<Text style={styles.loadingText}>Loading available slots...</Text>
+												<Text style={styles.loadingText}>Se încarcă intervalele...</Text>
 											</View>
 										) : slots.length === 0 ? (
 											<HelperText type="info" visible>
-												No available slots for this date (with the selected duration).
+												Nu există intervale disponibile pentru această dată (cu durata selectată).
 											</HelperText>
 										) : (
 											<View style={styles.slotsGrid}>
@@ -289,7 +289,7 @@ export const CompanyAddAppointmentScreen = () => {
 
 					<TextInput
 						mode="outlined"
-						label="Notes (optional)"
+						label="Note (opțional)"
 						value={notes}
 						onChangeText={setNotes}
 						multiline
@@ -307,7 +307,7 @@ export const CompanyAddAppointmentScreen = () => {
 						loading={submitting}
 						style={styles.submitButton}
 					>
-						Create appointment
+						Creează programarea
 					</Button>
 				</ScrollView>
 			</View>

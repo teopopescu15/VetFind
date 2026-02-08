@@ -118,7 +118,7 @@ export const CompanyReviewsScreen = () => {
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" />
-          <Text style={styles.muted}>Loading reviews…</Text>
+          <Text style={styles.muted}>Se încarcă recenziile…</Text>
         </View>
       ) : error ? (
         <View style={styles.center}>
@@ -128,7 +128,7 @@ export const CompanyReviewsScreen = () => {
       ) : reviews.length === 0 ? (
         <View style={styles.center}>
           <MaterialCommunityIcons name="star-outline" size={42} color="#9ca3af" />
-          <Text style={styles.muted}>No reviews yet.</Text>
+          <Text style={styles.muted}>Nicio recenzie încă.</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.listContent}>
@@ -182,7 +182,7 @@ export const CompanyReviewsScreen = () => {
                 {r.comment ? (
                   <Text style={styles.comment}>{r.comment}</Text>
                 ) : (
-                  <Text style={styles.commentMuted}>No text provided.</Text>
+                  <Text style={styles.commentMuted}>Fără text.</Text>
                 )}
               </Card.Content>
               {idx < reviews.length - 1 ? <Divider /> : null}

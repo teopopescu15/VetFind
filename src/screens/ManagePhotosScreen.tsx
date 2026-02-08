@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, Alert, Platform, Image } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
+import { BackHeader } from '../components/BackHeader';
 import { ImageUploader } from '../components/FormComponents/ImageUploader';
 import { MultipleImageUploader } from '../components/FormComponents/MultipleImageUploader';
 import { WebPhotoUploader } from '../components/WebPhotoUploader';
@@ -27,7 +28,7 @@ export const ManagePhotosScreen = () => {
       setCompany(fetchedCompany);
     } catch (error) {
       console.error('Error loading company:', error);
-      Alert.alert('Error', 'Failed to load company data');
+      Alert.alert('Eroare', 'Nu s-au putut încărca datele companiei.');
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +128,7 @@ export const ManagePhotosScreen = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary.main} />
-        <Text style={styles.loadingText}>Loading photos...</Text>
+        <Text style={styles.loadingText}>Se încarcă fotografiile...</Text>
       </View>
     );
   }
@@ -135,7 +136,7 @@ export const ManagePhotosScreen = () => {
   if (!company) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Company not found</Text>
+        <Text style={styles.errorText}>Compania nu a fost găsită</Text>
       </View>
     );
   }
@@ -153,14 +154,9 @@ export const ManagePhotosScreen = () => {
   const displayLogoUrl = resolveLogoUrl(company.logo_url);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text variant="headlineMedium" style={styles.title}>
-          Manage Company Photos
-        </Text>
-
-      </View>
-
+    <View style={styles.wrapper}>
+      <BackHeader title="Gestionează fotografiile companiei" />
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Change Logo - single image, shows current logo */}
       <View style={styles.logoSection}>
         <Text variant="titleMedium" style={styles.sectionTitle}>
@@ -218,29 +214,33 @@ export const ManagePhotosScreen = () => {
 
       <View style={styles.tips}>
         <Text variant="titleMedium" style={styles.tipsTitle}>
-          Photo Tips
+          Sfaturi pentru fotografii
         </Text>
         <Text variant="bodyMedium" style={styles.tipText}>
-          • Use high-quality, well-lit photos
+          • Folosește fotografii de calitate, bine luminate
         </Text>
         <Text variant="bodyMedium" style={styles.tipText}>
-          • Show your clinic's exterior and interior
+          • Arată exteriorul și interiorul clinicii
         </Text>
         <Text variant="bodyMedium" style={styles.tipText}>
-          • Include photos of your staff and equipment
+          • Include fotografii cu echipa și echipamentul
         </Text>
         <Text variant="bodyMedium" style={styles.tipText}>
-          • Avoid blurry or dark images
+          • Evită imaginile neclare sau întunecoase
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     flex: 1,
     backgroundColor: theme.colors.neutral[50],
+  },
+  container: {
+    flex: 1,
   },
   content: {
     padding: 16,

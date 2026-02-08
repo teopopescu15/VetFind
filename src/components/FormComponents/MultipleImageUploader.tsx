@@ -66,8 +66,8 @@ export const MultipleImageUploader = ({
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert(
-            'Permission Required',
-            'Camera access is required to take photos. Please enable it in settings.',
+            'Permisiune necesară',
+            'Accesul la cameră este necesar pentru fotografii. Activează-l în setări.',
             [{ text: 'OK' }]
           );
           return false;
@@ -76,8 +76,8 @@ export const MultipleImageUploader = ({
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert(
-            'Permission Required',
-            'Gallery access is required to select photos. Please enable it in settings.',
+            'Permisiune necesară',
+            'Accesul la galerie este necesar pentru a selecta fotografii. Activează-l în setări.',
             [{ text: 'OK' }]
           );
           return false;
@@ -97,7 +97,7 @@ export const MultipleImageUploader = ({
   const addPhoto = async (source: 'camera' | 'gallery') => {
     // Check photo limit
     if (disabled || photos.length >= maxPhotos) {
-      Alert.alert('Limit Reached', `Maximum ${maxPhotos} photos allowed`);
+      Alert.alert('Limită atinsă', `Maximum ${maxPhotos} fotografii permise`);
       return;
     }
 
@@ -148,7 +148,7 @@ export const MultipleImageUploader = ({
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to select photo. Please try again.');
+      Alert.alert('Eroare', 'Nu s-a putut selecta fotografia. Încearcă din nou.');
     }
   };
 
@@ -203,11 +203,11 @@ export const MultipleImageUploader = ({
       );
 
       Alert.alert(
-        'Upload Failed',
-        error.message || 'Failed to upload photo. Please try again.',
+        'Încărcare eșuată',
+        error.message || 'Nu s-a putut încărca fotografia. Încearcă din nou.',
         [
-          { text: 'Retry', onPress: () => uploadPhoto(photo) },
-          { text: 'Cancel', style: 'cancel' },
+          { text: 'Reîncearcă', onPress: () => uploadPhoto(photo) },
+          { text: 'Anulare', style: 'cancel' },
         ]
       );
     }
@@ -219,12 +219,12 @@ export const MultipleImageUploader = ({
 
   const removePhoto = async (photo: Photo) => {
     Alert.alert(
-      'Remove Photo',
-      'Are you sure you want to remove this photo?',
+      'Eliminare fotografie',
+      'Sigur vrei să elimini această fotografie?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Anulare', style: 'cancel' },
         {
-          text: 'Remove',
+          text: 'Elimină',
           style: 'destructive',
           onPress: async () => {
             // If uploaded to server, delete from server
@@ -235,7 +235,7 @@ export const MultipleImageUploader = ({
                 try { await deleteByDownloadUrl(photo.serverUrl); } catch {}
               } catch (error) {
                 console.error('Delete error:', error);
-                Alert.alert('Error', 'Failed to delete photo from server');
+                Alert.alert('Eroare', 'Nu s-a putut șterge fotografia de pe server.');
                 return;
               }
             }
@@ -264,12 +264,12 @@ export const MultipleImageUploader = ({
     if (disabled) return;
 
     Alert.alert(
-      'Add Photo',
-      'Choose an option',
+      'Adaugă fotografie',
+      'Alege o opțiune',
       [
-        { text: 'Take Photo', onPress: () => addPhoto('camera') },
-        { text: 'Choose from Gallery', onPress: () => addPhoto('gallery') },
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Fă o poză', onPress: () => addPhoto('camera') },
+        { text: 'Alege din galerie', onPress: () => addPhoto('gallery') },
+        { text: 'Anulare', style: 'cancel' },
       ],
       { cancelable: true }
     );
@@ -316,7 +316,7 @@ export const MultipleImageUploader = ({
               <TouchableOpacity
                 style={styles.removeButton}
                 onPress={() => removePhoto(photo)}
-                accessibilityLabel="Remove photo"
+                accessibilityLabel="Elimină fotografia"
                 accessibilityRole="button"
               >
                 <Ionicons name="close-circle" size={28} color="#fff" />
@@ -346,7 +346,7 @@ export const MultipleImageUploader = ({
       <Text style={styles.infoText}>
         {photos.length === 0 && 'Add photos of your clinic, staff, and facilities'}
         {photos.length > 0 && photos.length < maxPhotos && `${photos.length} of ${maxPhotos} photos added`}
-        {photos.length === maxPhotos && `Maximum ${maxPhotos} photos reached`}
+        {photos.length === maxPhotos && `Maximum ${maxPhotos} fotografii atins`}
       </Text>
     </View>
   );

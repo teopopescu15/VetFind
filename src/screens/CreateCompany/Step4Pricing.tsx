@@ -12,6 +12,7 @@ import {
   CategoryWithSpecializations,
 } from '../../types/company.types';
 import { ApiService } from '../../services/api';
+import { translateCategoryName } from '../../constants/serviceTranslations';
 
 export interface Step4PricingProps {
   data: Partial<Step4FormData>;
@@ -114,7 +115,7 @@ export const Step4Pricing = ({
       const min = parseFloat(service.price_min);
       const max = parseFloat(service.price_max);
       if (!isNaN(min) && !isNaN(max) && min > max) {
-        return 'Min price cannot exceed max price';
+        return 'Prețul minim nu poate depăși prețul maxim';
       }
     }
     return null;
@@ -123,16 +124,17 @@ export const Step4Pricing = ({
   // Render a custom service card
   const renderCustomServiceCard = (service: ServicePricingDTO, index: number) => {
     const priceError = validateCustomPriceRange(service);
-    const categoryName = service.category_id
+    const categoryNameRaw = service.category_id
       ? categories.find((c) => c.id === service.category_id)?.name || 'Custom'
       : 'Custom';
+    const categoryName = translateCategoryName(categoryNameRaw);
 
     return (
       <View key={`custom-${index}`} style={styles.customServiceCard}>
         <View style={styles.customServiceHeader}>
           <View style={styles.customServiceHeaderLeft}>
             <View style={styles.customBadge}>
-              <Text style={styles.customBadgeText}>Custom</Text>
+              <Text style={styles.customBadgeText}>{translateCategoryName('Custom')}</Text>
             </View>
             {service.category_id && (
               <Text style={styles.customCategoryBadge}>{categoryName}</Text>
@@ -144,7 +146,7 @@ export const Step4Pricing = ({
             iconColor="#ef4444"
             onPress={() => handleRemoveCustomService(index)}
             style={styles.removeButton}
-            accessibilityLabel="Remove custom service"
+            accessibilityLabel="Elimină serviciu personalizat"
           />
         </View>
 
@@ -162,7 +164,7 @@ export const Step4Pricing = ({
           <View style={styles.customPriceInputContainer}>
             <TextInput
               mode="outlined"
-              label="Min Price"
+              label="Preț min"
               value={service.price_min || ''}
               onChangeText={(text) => updateCustomService(index, 'price_min', text)}
               keyboardType="decimal-pad"
@@ -179,7 +181,7 @@ export const Step4Pricing = ({
           <View style={styles.customPriceInputContainer}>
             <TextInput
               mode="outlined"
-              label="Max Price"
+              label="Preț max"
               value={service.price_max || ''}
               onChangeText={(text) => updateCustomService(index, 'price_max', text)}
               keyboardType="decimal-pad"
@@ -199,7 +201,7 @@ export const Step4Pricing = ({
         <View style={styles.customDurationRow}>
           <TextInput
             mode="outlined"
-            label="Duration"
+            label="Durată"
             value={service.duration_minutes?.toString() || ''}
             onChangeText={(text) => {
               const duration = parseInt(text, 10);
@@ -251,7 +253,7 @@ export const Step4Pricing = ({
           style={[styles.input, styles.textArea]}
           outlineColor="#e5e7eb"
           activeOutlineColor="#7c3aed"
-          accessibilityLabel="Clinic Description"
+          accessibilityLabel="Descriere clinică"
           accessibilityHint="Descriere detaliată a clinicii tale (5-100 caractere)"
         />
         <HelperText type="error" visible={!!errors.description}>
@@ -306,7 +308,7 @@ export const Step4Pricing = ({
         <TouchableOpacity
           style={styles.addCustomButton}
           onPress={() => setShowAddCustomModal(true)}
-          accessibilityLabel="Add custom service"
+          accessibilityLabel="Adaugă serviciu personalizat"
         >
           <Ionicons name="add-circle-outline" size={24} color="#7c3aed" />
           <Text style={styles.addCustomButtonText}>Adaugă serviciu personalizat</Text>

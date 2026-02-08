@@ -166,7 +166,7 @@ export const MultiSelectCheckbox = ({
       )}
 
       {maxReached && (
-        <Text style={styles.warningText}>Maximum selections reached</Text>
+        <Text style={styles.warningText}>Numărul maxim de opțiuni selectate a fost atins</Text>
       )}
 
       <View style={[styles.optionsContainer, columns > 1 && styles.optionsGrid]}>

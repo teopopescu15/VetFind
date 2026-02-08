@@ -56,7 +56,7 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
       setReviews(reviewsData);
     } catch (error: any) {
       console.error('Error loading clinic data:', error);
-      Alert.alert('Error', 'Failed to load clinic details. Please try again.');
+      Alert.alert('Eroare', 'Nu s-au putut încărca detaliile clinicii. Încearcă din nou.');
     } finally {
       setLoading(false);
     }
@@ -87,7 +87,7 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4ECDC4" />
-        <Text style={styles.loadingText}>Loading clinic details...</Text>
+        <Text style={styles.loadingText}>Se încarcă detaliile clinicii...</Text>
       </View>
     );
   }
@@ -95,7 +95,7 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
   if (!clinic) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Clinic not found</Text>
+        <Text style={styles.errorText}>Clinica nu a fost găsită</Text>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -155,7 +155,7 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
                 </View>
               ))
             ) : (
-              <Text style={styles.infoText}>Not specified</Text>
+              <Text style={styles.infoText}>Nespecificat</Text>
             )}
           </View>
         </View>
@@ -185,7 +185,7 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
         <View style={styles.servicesContainer}>
           {services.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No services available</Text>
+              <Text style={styles.emptyText}>Niciun serviciu disponibil</Text>
             </View>
           ) : (
             services.map((service) => (
@@ -226,8 +226,8 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
         <View style={styles.reviewsContainer}>
           {reviews.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No reviews yet</Text>
-              <Text style={styles.emptySubtext}>Be the first to review this clinic!</Text>
+              <Text style={styles.emptyText}>Nicio recenzie încă</Text>
+              <Text style={styles.emptySubtext}>Fii primul care lasă o recenzie acestei clinici!</Text>
             </View>
           ) : (
             reviews.map((review) => (
@@ -273,7 +273,7 @@ const PaymentMethodsSection: React.FC<{ clinic: Clinic }> = ({ clinic }) => {
             </View>
           ))
         ) : (
-          <Text style={styles.infoText}>Not specified</Text>
+          <Text style={styles.infoText}>Nespecificat</Text>
         )}
       </View>
     </View>

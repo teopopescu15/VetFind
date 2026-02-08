@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, TextInput, Alert, ScrollView, Switch } from 'react-native';
+import { View, StyleSheet, FlatList, TextInput, Alert, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { Text, Button, Card, ActivityIndicator, IconButton, Menu, Surface, Chip, Divider } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useCompany } from '../context/CompanyContext';
 import { ApiService } from '../services/api';
-import { CompanyService, ServiceCategoryLabels, ServiceCategoryType } from '../types/company.types';
+import { CompanyService, ServiceCategoryType } from '../types/company.types';
+import { getCategoryLabelRO, ServiceCategoryLabelsRO, translateSpecializationName } from '../constants/serviceTranslations';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme';
 
 export const ManageServicesScreen: React.FC = () => {
   const { company, refreshCompany, updateCompany } = useCompany();
+  const navigation = useNavigation();
   const { accessToken } = useAuth();
   const [services, setServices] = useState<CompanyService[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,7 +58,7 @@ export const ManageServicesScreen: React.FC = () => {
       }
     } catch (err) {
       console.error('Error loading services:', err);
-      Alert.alert('Error', 'Failed to load services');
+      Alert.alert('Eroare', 'Nu s-au putut încărca serviciile.');
     } finally {
       setIsLoading(false);
     }
@@ -66,11 +69,11 @@ export const ManageServicesScreen: React.FC = () => {
     const pm = parseFloat(priceMin) || 0;
     const px = parseFloat(priceMax) || 0;
     if (!name.trim()) {
-      Alert.alert('Validation', 'Service name is required');
+      Alert.alert('Validare', 'Denumirea serviciului este obligatorie.');
       return;
     }
     if (px < pm) {
-      Alert.alert('Validation', 'Max price must be >= min price');
+      Alert.alert('Validare', 'Prețul maxim trebuie să fie >= prețul minim.');
       return;
     }
 
@@ -94,10 +97,10 @@ export const ManageServicesScreen: React.FC = () => {
       // Clear form
       setName(''); setPriceMin('0'); setPriceMax('0'); setDuration(''); setDescription('');
 
-      Alert.alert('Success', 'Service created');
+      Alert.alert('Succes', 'Serviciu creat.');
     } catch (err: any) {
       console.error('Create service error:', err);
-      Alert.alert('Error', err.message || 'Failed to create service');
+      Alert.alert('Eroare', err.message || 'Nu s-a putut crea serviciul.');
     } finally {
       setIsLoading(false);
     }
@@ -124,9 +127,9 @@ export const ManageServicesScreen: React.FC = () => {
   };
 
   const handleDelete = (serviceId: number) => {
-    Alert.alert('Delete service', 'Are you sure you want to delete this service?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
+    Alert.alert('Șterge serviciu', 'Sigur vrei să ștergi acest serviciu?', [
+      { text: 'Anulare', style: 'cancel' },
+      { text: 'Șterge', style: 'destructive', onPress: async () => {
         try {
           setIsLoading(true);
           await ApiService.deleteService(company!.id, serviceId);
@@ -134,7 +137,7 @@ export const ManageServicesScreen: React.FC = () => {
           try { await refreshCompany(); } catch (e) {}
         } catch (err) {
           console.error('Delete service error:', err);
-          Alert.alert('Error', 'Failed to delete service');
+          Alert.alert('Eroare', 'Nu s-a putut șterge serviciul.');
         } finally {
           setIsLoading(false);
         }
@@ -150,7 +153,7 @@ export const ManageServicesScreen: React.FC = () => {
             <MaterialCommunityIcons name="medical-bag" size={24} color="#7c3aed" />
           </View>
           <View style={styles.cardHeaderText}>
-            <Text style={styles.serviceName}>{item.service_name}</Text>
+            <Text style={styles.serviceName}>{translateSpecializationName(item.service_name)}</Text>
             <View style={styles.metaRow}>
               <Chip
                 mode="outlined"
@@ -158,7 +161,7 @@ export const ManageServicesScreen: React.FC = () => {
                 style={styles.categoryChip}
                 textStyle={styles.categoryChipText}
               >
-                {ServiceCategoryLabels[item.category as ServiceCategoryType] || item.category}
+                {getCategoryLabelRO(item.category as ServiceCategoryType)}
               </Chip>
               {item.duration_minutes ? (
                 <Chip
@@ -185,10 +188,10 @@ export const ManageServicesScreen: React.FC = () => {
 
         <View style={styles.cardFooter}>
           <View style={styles.priceContainer}>
-            <MaterialCommunityIcons name="currency-usd" size={20} color="#059669" />
+            <MaterialCommunityIcons name="cash" size={20} color="#059669" />
             <Text style={styles.priceText}>
-              ${Number(item.price_min).toFixed(0)}
-              {item.price_max && item.price_max !== item.price_min ? ` - $${Number(item.price_max).toFixed(0)}` : ''}
+              {Number(item.price_min).toFixed(0)} lei
+              {item.price_max && item.price_max !== item.price_min ? ` - ${Number(item.price_max).toFixed(0)} lei` : ''}
             </Text>
           </View>
           <IconButton
@@ -208,10 +211,18 @@ export const ManageServicesScreen: React.FC = () => {
       {/* Header Section */}
       <Surface style={styles.headerSection} elevation={0}>
         <View style={styles.headerContent}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.headerBackButton}
+            accessibilityRole="button"
+            accessibilityLabel="Înapoi"
+          >
+            <Ionicons name="arrow-back" size={24} color="#1f2937" />
+          </TouchableOpacity>
           <MaterialCommunityIcons name="clipboard-text" size={28} color="#7c3aed" />
           <View style={styles.headerTextContainer}>
-            <Text style={styles.title}>Manage Services</Text>
-            <Text style={styles.subtitle}>Add, edit, and organize your clinic services</Text>
+            <Text style={styles.title}>Gestionează servicii</Text>
+            <Text style={styles.subtitle}>Adaugă, editează și organizează serviciile clinicii</Text>
           </View>
         </View>
       </Surface>
@@ -221,14 +232,14 @@ export const ManageServicesScreen: React.FC = () => {
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#7c3aed" />
-            <Text style={styles.loadingText}>Loading services...</Text>
+            <Text style={styles.loadingText}>Se încarcă serviciile...</Text>
           </View>
         ) : services.length === 0 ? (
           <Card style={styles.emptyCard} mode="outlined">
             <Card.Content style={styles.emptyContent}>
               <MaterialCommunityIcons name="clipboard-outline" size={64} color="#d1d5db" />
-              <Text style={styles.emptyTitle}>No services yet</Text>
-              <Text style={styles.emptySubtitle}>Add your first service below to make it visible to pet owners.</Text>
+              <Text style={styles.emptyTitle}>Niciun serviciu încă</Text>
+              <Text style={styles.emptySubtitle}>Adaugă primul serviciu mai jos pentru a fi vizibil pentru proprietarii de animale.</Text>
             </Card.Content>
           </Card>
         ) : (
@@ -293,13 +304,13 @@ export const ManageServicesScreen: React.FC = () => {
         <Surface style={styles.formSection} elevation={3}>
           <View style={styles.formHeader}>
             <MaterialCommunityIcons name="plus-circle" size={24} color="#7c3aed" />
-            <Text style={styles.formTitle}>Add New Service</Text>
+            <Text style={styles.formTitle}>Adaugă serviciu nou</Text>
           </View>
 
           <Divider style={styles.formDivider} />
 
           <TextInput
-            placeholder="Service name (e.g., Vaccination, Surgery)"
+            placeholder="Denumire serviciu (ex.: Vaccinare, Operație)"
             value={name}
             onChangeText={setName}
             style={styles.input}
@@ -318,11 +329,11 @@ export const ManageServicesScreen: React.FC = () => {
                     style={styles.pickerButton}
                     icon="format-list-bulleted"
                   >
-                    {ServiceCategoryLabels[category] || category}
+                    {getCategoryLabelRO(category)}
                   </Button>
                 }
               >
-                {Object.entries(ServiceCategoryLabels).map(([key, label]) => (
+                {Object.entries(ServiceCategoryLabelsRO).map(([key, label]) => (
                   <Menu.Item
                     key={key}
                     onPress={() => {
@@ -336,7 +347,7 @@ export const ManageServicesScreen: React.FC = () => {
             </View>
             <View style={[styles.flexItem, { marginLeft: 12 }]}>
               <TextInput
-                placeholder="Duration (min)"
+                placeholder="Durată (min)"
                 keyboardType="numeric"
                 value={duration}
                 onChangeText={setDuration}
@@ -349,7 +360,7 @@ export const ManageServicesScreen: React.FC = () => {
           <View style={styles.row}>
             <View style={styles.flexItem}>
               <TextInput
-                placeholder="Min price ($)"
+                placeholder="Preț min (lei)"
                 keyboardType="numeric"
                 value={priceMin}
                 onChangeText={setPriceMin}
@@ -359,7 +370,7 @@ export const ManageServicesScreen: React.FC = () => {
             </View>
             <View style={[styles.flexItem, { marginLeft: 12 }]}>
               <TextInput
-                placeholder="Max price ($)"
+                placeholder="Preț max (lei)"
                 keyboardType="numeric"
                 value={priceMax}
                 onChangeText={setPriceMax}
@@ -370,7 +381,7 @@ export const ManageServicesScreen: React.FC = () => {
           </View>
 
           <TextInput
-            placeholder="Description (optional)"
+            placeholder="Descriere (opțional)"
             value={description}
             onChangeText={setDescription}
             style={[styles.input, styles.descriptionInput]}
@@ -387,7 +398,7 @@ export const ManageServicesScreen: React.FC = () => {
             icon="plus"
             contentStyle={styles.addButtonContent}
           >
-            Add Service
+            Adaugă serviciu
           </Button>
         </Surface>
       </ScrollView>
@@ -410,6 +421,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  headerBackButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTextContainer: {
     flex: 1,

@@ -45,6 +45,7 @@ import { useAuth } from '../context/AuthContext';
 import { AppointmentCard, type AppointmentData } from '../components/Dashboard/AppointmentCard';
 import { theme } from '../theme';
 import { formatPriceRange } from '../utils/currency';
+import { translateSpecializationName } from '../constants/serviceTranslations';
 import LeafletMapWeb from '../components/LeafletMapWeb';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'UserDashboard'>;
@@ -53,7 +54,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Distance options in kilometers
 const DISTANCE_OPTIONS = [
-  { label: 'All', value: null },
+  { label: 'Toate', value: null },
   { label: '500 m', value: 0.5 },
   { label: '1 km', value: 1 },
   { label: '5 km', value: 5 },
@@ -182,19 +183,23 @@ export const UserDashboardScreen = () => {
     return null;
   }, [locationSource, location?.latitude, location?.longitude, user?.latitude, user?.longitude]);
 
-  // Lista completă "Disponibil acum" (deschise + urgență), fără filtrare – ca înainte
+  // Urgență: afișăm clinicile în regim de urgență doar dacă userul are opțiunea activată în Setări
+  const effectiveEmergencyOnly = useMemo(() => {
+    return user?.show_emergency_clinics ? availableNowData.emergencyOnly : [];
+  }, [user?.show_emergency_clinics, availableNowData.emergencyOnly]);
+
+  // Lista completă "Disponibil acum" (deschise + urgență dacă e activat), fără filtrare
   const availableNowFullList = useMemo(() => {
     const openNow = availableNowData.openNow;
-    const emergencyOnly = availableNowData.emergencyOnly;
     return openNow.map((c) => ({ company: c, distance: undefined as number | undefined, isEmergency: false }))
-      .concat(emergencyOnly.map((c) => ({ company: c, distance: undefined as number | undefined, isEmergency: true })));
-  }, [availableNowData.openNow, availableNowData.emergencyOnly]);
+      .concat(effectiveEmergencyOnly.map((c) => ({ company: c, distance: undefined as number | undefined, isEmergency: true })));
+  }, [availableNowData.openNow, effectiveEmergencyOnly]);
 
   // Filtrare pe distanță pentru "Disponibil acum" doar când userul a activat locația (butoanele de locație)
   const availableNowFilteredByDistance = useMemo(() => {
     if (selectedDistance === null || !effectiveLocation) return null;
     const openNow = availableNowData.openNow;
-    const emergencyOnly = availableNowData.emergencyOnly;
+    const emergencyOnly = effectiveEmergencyOnly;
     const combined = openNow.map((c) => ({ company: c, isEmergency: false }))
       .concat(emergencyOnly.map((c) => ({ company: c, isEmergency: true })));
     const origin = effectiveLocation;
@@ -211,7 +216,7 @@ export const UserDashboardScreen = () => {
         return a.distance - b.distance;
       });
     return withDistances;
-  }, [availableNowData.openNow, availableNowData.emergencyOnly, selectedDistance, effectiveLocation]);
+  }, [availableNowData.openNow, effectiveEmergencyOnly, selectedDistance, effectiveLocation]);
 
   // Ce listă afișăm: cu locație activă și rază selectată → filtrată; altfel → lista completă
   const availableNowDisplayList = (isLocationActive && selectedDistance !== null && availableNowFilteredByDistance !== null)
@@ -769,14 +774,14 @@ export const UserDashboardScreen = () => {
     try {
       const ok = await ApiService.cancelAppointment(appointmentId);
       if (ok) {
-        Alert.alert('Success', 'Appointment cancelled');
+        Alert.alert('Succes', 'Programarea a fost anulată.');
         fetchUserAppointments();
       } else {
-        Alert.alert('Error', 'Could not cancel appointment');
+        Alert.alert('Eroare', 'Nu s-a putut anula programarea.');
       }
     } catch (err: any) {
       console.error('Cancel appointment error (user):', err);
-      Alert.alert('Error', err.message || 'Failed to cancel appointment');
+      Alert.alert('Eroare', err.message || 'Nu s-a putut anula programarea.');
     }
   };
 
@@ -985,10 +990,10 @@ export const UserDashboardScreen = () => {
     let coords: { latitude: number; longitude: number; label?: string } | null = null;
 
     if (locationSource === 'home' && user?.latitude != null && user?.longitude != null) {
-      coords = { latitude: Number(user.latitude), longitude: Number(user.longitude), label: 'Home' };
+      coords = { latitude: Number(user.latitude), longitude: Number(user.longitude), label: 'Acasă' };
     } else if (locationSource === 'current') {
       if (location && typeof location.latitude === 'number' && typeof location.longitude === 'number') {
-        coords = { latitude: location.latitude, longitude: location.longitude, label: 'My Location' };
+        coords = { latitude: location.latitude, longitude: location.longitude, label: 'Locația mea' };
       } else {
         try {
           if (Platform.OS === 'web') await refreshLocation();
@@ -997,7 +1002,7 @@ export const UserDashboardScreen = () => {
           // ignore
         }
         if (location && typeof location.latitude === 'number' && typeof location.longitude === 'number') {
-          coords = { latitude: location.latitude, longitude: location.longitude, label: 'My Location' };
+          coords = { latitude: location.latitude, longitude: location.longitude, label: 'Locația mea' };
         }
       }
     }
@@ -1013,7 +1018,7 @@ export const UserDashboardScreen = () => {
         }
       }
       if (location && typeof location.latitude === 'number' && typeof location.longitude === 'number') {
-        coords = { latitude: location.latitude, longitude: location.longitude, label: 'My Location' };
+        coords = { latitude: location.latitude, longitude: location.longitude, label: 'Locația mea' };
       }
     }
 
@@ -1039,7 +1044,7 @@ export const UserDashboardScreen = () => {
         <StatusBar barStyle="dark-content" backgroundColor="#fafaf9" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary.main} />
-          <Text style={styles.loadingText}>Loading vet clinics...</Text>
+          <Text style={styles.loadingText}>Se încarcă clinicile...</Text>
         </View>
       </SafeAreaView>
     );
@@ -1139,7 +1144,7 @@ export const UserDashboardScreen = () => {
                     leadingIcon="cog-outline"
                   />
                   <Menu.Item
-                    title="Log out"
+                    title="Deconectare"
                     onPress={async () => {
                       closeMenu();
                       await handleLogout();
@@ -1304,7 +1309,7 @@ export const UserDashboardScreen = () => {
 
                                 return (
                                   <Text key={si} style={styles.detailText}>
-                                    {s.service_name || s.name || 'Service'} — {priceText}{' '}
+                                    {translateSpecializationName(s.service_name || s.name || '') || 'Serviciu'} — {priceText}{' '}
                                     • {duration ? `${duration} min` : '0 min'}
                                   </Text>
                                 );
@@ -1406,7 +1411,7 @@ export const UserDashboardScreen = () => {
                   accessibilityLabel="See map with clinics"
                 >
                   <Ionicons name="map-outline" size={16} color={theme.colors.primary.main} />
-                  <Text style={styles.seeMapButtonText}>See map with clinics</Text>
+                  <Text style={styles.seeMapButtonText}>Vezi harta cu clinici</Text>
                 </TouchableOpacity>
               </View>
 
@@ -1506,7 +1511,7 @@ export const UserDashboardScreen = () => {
                 {selectedDistance !== null && locationLoading && (
                   <View style={styles.locationStatus}>
                     <ActivityIndicator size="small" color={theme.colors.primary.main} />
-                    <Text style={styles.locationStatusText}>Getting your location...</Text>
+                    <Text style={styles.locationStatusText}>Se obține locația...</Text>
                   </View>
                 )}
 
@@ -1514,7 +1519,7 @@ export const UserDashboardScreen = () => {
                 {selectedDistance !== null && !locationLoading && isLoadingRoutes && (
                   <View style={styles.locationStatus}>
                     <ActivityIndicator size="small" color="#3b82f6" />
-                    <Text style={styles.locationStatusText}>Calculating driving distances...</Text>
+                    <Text style={styles.locationStatusText}>Se calculează distanțele...</Text>
                   </View>
                 )}
 
@@ -1529,7 +1534,7 @@ export const UserDashboardScreen = () => {
                       {' '}within {selectedDistance < 1 ? `${selectedDistance * 1000} m` : `${selectedDistance} km`}
                     </Text>
                   )}
-                  {selectedDistance !== null && isLoadingRoutes && ' (loading drive times...)'}
+                  {selectedDistance !== null && isLoadingRoutes && ' (se calculează timpul de condus...)'}
                 </Text>
               </View>
             </View>
@@ -1551,7 +1556,7 @@ export const UserDashboardScreen = () => {
         {!error && !availableNowMode && filteredCompanies.length === 0 && (
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons name="magnify" size={64} color="#d1d5db" />
-            <Text style={styles.emptyTitle}>No vet clinics found</Text>
+            <Text style={styles.emptyTitle}>Nu s-au găsit clinici veterinare</Text>
             <Text style={styles.emptySubtitle}>
               {selectedDistance !== null
                 ? `No clinics within ${selectedDistance} km of your location`
@@ -1562,7 +1567,7 @@ export const UserDashboardScreen = () => {
                 style={styles.clearFilterButton}
                 onPress={() => setSelectedDistance(null)}
               >
-                <Text style={styles.clearFilterButtonText}>Show all clinics</Text>
+                <Text style={styles.clearFilterButtonText}>Arată toate clinicile</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1573,12 +1578,12 @@ export const UserDashboardScreen = () => {
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons name="clock-outline" size={64} color="#d1d5db" />
             <Text style={styles.emptyTitle}>
-              {isLocationActive && selectedDistance !== null && (availableNowData.openNow.length > 0 || availableNowData.emergencyOnly.length > 0)
+              {isLocationActive && selectedDistance !== null && (availableNowData.openNow.length > 0 || effectiveEmergencyOnly.length > 0)
                 ? 'Nicio clinică în raza selectată'
                 : 'Nicio clinică disponibilă acum'}
             </Text>
             <Text style={styles.emptySubtitle}>
-              {isLocationActive && selectedDistance !== null && (availableNowData.openNow.length > 0 || availableNowData.emergencyOnly.length > 0)
+              {isLocationActive && selectedDistance !== null && (availableNowData.openNow.length > 0 || effectiveEmergencyOnly.length > 0)
                 ? 'Există clinici disponibile, dar niciuna în raza aleasă. Încearcă o rază mai mare sau dezactivează filtrarea pe distanță.'
                 : 'Nu există clinici deschise în acest moment fără programări în derulare. Activează „Arată clinicile în regim de urgență” în Setări pentru a vedea clinicile care acceptă urgențe când sunt închise.'}
             </Text>
@@ -1595,8 +1600,8 @@ export const UserDashboardScreen = () => {
               <View style={styles.availableNowSummary}>
                 <Text style={styles.availableNowSummaryText}>
                   {availableNowData.openNow.length > 0 && `${availableNowData.openNow.length} deschise acum`}
-                  {availableNowData.openNow.length > 0 && availableNowData.emergencyOnly.length > 0 && ' · '}
-                  {availableNowData.emergencyOnly.length > 0 && `${availableNowData.emergencyOnly.length} în regim de urgență`}
+                  {availableNowData.openNow.length > 0 && effectiveEmergencyOnly.length > 0 && ' · '}
+                  {effectiveEmergencyOnly.length > 0 && `${effectiveEmergencyOnly.length} în regim de urgență`}
                   {isLocationActive && selectedDistance !== null && ' (filtrat după distanță)'}
                 </Text>
               </View>

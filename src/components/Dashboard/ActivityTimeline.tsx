@@ -160,7 +160,7 @@ export const ActivityTimeline = ({
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Ionicons name="calendar-outline" size={24} color={theme.colors.primary.main} />
-          <Text style={styles.sectionTitle}>Today's Appointments</Text>
+          <Text style={styles.sectionTitle}>Programările de azi</Text>
           {appointments.length > 0 && (
             <View style={styles.countBadge}>
               <Text style={styles.countText}>{appointments.length}</Text>
@@ -171,8 +171,8 @@ export const ActivityTimeline = ({
         {appointments.length === 0 ? (
           <View style={styles.emptyState}>
             <MaterialCommunityIcons name="calendar-blank" size={48} color={theme.colors.neutral[300]} />
-            <Text style={styles.emptyStateTitle}>No appointments today</Text>
-            <Text style={styles.emptyStateSubtitle}>Your schedule is clear for today</Text>
+            <Text style={styles.emptyStateTitle}>Nicio programare azi</Text>
+            <Text style={styles.emptyStateSubtitle}>Programul tău este liber azi</Text>
           </View>
         ) : (
           <>

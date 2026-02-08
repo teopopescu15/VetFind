@@ -30,7 +30,7 @@ export const CompanyManageAppointmentsScreen = () => {
             accessibilityLabel="Go back"
           />
           <Text variant="titleLarge" style={styles.headerTitle}>
-            Manage Appointments
+            Gestionează programări
           </Text>
           <Button
             mode="contained"
@@ -41,7 +41,7 @@ export const CompanyManageAppointmentsScreen = () => {
             contentStyle={styles.addButtonContent}
             labelStyle={styles.addButtonLabel}
           >
-            Add New
+            Adaugă programare
           </Button>
         </View>
 

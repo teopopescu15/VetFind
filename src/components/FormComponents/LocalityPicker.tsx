@@ -98,7 +98,7 @@ export const LocalityPicker = ({ county, value, onChange, error, disabled }: Loc
           </View>
 
           <Searchbar
-            placeholder="Search locality..."
+            placeholder="Caută localitatea..."
             value={searchQuery}
             onChangeText={setSearchQuery}
             style={styles.searchBar}

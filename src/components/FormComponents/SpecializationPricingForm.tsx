@@ -7,6 +7,7 @@ import {
   CategorySpecialization,
   ServicePricingDTO,
 } from '../../types/company.types';
+import { translateCategoryName, translateSpecializationName } from '../../constants/serviceTranslations';
 
 /**
  * SpecializationPricingForm Component
@@ -232,7 +233,7 @@ export const SpecializationPricingForm = ({
     return (
       <View key={spec.id} style={styles.serviceCard}>
         <View style={styles.serviceHeader}>
-          <Text style={styles.serviceName}>{spec.name}</Text>
+          <Text style={styles.serviceName}>{translateSpecializationName(spec.name)}</Text>
           {spec.description && (
             <Text style={styles.serviceDescription} numberOfLines={2}>
               {spec.description}
@@ -257,7 +258,7 @@ export const SpecializationPricingForm = ({
                 activeOutlineColor="#7c3aed"
                 right={<TextInput.Affix text="RON" />}
                 error={!!priceError}
-                accessibilityLabel={`Minimum price for ${spec.name}`}
+                accessibilityLabel={`Preț minim pentru ${translateSpecializationName(spec.name)}`}
               />
             </View>
 
@@ -279,7 +280,7 @@ export const SpecializationPricingForm = ({
                 activeOutlineColor="#7c3aed"
                 right={<TextInput.Affix text="RON" />}
                 error={!!priceError}
-                accessibilityLabel={`Maximum price for ${spec.name}`}
+                accessibilityLabel={`Preț maxim pentru ${translateSpecializationName(spec.name)}`}
               />
             </View>
           </View>
@@ -305,7 +306,7 @@ export const SpecializationPricingForm = ({
               outlineColor="#e5e7eb"
               activeOutlineColor="#7c3aed"
               right={<TextInput.Affix text="min" />}
-              accessibilityLabel={`Duration for ${spec.name}`}
+              accessibilityLabel={`Durată pentru ${translateSpecializationName(spec.name)}`}
             />
           </View>
         </View>
@@ -325,9 +326,9 @@ export const SpecializationPricingForm = ({
               color="#7c3aed"
             />
           </View>
-          <Text style={styles.categoryName}>{categoryName}</Text>
+          <Text style={styles.categoryName}>{translateCategoryName(categoryName)}</Text>
           <Text style={styles.categoryCount}>
-            {group.specializations.length} service{group.specializations.length !== 1 ? 's' : ''}
+            {group.specializations.length} serviciu{group.specializations.length !== 1 ? 'uri' : ''}
           </Text>
         </View>
 
@@ -343,7 +344,7 @@ export const SpecializationPricingForm = ({
       <View style={styles.headerInfo}>
         <Ionicons name="information-circle-outline" size={18} color="#6b7280" />
         <Text style={styles.headerInfoText}>
-          Set pricing for each service. You can use a price range (min-max) for variable pricing, or set the same value for fixed pricing.
+          Setează prețul pentru fiecare serviciu. Poți folosi un interval (min-max) pentru preț variabil sau aceeași valoare pentru preț fix.
         </Text>
       </View>
 

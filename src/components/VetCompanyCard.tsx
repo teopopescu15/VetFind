@@ -27,6 +27,7 @@ import { Company, ClinicTypeLabels, OpeningHours, DaySchedule, CompanyService } 
 import { RouteDistance } from '../types/routes.types';
 import { useTheme } from '../hooks/useTheme';
 import { formatPriceRange } from '../utils/currency';
+import { translateSpecializationName } from '../constants/serviceTranslations';
 
 interface VetCompanyCardProps {
   company: Company;
@@ -279,7 +280,7 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
             {/* Matched service price (when user searched for a service) */}
             {matchedService && (
               <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>{matchedService.service_name}</Text>
+                <Text style={styles.priceLabel}>{translateSpecializationName(matchedService.service_name) || matchedService.service_name}</Text>
                 <View style={styles.priceBadgeSmall}>
                   <Text style={styles.priceBadgeTextLarge}>
                     {formatPriceRange(matchedService.price_min, matchedService.price_max)}

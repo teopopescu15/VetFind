@@ -53,8 +53,13 @@ CREATE TABLE IF NOT EXISTS reviews (
   UNIQUE (clinic_id, user_id)
 );
 
--- Create indexes for reviews
-CREATE INDEX IF NOT EXISTS idx_reviews_clinic ON reviews(clinic_id);
+-- Create indexes for reviews (only if legacy reviews table has clinic_id)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'reviews' AND column_name = 'clinic_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_reviews_clinic ON reviews(clinic_id);
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_rating ON reviews(rating);
 
@@ -74,8 +79,13 @@ CREATE TABLE IF NOT EXISTS appointments (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create indexes for appointments
-CREATE INDEX IF NOT EXISTS idx_appointments_clinic ON appointments(clinic_id);
+-- Create indexes for appointments (only if legacy appointments table has clinic_id)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'appointments' AND column_name = 'clinic_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_appointments_clinic ON appointments(clinic_id);
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_appointments_user ON appointments(user_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date);
 CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
@@ -113,26 +123,32 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create triggers
+-- Create triggers (only for legacy tables that exist)
 CREATE TRIGGER clinics_updated_at_trigger
   BEFORE UPDATE ON clinics
   FOR EACH ROW
   EXECUTE FUNCTION update_clinics_updated_at();
 
-CREATE TRIGGER services_updated_at_trigger
-  BEFORE UPDATE ON services
-  FOR EACH ROW
-  EXECUTE FUNCTION update_services_updated_at();
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'services') THEN
+    DROP TRIGGER IF EXISTS services_updated_at_trigger ON services;
+    CREATE TRIGGER services_updated_at_trigger BEFORE UPDATE ON services FOR EACH ROW EXECUTE FUNCTION update_services_updated_at();
+  END IF;
+END $$;
 
-CREATE TRIGGER reviews_updated_at_trigger
-  BEFORE UPDATE ON reviews
-  FOR EACH ROW
-  EXECUTE FUNCTION update_reviews_updated_at();
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'reviews' AND column_name = 'clinic_id') THEN
+    DROP TRIGGER IF EXISTS reviews_updated_at_trigger ON reviews;
+    CREATE TRIGGER reviews_updated_at_trigger BEFORE UPDATE ON reviews FOR EACH ROW EXECUTE FUNCTION update_reviews_updated_at();
+  END IF;
+END $$;
 
-CREATE TRIGGER appointments_updated_at_trigger
-  BEFORE UPDATE ON appointments
-  FOR EACH ROW
-  EXECUTE FUNCTION update_appointments_updated_at();
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'appointments' AND column_name = 'clinic_id') THEN
+    DROP TRIGGER IF EXISTS appointments_updated_at_trigger ON appointments;
+    CREATE TRIGGER appointments_updated_at_trigger BEFORE UPDATE ON appointments FOR EACH ROW EXECUTE FUNCTION update_appointments_updated_at();
+  END IF;
+END $$;
 
 -- Add comments
 COMMENT ON TABLE clinics IS 'Veterinary clinics for VetFinder app';

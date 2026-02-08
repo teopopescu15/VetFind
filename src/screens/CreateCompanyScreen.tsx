@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, BackHandler, Alert, Platform, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button, ActivityIndicator } from 'react-native-paper';
+import { BackHeader } from '../components/BackHeader';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { EnhancedProgressIndicator } from '../components/FormComponents/EnhancedProgressIndicator';
 import { Step1BasicInfo } from './CreateCompany/Step1BasicInfo';
@@ -32,6 +33,11 @@ import { useAuth } from '../context/AuthContext';
  * - Success navigation to Company Dashboard
  */
 type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateCompany'>;
+
+const DAY_NAME_RO: Record<string, string> = {
+  monday: 'Luni', tuesday: 'Marți', wednesday: 'Miercuri', thursday: 'Joi',
+  friday: 'Vineri', saturday: 'Sâmbătă', sunday: 'Duminică'
+};
 
 export const CreateCompanyScreen = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -84,12 +90,12 @@ export const CreateCompanyScreen = () => {
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       Alert.alert(
-        'Exit Company Creation?',
-        'Your progress will be lost. Are you sure you want to exit?',
+        'Ieșire din crearea companiei?',
+        'Progresul se va pierde. Sigur vrei să ieși?',
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: 'Anulare', style: 'cancel' },
           {
-            text: 'Exit',
+            text: 'Ieșire',
             style: 'destructive',
             onPress: () => navigation.goBack()
           }
@@ -108,16 +114,16 @@ export const CreateCompanyScreen = () => {
 
     // Company name validation
     if (!step1.name || step1.name.trim().length < 3) {
-      newErrors.name = 'Company name must be at least 3 characters';
+      newErrors.name = 'Denumirea companiei trebuie să aibă cel puțin 3 caractere';
     } else if (step1.name.length > 100) {
-      newErrors.name = 'Company name must not exceed 100 characters';
+      newErrors.name = 'Denumirea companiei nu poate depăși 100 de caractere';
     }
 
     // Email validation
     if (!step1.email) {
-      newErrors.email = 'Business email is required';
+      newErrors.email = 'Emailul de business este obligatoriu';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(step1.email)) {
-      newErrors.email = 'Invalid email format';
+      newErrors.email = 'Format email invalid';
     }
 
     // Phone validation (Romanian format)
@@ -134,12 +140,12 @@ export const CreateCompanyScreen = () => {
 
     // Fallback legacy regex check (only if phone exists)
     if (step1.phone && !/^\+?1?\s*\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/.test(step1.phone)) {
-      newErrors.phone = 'Invalid phone number format';
+      newErrors.phone = 'Format număr de telefon invalid';
     }
 
     // Description validation (optional but with limits)
     if (step1.description && step1.description.length > 100) {
-      newErrors.description = 'Description must not exceed 100 characters';
+      newErrors.description = 'Descrierea nu poate depăși 100 de caractere';
     }
 
     setErrors({ step1: newErrors });
@@ -195,12 +201,12 @@ export const CreateCompanyScreen = () => {
 
     // Website validation (optional but must be valid URL if provided)
     if (step2.website && !/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(step2.website)) {
-      newErrors.website = 'Invalid website URL';
+      newErrors.website = 'URL website invalid';
     }
 
     // Opening hours validation
     if (!step2.opening_hours) {
-      newErrors.opening_hours = 'Opening hours are required';
+      newErrors.opening_hours = 'Programul este obligatoriu';
     } else {
       // Validate each day's schedule
       const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
@@ -215,7 +221,7 @@ export const CreateCompanyScreen = () => {
         if (!schedule.closed) {
           if (!schedule.open || !schedule.close) {
             hasInvalidDay = true;
-            invalidDayMessage = `Please set opening hours for ${day} or mark it as closed`;
+            invalidDayMessage = `Setează programul pentru ${DAY_NAME_RO[day] || day} sau marchează ziua ca închis`;
             break;
           }
 
@@ -223,7 +229,7 @@ export const CreateCompanyScreen = () => {
           const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
           if (!timeRegex.test(schedule.open) || !timeRegex.test(schedule.close)) {
             hasInvalidDay = true;
-            invalidDayMessage = `Invalid time format for ${day}`;
+            invalidDayMessage = `Format orar invalid pentru ${DAY_NAME_RO[day] || day}`;
             break;
           }
 
@@ -235,7 +241,7 @@ export const CreateCompanyScreen = () => {
 
           if (closeMinutes <= openMinutes) {
             hasInvalidDay = true;
-            invalidDayMessage = `Closing time must be after opening time for ${day}`;
+            invalidDayMessage = `Ora de închidere trebuie să fie după ora de deschidere pentru ${DAY_NAME_RO[day] || day}`;
             break;
           }
         }
@@ -288,22 +294,22 @@ export const CreateCompanyScreen = () => {
 
     // Clinic type validation
     if (!step3.clinic_type) {
-      newErrors.clinic_type = 'Clinic type is required';
+      newErrors.clinic_type = 'Tipul clinicii este obligatoriu';
     }
 
     // Specializations validation (using new hierarchical selected_specializations)
     if (!step3.selected_specializations || step3.selected_specializations.length === 0) {
-      newErrors.selected_specializations = 'At least 1 specialization is required';
+      newErrors.selected_specializations = 'Este necesară cel puțin o specializare';
     }
 
     // Facilities validation
     if (!step3.facilities || step3.facilities.length === 0) {
-      newErrors.facilities = 'At least 1 facility is required';
+      newErrors.facilities = 'Este necesară cel puțin o facilitate';
     }
 
     // Payment methods validation
     if (!step3.payment_methods || step3.payment_methods.length === 0) {
-      newErrors.payment_methods = 'At least 1 payment method is required';
+      newErrors.payment_methods = 'Este necesară cel puțin o metodă de plată';
     }
 
     setErrors({ step3: newErrors });
@@ -332,7 +338,7 @@ export const CreateCompanyScreen = () => {
 
     // Services validation
     if (!step4.services || step4.services.length === 0) {
-      newErrors.services = 'At least 1 service is required';
+      newErrors.services = 'Este necesar cel puțin un serviciu';
       console.log('Services validation failed - no services');
     } else {
       // Validate price ranges for each service
@@ -346,14 +352,14 @@ export const CreateCompanyScreen = () => {
       });
 
       if (invalidPriceServices.length > 0) {
-        newErrors.services = 'Some services have invalid price ranges (min > max)';
+        newErrors.services = 'Unele servicii au intervale de preț invalide (min > max)';
         console.log('Invalid price ranges detected');
       }
     }
 
     // Photos validation (optional, but max 10 if provided)
     if (step4.photos && step4.photos.length > 10) {
-      newErrors.photos = 'Maximum 10 photos allowed';
+      newErrors.photos = 'Maximum 10 fotografii permise';
       console.log('Too many photos');
     }
 
@@ -415,8 +421,8 @@ export const CreateCompanyScreen = () => {
     if (!isValid) {
       console.log('Validation failed, returning early');
       Alert.alert(
-        'Validation Failed',
-        'Please fill in all required fields correctly before submitting.',
+        'Validare eșuată',
+        'Completează corect toate câmpurile obligatorii înainte de trimitere.',
         [{ text: 'OK' }]
       );
       return;
@@ -585,7 +591,7 @@ export const CreateCompanyScreen = () => {
     } catch (error: any) {
       console.error('Error creating company:', error);
 
-      let errorMessage = 'Failed to create company profile. Please try again.';
+      let errorMessage = 'Nu s-a putut crea profilul companiei. Încearcă din nou.';
 
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
@@ -593,7 +599,7 @@ export const CreateCompanyScreen = () => {
         errorMessage = error.message;
       }
 
-      Alert.alert('Error', errorMessage);
+      Alert.alert('Eroare', errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -643,6 +649,20 @@ export const CreateCompanyScreen = () => {
 
   return (
     <View style={styles.container}>
+      {/* Header with back button - exits wizard and returns to previous screen */}
+      <BackHeader
+        backgroundColor="#fff"
+        onBack={() => {
+          Alert.alert(
+            'Ieșire din crearea companiei?',
+            'Progresul se va pierde. Sigur vrei să ieși?',
+            [
+              { text: 'Anulare', style: 'cancel' },
+              { text: 'Ieșire', style: 'destructive', onPress: () => navigation.goBack() },
+            ]
+          );
+        }}
+      />
       {/* Enhanced Progress Indicator (Phase 3 Redesign) */}
       <EnhancedProgressIndicator
         currentStep={currentStep - 1} // Convert to 0-indexed

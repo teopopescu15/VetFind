@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, TextInput, Alert, ScrollView } from 'react-native';
+import { View, StyleSheet, FlatList, TextInput, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Card, Button, ActivityIndicator, IconButton, Surface, Chip, Divider } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useCompany } from '../context/CompanyContext';
 import { ApiService } from '../services/api';
 import { CompanyService } from '../types/company.types';
 
 export const ManagePricesScreen: React.FC = () => {
+  const navigation = useNavigation();
   const { company, refreshCompany } = useCompany();
   const [services, setServices] = useState<CompanyService[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +33,7 @@ export const ManagePricesScreen: React.FC = () => {
       }
     } catch (err) {
       console.error('Error loading services:', err);
-      Alert.alert('Error', 'Failed to load services');
+      Alert.alert('Eroare', 'Nu s-au putut încărca serviciile.');
     } finally {
       setIsLoading(false);
     }
@@ -48,7 +50,7 @@ export const ManagePricesScreen: React.FC = () => {
     const pm = parseFloat(priceMin) || 0;
     const px = parseFloat(priceMax) || 0;
     if (px < pm) {
-      Alert.alert('Validation', 'Max price must be >= min price');
+      Alert.alert('Validare', 'Prețul maxim trebuie să fie >= prețul minim.');
       return;
     }
     try {
@@ -57,10 +59,10 @@ export const ManagePricesScreen: React.FC = () => {
       await loadServices();
       try { await refreshCompany(); } catch (e) {}
       setEditing(null);
-      Alert.alert('Success', 'Prices updated');
+      Alert.alert('Succes', 'Prețuri actualizate.');
     } catch (err) {
       console.error('Update price error:', err);
-      Alert.alert('Error', 'Failed to update price');
+      Alert.alert('Eroare', 'Nu s-a putut actualiza prețul.');
     } finally {
       setIsLoading(false);
     }
@@ -92,10 +94,10 @@ export const ManagePricesScreen: React.FC = () => {
           {/* Price Section */}
           {isEditing ? (
             <View style={styles.editSection}>
-              <Text style={styles.editLabel}>Update Prices</Text>
+              <Text style={styles.editLabel}>Actualizează prețurile</Text>
               <View style={styles.priceInputRow}>
                 <View style={styles.priceInputContainer}>
-                  <Text style={styles.inputLabel}>Min Price ($)</Text>
+                  <Text style={styles.inputLabel}>Preț min (lei)</Text>
                   <TextInput
                     value={priceMin}
                     onChangeText={setPriceMin}
@@ -105,7 +107,7 @@ export const ManagePricesScreen: React.FC = () => {
                   />
                 </View>
                 <View style={styles.priceInputContainer}>
-                  <Text style={styles.inputLabel}>Max Price ($)</Text>
+                  <Text style={styles.inputLabel}>Preț max (lei)</Text>
                   <TextInput
                     value={priceMax}
                     onChangeText={setPriceMax}
@@ -119,9 +121,9 @@ export const ManagePricesScreen: React.FC = () => {
           ) : (
             <View style={styles.priceDisplay}>
               <View style={styles.priceTag}>
-                <MaterialCommunityIcons name="currency-usd" size={20} color="#059669" />
+                <MaterialCommunityIcons name="cash" size={20} color="#059669" />
                 <Text style={styles.priceRangeText}>
-                  ${Number(item.price_min).toFixed(0)} - ${Number(item.price_max).toFixed(0)}
+                  {Number(item.price_min).toFixed(0)} - {Number(item.price_max).toFixed(0)} lei
                 </Text>
               </View>
               {item.duration_minutes ? (
@@ -151,7 +153,7 @@ export const ManagePricesScreen: React.FC = () => {
                   icon="check"
                   contentStyle={styles.buttonContent}
                 >
-                  Save
+                  Salvează
                 </Button>
                 <Button
                   mode="outlined"
@@ -161,7 +163,7 @@ export const ManagePricesScreen: React.FC = () => {
                   icon="close"
                   contentStyle={styles.buttonContent}
                 >
-                  Cancel
+                  Anulare
                 </Button>
               </>
             ) : (
@@ -173,7 +175,7 @@ export const ManagePricesScreen: React.FC = () => {
                 icon="pencil"
                 contentStyle={styles.buttonContent}
               >
-                Edit Prices
+                Editează prețuri
               </Button>
             )}
           </View>
@@ -187,10 +189,18 @@ export const ManagePricesScreen: React.FC = () => {
       {/* Header Section */}
       <Surface style={styles.headerSection} elevation={0}>
         <View style={styles.headerContent}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.headerBackButton}
+            accessibilityRole="button"
+            accessibilityLabel="Înapoi"
+          >
+            <Ionicons name="arrow-back" size={24} color="#1f2937" />
+          </TouchableOpacity>
           <MaterialCommunityIcons name="cash-multiple" size={28} color="#ea580c" />
           <View style={styles.headerTextContainer}>
-            <Text style={styles.title}>Update Prices</Text>
-            <Text style={styles.subtitle}>Manage pricing for your clinic services</Text>
+            <Text style={styles.title}>Actualizează prețurile</Text>
+            <Text style={styles.subtitle}>Gestionează prețurile pentru serviciile clinicii</Text>
           </View>
         </View>
       </Surface>
@@ -199,14 +209,14 @@ export const ManagePricesScreen: React.FC = () => {
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#ea580c" />
-          <Text style={styles.loadingText}>Loading services...</Text>
+          <Text style={styles.loadingText}>Se încarcă serviciile...</Text>
         </View>
       ) : services.length === 0 ? (
         <Card style={styles.emptyCard} mode="outlined">
           <Card.Content style={styles.emptyContent}>
             <MaterialCommunityIcons name="alert-circle-outline" size={64} color="#d1d5db" />
-            <Text style={styles.emptyTitle}>No services available</Text>
-            <Text style={styles.emptySubtitle}>Add services in the Manage Services section to update their prices.</Text>
+            <Text style={styles.emptyTitle}>Niciun serviciu disponibil</Text>
+            <Text style={styles.emptySubtitle}>Adaugă servicii în secțiunea Gestionează servicii pentru a le actualiza prețurile.</Text>
           </Card.Content>
         </Card>
       ) : (
@@ -235,6 +245,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  headerBackButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTextContainer: {
     flex: 1,

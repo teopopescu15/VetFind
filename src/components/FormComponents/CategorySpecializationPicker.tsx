@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CategoryWithSpecializations, CategorySpecialization } from '../../types/company.types';
+import { translateCategoryName, translateSpecializationName } from '../../constants/serviceTranslations';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -200,7 +201,7 @@ export const CategorySpecializationPicker = ({
         ]}
         onPress={() => toggleSpecialization(specialization)}
         disabled={disabled}
-        accessibilityLabel={specialization.name}
+        accessibilityLabel={translateSpecializationName(specialization.name)}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: isSelected, disabled }}
       >
@@ -210,7 +211,7 @@ export const CategorySpecializationPicker = ({
           </View>
           <View style={styles.specializationInfo}>
             <Text style={[styles.specializationName, isSelected && styles.textSelected]}>
-              {specialization.name}
+              {translateSpecializationName(specialization.name)}
             </Text>
             {specialization.description && (
               <Text style={styles.specializationDescription} numberOfLines={1}>
@@ -246,7 +247,7 @@ export const CategorySpecializationPicker = ({
           ]}
           onPress={() => toggleCategoryExpansion(category.id)}
           disabled={disabled}
-          accessibilityLabel={`${category.name} category, ${selectedCount} of ${totalCount} selected`}
+          accessibilityLabel={`Categorie ${translateCategoryName(category.name)}, ${selectedCount} din ${totalCount} selectate`}
           accessibilityRole="button"
           accessibilityState={{ expanded: isExpanded }}
         >
@@ -260,7 +261,7 @@ export const CategorySpecializationPicker = ({
             </View>
             <View style={styles.categoryInfo}>
               <Text style={[styles.categoryName, selectedCount > 0 && styles.categoryNameSelected]}>
-                {category.name}
+                {translateCategoryName(category.name)}
               </Text>
               {category.description && (
                 <Text style={styles.categoryDescription} numberOfLines={1}>
@@ -293,7 +294,7 @@ export const CategorySpecializationPicker = ({
               style={styles.selectAllRow}
               onPress={() => toggleAllSpecializationsInCategory(category)}
               disabled={disabled}
-              accessibilityLabel={allSelected ? 'Deselect all' : 'Select all'}
+              accessibilityLabel={allSelected ? 'Deselectează toate' : 'Selectează toate'}
               accessibilityRole="button"
             >
               <View style={[
@@ -305,7 +306,7 @@ export const CategorySpecializationPicker = ({
                 {someSelected && !allSelected && <View style={styles.partialIndicator} />}
               </View>
               <Text style={styles.selectAllText}>
-                {allSelected ? 'Deselect all' : 'Select all'}
+                {allSelected ? 'Deselectează toate' : 'Selectează toate'}
               </Text>
             </TouchableOpacity>
 
@@ -324,11 +325,11 @@ export const CategorySpecializationPicker = ({
       {/* Header with total count */}
       <View style={styles.header}>
         <Text style={[styles.totalCount, totalSelections === 0 && styles.totalCountWarning]}>
-          {`${totalSelections} specialization${totalSelections !== 1 ? 's' : ''} selected`}
+          {`${totalSelections} specializare${totalSelections !== 1 ? 'ri' : ''} selectate`}
         </Text>
         {totalSelections === 0 && (
           <Text style={styles.minSelectionWarning}>
-            (at least 1 required)
+            (minim 1 obligatoriu)
           </Text>
         )}
       </View>

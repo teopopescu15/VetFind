@@ -109,7 +109,7 @@ export const CountyPicker = ({ value, onChange, error, disabled }: CountyPickerP
           </View>
 
           <Searchbar
-            placeholder="Search county..."
+            placeholder="Caută județul..."
             value={searchQuery}
             onChangeText={setSearchQuery}
             style={styles.searchBar}

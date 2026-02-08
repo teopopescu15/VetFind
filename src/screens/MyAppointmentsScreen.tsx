@@ -15,6 +15,7 @@ import { ApiService } from '../services/api';
 import { vetApi } from '../services/vetApi';
 import type { Appointment } from '../types/vet.types';
 import { theme } from '../theme';
+import { translateSpecializationName } from '../constants/serviceTranslations';
 
 interface MyAppointmentsScreenProps {
   navigation: any;
@@ -90,7 +91,7 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
       setAppointments(filtered as any);
     } catch (error: any) {
       console.error('Error loading appointments:', error);
-      Alert.alert('Error', 'Failed to load appointments. Please try again.');
+      Alert.alert('Eroare', 'Nu s-au putut încărca programările. Te rugăm să încerci din nou.');
     } finally {
       setLoading(false);
     }
@@ -177,21 +178,21 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
 
   const handleCancelAppointment = (appointmentId: number) => {
     Alert.alert(
-      'Cancel Appointment',
-      'Are you sure you want to cancel this appointment?',
+      'Anulare programare',
+      'Sigur vrei să anulezi această programare?',
       [
-        { text: 'No', style: 'cancel' },
+        { text: 'Nu', style: 'cancel' },
         {
-          text: 'Yes',
+          text: 'Da',
           style: 'destructive',
           onPress: async () => {
             try {
               const ok = await ApiService.cancelAppointment(appointmentId);
               if (!ok) throw new Error('Failed to cancel appointment');
-              Alert.alert('Success', 'Appointment cancelled successfully');
+              Alert.alert('Succes', 'Programarea a fost anulată cu succes.');
               loadAppointments();
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to cancel appointment');
+              Alert.alert('Eroare', error.message || 'Nu s-a putut anula programarea.');
             }
           }
         }
@@ -333,21 +334,21 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
 
                 return (
                   <Text key={idx} style={styles.detailsLine}>
-                    {s?.service_name || s?.name || item.service_name || 'Service'} — {priceText} • {durationText}
+                    {translateSpecializationName(s?.service_name || s?.name || item.service_name || '') || 'Serviciu'} — {priceText} • {durationText}
                   </Text>
                 );
               })}
             </View>
           ) : (
-            <Text style={styles.detailsLine}>No services</Text>
+            <Text style={styles.detailsLine}>Niciun serviciu</Text>
           )}
 
           {/* Totals */}
           <Text style={styles.detailsLine}>
-            <Text style={styles.detailLabel}>Price:</Text> {formatPriceRange(totalPriceMin, totalPriceMax)}
+            <Text style={styles.detailLabel}>Preț:</Text> {formatPriceRange(totalPriceMin, totalPriceMax)}
           </Text>
           <Text style={styles.detailsLine}>
-            <Text style={styles.detailLabel}>Duration:</Text> {formatDuration(totalDuration)}
+            <Text style={styles.detailLabel}>Durată:</Text> {formatDuration(totalDuration)}
           </Text>
 
           {!!item.notes && !hasServicesInNotes(item.notes) && (
@@ -366,7 +367,7 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
         {!isPast && canCancel && item.status !== 'expired' && (
           <TouchableOpacity style={styles.cancelButton} onPress={() => handleCancelAppointment(item.id!)}>
             <Ionicons name="close-circle-outline" size={18} color={theme.colors.error.main} />
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={styles.cancelButtonText}>Anulare</Text>
           </TouchableOpacity>
         )}
 
@@ -409,7 +410,7 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
           style={[styles.filterChip, filter === 'upcoming' && styles.filterChipSelected]}
           textStyle={[styles.filterChipText, filter === 'upcoming' && styles.filterChipTextSelected]}
         >
-          Upcoming
+          Viitoare
         </Chip>
         <Chip
           selected={filter === 'past'}
@@ -417,7 +418,7 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
           style={[styles.filterChip, filter === 'past' && styles.filterChipSelected]}
           textStyle={[styles.filterChipText, filter === 'past' && styles.filterChipTextSelected]}
         >
-          Past
+          Trecute
         </Chip>
         <Chip
           selected={filter === 'all'}
@@ -425,19 +426,19 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
           style={[styles.filterChip, filter === 'all' && styles.filterChipSelected]}
           textStyle={[styles.filterChipText, filter === 'all' && styles.filterChipTextSelected]}
         >
-          All
+          Toate
         </Chip>
       </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary.main} />
-          <Text style={styles.loadingText}>Loading appointments...</Text>
+          <Text style={styles.loadingText}>Se încarcă programările...</Text>
         </View>
       ) : appointments.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="calendar-outline" size={56} color={theme.colors.neutral[300]} />
-          <Text style={styles.emptyText}>No appointments found</Text>
+          <Text style={styles.emptyText}>Nu s-au găsit programări</Text>
           <Text style={styles.emptySubtext}>
             {filter === 'upcoming' ? 'You have no upcoming appointments' : 'No appointments to show'}
           </Text>
@@ -445,7 +446,7 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
             style={styles.exploreButton}
             onPress={() => navigation.navigate('UserDashboard')}
           >
-            <Text style={styles.exploreButtonText}>Find a Clinic</Text>
+            <Text style={styles.exploreButtonText}>Găsește o clinică</Text>
           </TouchableOpacity>
         </View>
       ) : (

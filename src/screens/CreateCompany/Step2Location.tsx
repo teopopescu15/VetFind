@@ -173,8 +173,8 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
             style={styles.input}
             outlineColor="#e5e7eb"
             activeOutlineColor="#7c3aed"
-            accessibilityLabel="Street"
-            accessibilityHint="Enter your clinic's street name"
+            accessibilityLabel="Stradă"
+            accessibilityHint="Introdu numele străzii clinicii"
           />
           <HelperText type="error" visible={!!errors.street}>
             {errors.street || ' '}
@@ -194,8 +194,8 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
             style={styles.input}
             outlineColor="#e5e7eb"
             activeOutlineColor="#7c3aed"
-            accessibilityLabel="Street Number"
-            accessibilityHint="Enter the street number"
+            accessibilityLabel="Număr"
+            accessibilityHint="Introdu numărul străzii"
           />
           <HelperText type="error" visible={!!errors.streetNumber}>
             {errors.streetNumber || ' '}
@@ -218,10 +218,10 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
             style={styles.input}
             outlineColor="#e5e7eb"
             activeOutlineColor="#7c3aed"
-            accessibilityLabel="Building"
-            accessibilityHint="Optional building number"
+            accessibilityLabel="Bloc"
+            accessibilityHint="Număr de bloc (opțional)"
           />
-          <HelperText type="info">Optional</HelperText>
+          <HelperText type="info">Opțional</HelperText>
         </View>
 
         <View style={[styles.section, styles.halfWidth]}>
@@ -237,10 +237,10 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
             style={styles.input}
             outlineColor="#e5e7eb"
             activeOutlineColor="#7c3aed"
-            accessibilityLabel="Apartment"
-            accessibilityHint="Optional apartment number"
+            accessibilityLabel="Apartament"
+            accessibilityHint="Număr apartament (opțional)"
           />
-          <HelperText type="info">Optional</HelperText>
+          <HelperText type="info">Opțional</HelperText>
         </View>
       </View>
 
@@ -257,8 +257,8 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
           style={styles.input}
           outlineColor="#e5e7eb"
           activeOutlineColor="#7c3aed"
-          accessibilityLabel="Country"
-          accessibilityHint="Enter the country"
+          accessibilityLabel="Țară"
+          accessibilityHint="Introdu țara"
         />
         <HelperText type="error" visible={!!errors.country}>
           {errors.country || ' '}
@@ -305,8 +305,8 @@ export const Step2Location = ({ data, onChange, errors = {} }: Step2LocationProp
           style={styles.input}
           outlineColor="#e5e7eb"
           activeOutlineColor="#7c3aed"
-          accessibilityLabel="Postal Code"
-          accessibilityHint="Enter the 6-digit postal code"
+          accessibilityLabel="Cod poștal"
+          accessibilityHint="Introdu codul poștal din 6 cifre"
         />
         <HelperText type="error" visible={!!errors.postalCode}>
           {errors.postalCode || ' '}

@@ -39,16 +39,17 @@ ALTER TABLE company_services
 ALTER TABLE company_services
   ADD COLUMN IF NOT EXISTS specialization_id INTEGER REFERENCES category_specializations(id) ON DELETE SET NULL;
 
--- Seed initial data
+-- Seed initial data (idempotent: skip if already present)
 INSERT INTO service_categories (name, description, icon, display_order) VALUES
   ('Routine Care', 'Regular checkups and preventive care', 'medical', 1),
   ('Dental Care', 'Oral health and dental procedures', 'fitness', 2),
   ('Diagnostic Services', 'Lab work, imaging, and diagnostics', 'flask', 3),
   ('Emergency Care', 'Urgent and emergency services', 'warning', 4),
   ('Surgical Procedures', 'Surgical operations and interventions', 'cut', 5),
-  ('Grooming', 'Pet grooming and hygiene services', 'sparkles', 6);
+  ('Grooming', 'Pet grooming and hygiene services', 'sparkles', 6)
+ON CONFLICT (name) DO NOTHING;
 
--- Seed specializations for each category
+-- Seed specializations for each category (idempotent: skip if already present)
 -- Routine Care (category_id = 1)
 INSERT INTO category_specializations (category_id, name, description, suggested_duration_minutes, display_order) VALUES
   (1, 'General Checkup', 'Complete physical examination', 30, 1),
@@ -56,14 +57,16 @@ INSERT INTO category_specializations (category_id, name, description, suggested_
   (1, 'Flea/Tick Prevention', 'Monthly prevention treatment', 10, 3),
   (1, 'Deworming', 'Parasite treatment', 10, 4),
   (1, 'Nail Trimming', 'Nail care service', 15, 5),
-  (1, 'Microchipping', 'Permanent identification', 20, 6);
+  (1, 'Microchipping', 'Permanent identification', 20, 6)
+ON CONFLICT (category_id, name) DO NOTHING;
 
 -- Dental Care (category_id = 2)
 INSERT INTO category_specializations (category_id, name, description, suggested_duration_minutes, display_order) VALUES
   (2, 'Dental Checkup', 'Oral health examination', 30, 1),
   (2, 'Teeth Cleaning', 'Professional dental cleaning', 90, 2),
   (2, 'Tooth Extraction', 'Surgical tooth removal', 120, 3),
-  (2, 'Dental X-Ray', 'Dental radiographs', 30, 4);
+  (2, 'Dental X-Ray', 'Dental radiographs', 30, 4)
+ON CONFLICT (category_id, name) DO NOTHING;
 
 -- Diagnostic Services (category_id = 3)
 INSERT INTO category_specializations (category_id, name, description, suggested_duration_minutes, display_order) VALUES
@@ -72,7 +75,8 @@ INSERT INTO category_specializations (category_id, name, description, suggested_
   (3, 'X-Ray', 'Radiographic imaging', 45, 3),
   (3, 'Ultrasound', 'Ultrasound imaging', 60, 4),
   (3, 'Urinalysis', 'Urine analysis', 20, 5),
-  (3, 'Fecal Exam', 'Stool sample analysis', 15, 6);
+  (3, 'Fecal Exam', 'Stool sample analysis', 15, 6)
+ON CONFLICT (category_id, name) DO NOTHING;
 
 -- Emergency Care (category_id = 4)
 INSERT INTO category_specializations (category_id, name, description, suggested_duration_minutes, display_order) VALUES
@@ -80,7 +84,8 @@ INSERT INTO category_specializations (category_id, name, description, suggested_
   (4, 'Emergency Surgery', 'Urgent surgical intervention', 180, 2),
   (4, 'Overnight Hospitalization', 'Inpatient monitoring', 1440, 3),
   (4, 'Wound Treatment', 'Emergency wound care', 45, 4),
-  (4, 'Poison Treatment', 'Toxin exposure treatment', 120, 5);
+  (4, 'Poison Treatment', 'Toxin exposure treatment', 120, 5)
+ON CONFLICT (category_id, name) DO NOTHING;
 
 -- Surgical Procedures (category_id = 5)
 INSERT INTO category_specializations (category_id, name, description, suggested_duration_minutes, display_order) VALUES
@@ -90,7 +95,8 @@ INSERT INTO category_specializations (category_id, name, description, suggested_
   (5, 'Neuter (Dog)', 'Canine neuter surgery', 60, 4),
   (5, 'Soft Tissue Surgery', 'Non-orthopedic procedures', 120, 5),
   (5, 'Orthopedic Surgery', 'Bone and joint surgery', 180, 6),
-  (5, 'Tumor Removal', 'Mass excision surgery', 120, 7);
+  (5, 'Tumor Removal', 'Mass excision surgery', 120, 7)
+ON CONFLICT (category_id, name) DO NOTHING;
 
 -- Grooming (category_id = 6)
 INSERT INTO category_specializations (category_id, name, description, suggested_duration_minutes, display_order) VALUES
@@ -98,7 +104,8 @@ INSERT INTO category_specializations (category_id, name, description, suggested_
   (6, 'Full Grooming', 'Complete grooming package', 120, 2),
   (6, 'Haircut/Trim', 'Coat trimming and styling', 60, 3),
   (6, 'Ear Cleaning', 'Ear care service', 15, 4),
-  (6, 'Anal Gland Expression', 'Gland expression service', 15, 5);
+  (6, 'Anal Gland Expression', 'Gland expression service', 15, 5)
+ON CONFLICT (category_id, name) DO NOTHING;
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_category_specializations_category_id ON category_specializations(category_id);

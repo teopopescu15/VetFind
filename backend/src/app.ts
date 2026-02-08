@@ -28,8 +28,10 @@ import { notFound } from './middleware/notFound';
 // Create Express app
 const app: Application = express();
 
-// Middleware
-app.use(helmet()); // Security headers
+// Middleware – permit încărcarea imaginilor /uploads din frontend pe alt port (cross-origin)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
 // Configure CORS for mobile and web access
 const corsOptions = {

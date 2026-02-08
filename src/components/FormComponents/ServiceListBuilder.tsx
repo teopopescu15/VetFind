@@ -14,8 +14,8 @@ import {
   CreateServiceDTO,
   ServiceTemplate,
   ServiceCategoryType,
-  ServiceCategoryLabels,
 } from '../../types/company.types';
+import { ServiceCategoryLabelsRO } from '../../constants/serviceTranslations';
 
 /**
  * ServiceListBuilder Component
@@ -62,12 +62,12 @@ export const ServiceListBuilder = ({
     if (disabled) return;
 
     Alert.alert(
-      'Remove Service',
-      'Are you sure you want to remove this service?',
+      'Eliminare serviciu',
+      'Sigur vrei să elimini acest serviciu?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Anulare', style: 'cancel' },
         {
-          text: 'Remove',
+          text: 'Elimină',
           style: 'destructive',
           onPress: () => {
             const newServices = value.filter((_, i) => i !== index);
@@ -158,13 +158,13 @@ export const ServiceListBuilder = ({
           <View style={styles.serviceForm}>
             {/* Category Picker */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Category *</Text>
+              <Text style={styles.label}>Categorie *</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.categoryScroll}
               >
-                {Object.entries(ServiceCategoryLabels).map(([key, label]) => (
+                {Object.entries(ServiceCategoryLabelsRO).map(([key, label]) => (
                   <TouchableOpacity
                     key={key}
                     style={[
@@ -189,24 +189,24 @@ export const ServiceListBuilder = ({
 
             {/* Service Name */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Service Name *</Text>
+              <Text style={styles.label}>Denumire serviciu *</Text>
               <TextInput
                 style={styles.input}
                 value={service.service_name}
                 onChangeText={(text) => updateService(index, 'service_name', text)}
-                placeholder="e.g., General Checkup"
+                placeholder="ex.: Consult general"
                 editable={!disabled}
               />
             </View>
 
             {/* Description */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Description</Text>
+              <Text style={styles.label}>Descriere</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={service.description}
                 onChangeText={(text) => updateService(index, 'description', text)}
-                placeholder="Brief description of the service"
+                placeholder="Scurtă descriere a serviciului"
                 multiline
                 numberOfLines={3}
                 editable={!disabled}
@@ -265,7 +265,7 @@ export const ServiceListBuilder = ({
                 onPress={() => removeService(index)}
               >
                 <Ionicons name="trash-outline" size={20} color="#e74c3c" />
-                <Text style={styles.removeButtonText}>Remove Service</Text>
+                <Text style={styles.removeButtonText}>Elimină serviciul</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -296,10 +296,10 @@ export const ServiceListBuilder = ({
         {value.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="medical-outline" size={48} color="#ccc" />
-            <Text style={styles.emptyText}>No services added yet</Text>
+            <Text style={styles.emptyText}>Niciun serviciu adăugat încă</Text>
             {!disabled && (
               <TouchableOpacity style={styles.emptyButton} onPress={() => setShowTemplates(true)}>
-                <Text style={styles.emptyButtonText}>Load from Templates</Text>
+                <Text style={styles.emptyButtonText}>Încarcă din șabloane</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -336,7 +336,7 @@ export const ServiceListBuilder = ({
                   </Text>
                 </View>
                 <Text style={styles.templateCategory}>
-                  {ServiceCategoryLabels[template.category]}
+                  {ServiceCategoryLabelsRO[template.category]}
                 </Text>
                 <Text style={styles.templateDescription} numberOfLines={2}>
                   {template.description}

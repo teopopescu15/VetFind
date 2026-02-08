@@ -48,11 +48,11 @@ export const CompanyCreatedSuccessScreen = () => {
 
         {/* Success Message */}
         <Text style={styles.title}>
-          Success!
+          Succes!
         </Text>
 
         <Text style={styles.subtitle}>
-          Welcome to VetFinder
+          Bine ai venit pe VetFinder
         </Text>
 
         {/* Company Name */}
@@ -64,7 +64,7 @@ export const CompanyCreatedSuccessScreen = () => {
 
         {/* Message */}
         <Text style={styles.message}>
-          Your veterinary clinic profile has been created successfully. You can now manage your services, appointments, and connect with pet owners in your area.
+          Profilul clinicii tale veterinare a fost creat cu succes. Acum poți gestiona serviciile, programările și poți fi contactat de proprietarii de animale din zonă.
         </Text>
 
         {/* View Dashboard Button */}
@@ -76,7 +76,7 @@ export const CompanyCreatedSuccessScreen = () => {
           labelStyle={styles.buttonLabel}
           icon={() => <MaterialCommunityIcons name="view-dashboard" size={24} color="#7c3aed" />}
         >
-          View Dashboard
+          Mergi la panou
         </Button>
 
         {/* Decorative Elements */}
