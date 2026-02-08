@@ -1,13 +1,19 @@
 import { pool } from '../config/database';
 import { QueryResult } from 'pg';
 
+export type ReviewCategory = 'pisica' | 'caine' | 'pasare' | 'altele';
+
 export interface Review {
   id?: number;
   company_id: number;
   user_id: number;
   appointment_id?: number;
-  rating: number; // 1-5
+  rating: number; // 1-5 overall experience
   comment?: string;
+  category?: ReviewCategory;
+  professionalism?: number; // 1-5
+  efficiency?: number; // 1-5
+  friendliness?: number; // 1-5
   created_at?: Date;
   updated_at?: Date;
 }
@@ -23,15 +29,19 @@ export const createReviewModel = () => {
       }
 
       const result: QueryResult = await pool.query(
-        `INSERT INTO reviews (company_id, user_id, appointment_id, rating, comment)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO reviews (company_id, user_id, appointment_id, rating, comment, category, professionalism, efficiency, friendliness)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id`,
         [
           review.company_id,
           review.user_id,
           review.appointment_id,
           review.rating,
-          review.comment || null
+          review.comment || null,
+          review.category || 'altele',
+          review.professionalism ?? 5,
+          review.efficiency ?? 5,
+          review.friendliness ?? 5
         ]
       );
       return result.rows[0].id;
@@ -46,10 +56,14 @@ export const createReviewModel = () => {
       return result.rows.length > 0 ? (result.rows[0] as Review) : null;
     },
 
-    // Get reviews by clinic with user info
+    // Get reviews by clinic with user info, category, and appointment service names
     async findByClinic(clinicId: number): Promise<any[]> {
       const result: QueryResult = await pool.query(
-        `SELECT r.*, u.name as user_name, u.email as user_email
+        `SELECT r.*, u.name as user_name, u.email as user_email,
+         COALESCE(
+           (SELECT string_agg(service_name, ', ' ORDER BY id) FROM appointment_services WHERE appointment_id = r.appointment_id),
+           (SELECT cs.service_name FROM appointments a JOIN company_services cs ON a.service_id = cs.id WHERE a.id = r.appointment_id)
+         ) AS appointment_service_names
          FROM reviews r
          JOIN users u ON r.user_id = u.id
          WHERE r.company_id = $1

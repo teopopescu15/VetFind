@@ -16,13 +16,13 @@ export const UserModel = {
         name, email, password, role,
         street, street_number, building, apartment,
         city, county, postal_code, country,
-        latitude, longitude
+        latitude, longitude, show_emergency_clinics
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING id, name, email, role,
         street, street_number, building, apartment,
         city, county, postal_code, country,
-        latitude, longitude,
+        latitude, longitude, show_emergency_clinics,
         created_at, updated_at
     `;
 
@@ -41,6 +41,7 @@ export const UserModel = {
       userData.country || 'Romania',
       userData.latitude ?? null,
       userData.longitude ?? null,
+      userData.show_emergency_clinics ?? false,
     ];
 
     try {
@@ -75,7 +76,7 @@ export const UserModel = {
       SELECT id, name, email, role,
         street, street_number, building, apartment,
         city, county, postal_code, country,
-        latitude, longitude,
+        latitude, longitude, show_emergency_clinics,
         created_at, updated_at
       FROM users
       ORDER BY created_at DESC
@@ -168,6 +169,11 @@ export const UserModel = {
       values.push(userData.longitude);
       paramCount++;
     }
+    if (userData.show_emergency_clinics !== undefined) {
+      fields.push(`show_emergency_clinics = $${paramCount}`);
+      values.push(userData.show_emergency_clinics);
+      paramCount++;
+    }
 
     if (fields.length === 0) {
       const u = await this.findById(id);
@@ -185,7 +191,7 @@ export const UserModel = {
       RETURNING id, name, email, role,
         street, street_number, building, apartment,
         city, county, postal_code, country,
-        latitude, longitude,
+        latitude, longitude, show_emergency_clinics,
         created_at, updated_at
     `;
 

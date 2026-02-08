@@ -31,6 +31,7 @@ export interface User {
   country?: string;
   latitude?: number;
   longitude?: number;
+  show_emergency_clinics?: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -51,6 +52,7 @@ export interface CreateUserDTO {
   country?: string;
   latitude?: number;
   longitude?: number;
+  show_emergency_clinics?: boolean;
 }
 
 export interface UpdateUserDTO {
@@ -69,6 +71,7 @@ export interface UpdateUserDTO {
   country?: string;
   latitude?: number;
   longitude?: number;
+  show_emergency_clinics?: boolean;
 }
 
 export interface UserResponse {
@@ -87,6 +90,7 @@ export interface UserResponse {
   country?: string;
   latitude?: number;
   longitude?: number;
+  show_emergency_clinics?: boolean;
   created_at: Date;
   updated_at: Date;
 }

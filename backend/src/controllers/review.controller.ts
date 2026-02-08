@@ -64,15 +64,26 @@ export const createReviewController = () => {
           return;
         }
 
+        const validCategories = ['pisica', 'caine', 'pasare', 'altele'];
+        const category = String(req.body.category || 'altele').toLowerCase().trim();
+        const reviewCategory = validCategories.includes(category) ? category as 'pisica' | 'caine' | 'pasare' | 'altele' : 'altele';
+        const professionalism = Math.min(5, Math.max(1, parseInt(String(req.body.professionalism), 10) || 5));
+        const efficiency = Math.min(5, Math.max(1, parseInt(String(req.body.efficiency), 10) || 5));
+        const friendliness = Math.min(5, Math.max(1, parseInt(String(req.body.friendliness), 10) || 5));
+
         const reviewData: Review = {
           company_id: clinicId,
           user_id: userId,
           appointment_id: appointmentId,
           rating: req.body.rating,
-          comment: req.body.comment
+          comment: req.body.comment,
+          category: reviewCategory,
+          professionalism,
+          efficiency,
+          friendliness
         } as any;
 
-        // Validate rating
+        // Validate rating (overall experience)
         if (reviewData.rating < 1 || reviewData.rating > 5) {
           res.status(400).json({ success: false, message: 'Rating must be between 1 and 5' });
           return;
@@ -109,6 +120,22 @@ export const createReviewController = () => {
         const clinicId = parseInt(req.params.clinicId);
         const reviews = await reviewModel.findByClinic(clinicId);
         const avgRating = await reviewModel.getAverageRating(clinicId);
+
+        // Populate appointment_service_names from appointment (always in controller so it's in the response)
+        for (const r of reviews) {
+          if (r.appointment_id) {
+            try {
+              const apt = await appointmentModel.findById(r.appointment_id);
+              if (apt?.services?.length) {
+                r.appointment_service_names = apt.services.map((s: any) => s.service_name).filter(Boolean).join(', ');
+              } else if (apt?.service_name) {
+                r.appointment_service_names = apt.service_name;
+              }
+            } catch (_) {
+              // ignore
+            }
+          }
+        }
 
         res.status(200).json({
           success: true,

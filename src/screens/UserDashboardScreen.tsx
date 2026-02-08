@@ -148,6 +148,10 @@ export const UserDashboardScreen = () => {
   const [reviewClinicId, setReviewClinicId] = useState<number | null>(null);
   const [reviewRating, setReviewRating] = useState<number>(5);
   const [reviewComment, setReviewComment] = useState<string>('');
+  const [reviewCategory, setReviewCategory] = useState<'pisica' | 'caine' | 'pasare' | 'altele'>('altele');
+  const [reviewProfessionalism, setReviewProfessionalism] = useState<number>(5);
+  const [reviewEfficiency, setReviewEfficiency] = useState<number>(5);
+  const [reviewFriendliness, setReviewFriendliness] = useState<number>(5);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [myReviews, setMyReviews] = useState<any[]>([]);
   const [reviewAppointmentId, setReviewAppointmentId] = useState<number | null>(null);
@@ -156,6 +160,11 @@ export const UserDashboardScreen = () => {
   const [mapVisible, setMapVisible] = useState(false);
   const [selectedMapClinic, setSelectedMapClinic] = useState<{ id: number; name: string } | null>(null);
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; label?: string } | null>(null);
+
+  // "Disponibil acum" mode: show clinics open now + (if user flag) emergency-only
+  const [availableNowMode, setAvailableNowMode] = useState(false);
+  const [availableNowData, setAvailableNowData] = useState<{ openNow: Company[]; emergencyOnly: Company[] }>({ openNow: [], emergencyOnly: [] });
+  const [loadingAvailableNow, setLoadingAvailableNow] = useState(false);
 
   // Location source: 'current' = GPS, 'home' = user's home address from DB
   const [locationSource, setLocationSource] = useState<'current' | 'home' | null>(null);
@@ -172,6 +181,42 @@ export const UserDashboardScreen = () => {
     }
     return null;
   }, [locationSource, location?.latitude, location?.longitude, user?.latitude, user?.longitude]);
+
+  // Lista completă "Disponibil acum" (deschise + urgență), fără filtrare – ca înainte
+  const availableNowFullList = useMemo(() => {
+    const openNow = availableNowData.openNow;
+    const emergencyOnly = availableNowData.emergencyOnly;
+    return openNow.map((c) => ({ company: c, distance: undefined as number | undefined, isEmergency: false }))
+      .concat(emergencyOnly.map((c) => ({ company: c, distance: undefined as number | undefined, isEmergency: true })));
+  }, [availableNowData.openNow, availableNowData.emergencyOnly]);
+
+  // Filtrare pe distanță pentru "Disponibil acum" doar când userul a activat locația (butoanele de locație)
+  const availableNowFilteredByDistance = useMemo(() => {
+    if (selectedDistance === null || !effectiveLocation) return null;
+    const openNow = availableNowData.openNow;
+    const emergencyOnly = availableNowData.emergencyOnly;
+    const combined = openNow.map((c) => ({ company: c, isEmergency: false }))
+      .concat(emergencyOnly.map((c) => ({ company: c, isEmergency: true })));
+    const origin = effectiveLocation;
+    const withDistances = combined
+      .map(({ company, isEmergency }) => {
+        if (!company.latitude || !company.longitude) return { company, distance: undefined as number | undefined, isEmergency };
+        const distance = calculateDistance(origin.latitude, origin.longitude, company.latitude, company.longitude);
+        return { company, distance, isEmergency };
+      })
+      .filter((item) => item.distance === undefined || item.distance <= selectedDistance)
+      .sort((a, b) => {
+        if (a.distance === undefined) return 1;
+        if (b.distance === undefined) return -1;
+        return a.distance - b.distance;
+      });
+    return withDistances;
+  }, [availableNowData.openNow, availableNowData.emergencyOnly, selectedDistance, effectiveLocation]);
+
+  // Ce listă afișăm: cu locație activă și rază selectată → filtrată; altfel → lista completă
+  const availableNowDisplayList = (isLocationActive && selectedDistance !== null && availableNowFilteredByDistance !== null)
+    ? availableNowFilteredByDistance
+    : availableNowFullList;
 
   // Web map is rendered via Leaflet in an iframe/WebView-like HTML (no API key required).
 
@@ -244,52 +289,48 @@ export const UserDashboardScreen = () => {
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
   const [expandedAppointments, setExpandedAppointments] = useState<number[]>([]);
 
-  // Dashboard should show only a small, priority subset of appointments.
-  // Priority rules:
-  // - Include only: pending, confirmed, completed (ONLY if not reviewed yet)
-  // - Pick max 3 closest to now (past + future) by |appointment_date - now|
-  // - Completed with review should NOT be shown on dashboard
+  // Dashboard: max 3 appointments. Priority = 1) Completed fără review (mereu primele), 2) Restul după distanța de acum.
   const getPriorityDashboardAppointments = useCallback(
     (allAppointments: any[], reviews: any[]) => {
       const reviewedAppointmentIds = new Set(
         (reviews || [])
-          .map((r) => r?.appointment_id)
+          .map((r) => (r?.appointment_id ?? (r as any)?.appointment_id))
           .filter((id) => typeof id === 'number')
       );
 
       const now = Date.now();
+      const norm = (a: any) => String(a?.status || '').trim().toLowerCase();
+      const isCompletedNoReview = (a: any) => {
+        const id = a?.id;
+        return norm(a) === 'completed' && (typeof id !== 'number' || !reviewedAppointmentIds.has(id));
+      };
 
-      const eligible = (allAppointments || [])
-        .filter((a) => !a?.deleted)
-        .map((a) => {
-          const t = new Date(a?.appointment_date).getTime();
-          return { a, t, delta: Math.abs(t - now) };
+      // 1) Completed fără review: prioritate maximă, indiferent de dată (mereu în top)
+      const completedUnreviewed = (allAppointments || [])
+        .filter((a) => !a?.deleted && isCompletedNoReview(a))
+        .map((a) => ({ a, t: new Date(a?.appointment_date).getTime() }))
+        .filter((x) => x.a)
+        .sort((x, y) => (Number.isFinite(y.t) && Number.isFinite(x.t) ? y.t - x.t : 0)) // cele mai recente primele
+        .map((x) => x.a);
+
+      // 2) Altele eligibile: doar pending/confirmed (cancelled nu apar în top 3, doar la "Vezi toate")
+      const others = (allAppointments || [])
+        .filter((a) => !a?.deleted && !isCompletedNoReview(a))
+        .filter((a) => {
+          const status = norm(a);
+          return status === 'pending' || status === 'confirmed';
         })
-        .filter((x) => Number.isFinite(x.t))
-        .filter(({ a, t }) => {
-          const status = String(a?.status || '').toLowerCase();
-          const isPast = t < now;
+        .map((a) => ({
+          a,
+          delta: Math.abs(new Date(a?.appointment_date).getTime() - now),
+        }))
+        .filter((x) => Number.isFinite(x.delta))
+        .sort((x, y) => x.delta - y.delta)
+        .map((x) => x.a);
 
-          // Past appointments on dashboard: ONLY completed and ONLY if review not yet left
-          if (isPast) {
-            if (status !== 'completed') return false;
-            const id = a?.id;
-            return typeof id === 'number' ? !reviewedAppointmentIds.has(id) : true;
-          }
-
-          // Future appointments on dashboard: ONLY pending/confirmed
-          if (status === 'pending' || status === 'confirmed' || status === 'cancelled') return true;
-
-          // Future completed appointments shouldn't show on dashboard (completed are for review flow)
-          return false;
-        });
-
-      eligible.sort((x, y) => {
-        if (x.delta !== y.delta) return x.delta - y.delta;
-        return x.t - y.t;
-      });
-
-      return eligible.slice(0, 3).map((x) => x.a);
+      // Întâi toate completed-unreviewed (până la 3), apoi completăm cu "others" până la 3
+      const combined = [...completedUnreviewed, ...others];
+      return combined.slice(0, 3);
     },
     []
   );
@@ -325,10 +366,10 @@ export const UserDashboardScreen = () => {
   const priorityAppointments = getPriorityDashboardAppointments(userAppointments, myReviews);
   const hasAnyDashboardEligibleAppointments =
     (userAppointments || []).filter((a) => {
-      const status = String(a?.status || '').toLowerCase();
+      const status = String(a?.status || '').trim().toLowerCase();
       if (status === 'pending' || status === 'confirmed') return true;
       if (status === 'completed') {
-        const hasReviewed = myReviews.some((r) => r?.appointment_id === a?.id);
+        const hasReviewed = myReviews.some((r) => (r?.appointment_id ?? (r as any)?.appointment_id) === a?.id);
         return !hasReviewed;
       }
       return false;
@@ -337,8 +378,11 @@ export const UserDashboardScreen = () => {
   const isFocused = useIsFocused();
 
   useEffect(() => {
-    if (isFocused) fetchUserAppointments();
-  }, [isFocused, fetchUserAppointments]);
+    if (isFocused) {
+      fetchUserAppointments();
+      fetchMyReviews();
+    }
+  }, [isFocused, fetchUserAppointments, fetchMyReviews]);
 
   /**
    * Initial data load
@@ -674,19 +718,43 @@ export const UserDashboardScreen = () => {
     calculateCompanyDistances();
   }, [calculateCompanyDistances, isLocationActive, selectedDistance]);
 
+  const handleAvailableNowPress = async () => {
+    if (availableNowMode) {
+      setAvailableNowMode(false);
+      return;
+    }
+    setLoadingAvailableNow(true);
+    try {
+      const data = await ApiService.getAvailableNow();
+      setAvailableNowData(data);
+      setAvailableNowMode(true);
+    } catch (e) {
+      console.error('getAvailableNow error:', e);
+      setSnackMessage('Nu s-au putut încărca clinicile disponibile');
+      setSnackVisible(true);
+    } finally {
+      setLoadingAvailableNow(false);
+    }
+  };
+
   /**
    * Handle pull-to-refresh
    */
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    // Clear route distance cache on refresh to get fresh data
     clearRouteCache();
     await Promise.all([fetchCompanies(), fetchUserAppointments()]);
-
+    if (availableNowMode) {
+      try {
+        const data = await ApiService.getAvailableNow();
+        setAvailableNowData(data);
+      } catch {
+        // keep previous data
+      }
+    }
     if (isLocationActive) {
       calculateCompanyDistances();
     }
-
     setIsRefreshing(false);
   };
 
@@ -740,6 +808,10 @@ export const UserDashboardScreen = () => {
     setReviewAppointmentId(appointmentId ?? null);
     setReviewRating(5);
     setReviewComment('');
+    setReviewCategory('altele');
+    setReviewProfessionalism(5);
+    setReviewEfficiency(5);
+    setReviewFriendliness(5);
     setReviewVisible(true);
   };
 
@@ -749,7 +821,24 @@ export const UserDashboardScreen = () => {
     setReviewAppointmentId(null);
     setReviewRating(5);
     setReviewComment('');
+    setReviewCategory('altele');
+    setReviewProfessionalism(5);
+    setReviewEfficiency(5);
+    setReviewFriendliness(5);
   };
+
+  const renderStarRow = (label: string, value: number, setValue: (n: number) => void) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+      <Text style={{ marginRight: 8, minWidth: 120, fontSize: 14 }}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <TouchableOpacity key={i} onPress={() => setValue(i)} style={{ padding: 2 }}>
+            <MaterialCommunityIcons name={i <= value ? 'star' : 'star-outline'} size={26} color={i <= value ? '#f59e0b' : '#d1d5db'} />
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
 
   const submitReview = async () => {
     if (!reviewClinicId) return;
@@ -758,16 +847,22 @@ export const UserDashboardScreen = () => {
       setSnackVisible(true);
       return;
     }
-
     try {
       setReviewSubmitting(true);
-  const payload = { rating: reviewRating, comment: reviewComment, appointment_id: reviewAppointmentId };
-  const saved = await vetApi.reviews.create(reviewClinicId, payload as any);
-  setSnackMessage('Multumesc pentru review');
-  setSnackVisible(true);
-  // Refresh my reviews so the Review button hides immediately
-  try { await fetchMyReviews(); } catch {}
-  closeReview();
+      const payload = {
+        rating: reviewRating,
+        comment: reviewComment,
+        appointment_id: reviewAppointmentId,
+        category: reviewCategory,
+        professionalism: reviewProfessionalism,
+        efficiency: reviewEfficiency,
+        friendliness: reviewFriendliness,
+      };
+      await vetApi.reviews.create(reviewClinicId, payload as any);
+      setSnackMessage('Mulțumim pentru review!');
+      setSnackVisible(true);
+      try { await fetchMyReviews(); } catch {}
+      closeReview();
     } catch (err: any) {
       console.error('Submit review error:', err);
       setSnackMessage(err?.message || 'Failed to save review');
@@ -1167,8 +1262,8 @@ export const UserDashboardScreen = () => {
                         </View>
 
                         <View style={styles.appRowRight}>
-                          {mapped.status === 'completed' && (() => {
-                            const hasReviewed = myReviews.some((r) => r.appointment_id === a.id);
+                          {String(a?.status || '').toLowerCase() === 'completed' && (() => {
+                            const hasReviewed = myReviews.some((r) => (r?.appointment_id ?? (r as any)?.appointment_id) === a.id);
                             if (hasReviewed) return null;
                             return (
                               <TouchableOpacity
@@ -1273,7 +1368,26 @@ export const UserDashboardScreen = () => {
         {/* Find Clinics Section */}
         {!isServiceSearchActive && (
           <View style={styles.findClinicsSection}>
-            <Text style={styles.sectionTitle}>Găsește clinici</Text>
+            <View style={styles.findClinicsHeader}>
+              <Text style={styles.sectionTitle}>Găsește clinici</Text>
+              <TouchableOpacity
+                onPress={handleAvailableNowPress}
+                style={[styles.availableNowButton, availableNowMode && styles.availableNowButtonActive]}
+                disabled={loadingAvailableNow}
+                activeOpacity={0.8}
+              >
+                {loadingAvailableNow ? (
+                  <ActivityIndicator size="small" color={availableNowMode ? '#fff' : theme.colors.primary.main} />
+                ) : (
+                  <>
+                    <View style={[styles.availableNowDot, availableNowMode && styles.availableNowDotActive]} />
+                    <Text style={[styles.availableNowButtonText, availableNowMode && styles.availableNowButtonTextActive]}>
+                      Disponibil ACUM
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
 
             {/* Search moved to top bar */}
 
@@ -1434,7 +1548,7 @@ export const UserDashboardScreen = () => {
         )}
 
         {/* Empty State */}
-        {!error && filteredCompanies.length === 0 && (
+        {!error && !availableNowMode && filteredCompanies.length === 0 && (
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons name="magnify" size={64} color="#d1d5db" />
             <Text style={styles.emptyTitle}>No vet clinics found</Text>
@@ -1454,10 +1568,40 @@ export const UserDashboardScreen = () => {
           </View>
         )}
 
-        {/* Company Cards List */}
-        {!error && filteredCompanies.length > 0 && (
+        {/* Available now empty: no open clinics and no emergency (or user has no emergency flag) */}
+        {!error && availableNowMode && availableNowDisplayList.length === 0 && (
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons name="clock-outline" size={64} color="#d1d5db" />
+            <Text style={styles.emptyTitle}>
+              {isLocationActive && selectedDistance !== null && (availableNowData.openNow.length > 0 || availableNowData.emergencyOnly.length > 0)
+                ? 'Nicio clinică în raza selectată'
+                : 'Nicio clinică disponibilă acum'}
+            </Text>
+            <Text style={styles.emptySubtitle}>
+              {isLocationActive && selectedDistance !== null && (availableNowData.openNow.length > 0 || availableNowData.emergencyOnly.length > 0)
+                ? 'Există clinici disponibile, dar niciuna în raza aleasă. Încearcă o rază mai mare sau dezactivează filtrarea pe distanță.'
+                : 'Nu există clinici deschise în acest moment fără programări în derulare. Activează „Arată clinicile în regim de urgență” în Setări pentru a vedea clinicile care acceptă urgențe când sunt închise.'}
+            </Text>
+            <TouchableOpacity style={styles.clearFilterButton} onPress={() => setAvailableNowMode(false)}>
+              <Text style={styles.clearFilterButtonText}>Înapoi la toate clinicile</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Company Cards List (normal or "Disponibil acum") */}
+        {!error && (availableNowMode ? availableNowDisplayList.length > 0 : filteredCompanies.length > 0) && (
           <View style={styles.cardsContainer}>
-            {(searchQuery || '').trim().length > 0 && (
+            {availableNowMode && (
+              <View style={styles.availableNowSummary}>
+                <Text style={styles.availableNowSummaryText}>
+                  {availableNowData.openNow.length > 0 && `${availableNowData.openNow.length} deschise acum`}
+                  {availableNowData.openNow.length > 0 && availableNowData.emergencyOnly.length > 0 && ' · '}
+                  {availableNowData.emergencyOnly.length > 0 && `${availableNowData.emergencyOnly.length} în regim de urgență`}
+                  {isLocationActive && selectedDistance !== null && ' (filtrat după distanță)'}
+                </Text>
+              </View>
+            )}
+            {!availableNowMode && (searchQuery || '').trim().length > 0 && (
               <View style={styles.resultsSortSection}>
                 <Text style={styles.resultsSortLabel}>Sortează după:</Text>
                 <View style={styles.resultsSortBar}>
@@ -1492,21 +1636,31 @@ export const UserDashboardScreen = () => {
               </View>
             )}
 
-            {companiesWithDistance.map(({ company, distance, matchedService }) => {
-              // Show distance only when a distance filter is selected (not on "All")
-              const distanceProp = selectedDistance !== null ? distance : undefined;
-
-              return (
-                <VetCompanyCard
-                  key={company.id}
-                  company={company}
-                  distance={distanceProp}
-                  routeDistance={selectedDistance !== null ? getDistance(String(company.id)) : undefined}
-                  matchedService={matchedService}
-                  onPress={() => handleCompanyPress(company.id)}
-                />
-              );
-            })}
+            {availableNowMode
+              ? availableNowDisplayList.map(({ company, distance, isEmergency }) => (
+                  <VetCompanyCard
+                    key={company.id}
+                    company={company}
+                    distance={isLocationActive && selectedDistance !== null ? distance : undefined}
+                    routeDistance={isLocationActive && selectedDistance !== null ? getDistance(String(company.id)) : undefined}
+                    matchedService={undefined}
+                    emergencyOnly={isEmergency ? { emergency_fee: company.emergency_fee, emergency_contact_phone: company.emergency_contact_phone } : undefined}
+                    onPress={() => handleCompanyPress(company.id)}
+                  />
+                ))
+              : companiesWithDistance.map(({ company, distance, matchedService }) => {
+                  const distanceProp = selectedDistance !== null ? distance : undefined;
+                  return (
+                    <VetCompanyCard
+                      key={company.id}
+                      company={company}
+                      distance={distanceProp}
+                      routeDistance={selectedDistance !== null ? getDistance(String(company.id)) : undefined}
+                      matchedService={matchedService}
+                      onPress={() => handleCompanyPress(company.id)}
+                    />
+                  );
+                })}
           </View>
         )}
 
@@ -1692,23 +1846,31 @@ export const UserDashboardScreen = () => {
       {/* Review dialog */}
       <Portal>
         <Dialog visible={reviewVisible} onDismiss={closeReview}>
-          <Dialog.Title>Leave a review</Dialog.Title>
+          <Dialog.Title>Lasă un review</Dialog.Title>
           <Dialog.Content>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <TouchableOpacity key={i} onPress={() => setReviewRating(i)} style={{ padding: 4 }}>
-                  <MaterialCommunityIcons
-                    name={i <= reviewRating ? 'star' : 'star-outline'}
-                    size={28}
-                    color={i <= reviewRating ? '#f59e0b' : '#d1d5db'}
-                  />
-                </TouchableOpacity>
+            <Text style={{ marginBottom: 6, fontSize: 14, fontWeight: '600' }}>Categorie</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {(['pisica', 'caine', 'pasare', 'altele'] as const).map((cat) => (
+                <Chip
+                  key={cat}
+                  selected={reviewCategory === cat}
+                  onPress={() => setReviewCategory(cat)}
+                  style={{ marginRight: 0 }}
+                >
+                  {cat === 'pisica' ? 'Pisică' : cat === 'caine' ? 'Câine' : cat === 'pasare' ? 'Pasăre' : 'Altele'}
+                </Chip>
               ))}
             </View>
 
+            {renderStarRow('Profesionalitate', reviewProfessionalism, setReviewProfessionalism)}
+            {renderStarRow('Eficiență', reviewEfficiency, setReviewEfficiency)}
+            {renderStarRow('Amabilitate', reviewFriendliness, setReviewFriendliness)}
+            {renderStarRow('Overall experience', reviewRating, setReviewRating)}
+
+            <Text style={{ marginBottom: 6, marginTop: 8, fontSize: 14, fontWeight: '600' }}>Spune-ne experiența ta:</Text>
             <TextInput
               mode="outlined"
-              label="Comment (optional)"
+              placeholder="Comentariu (opțional)"
               value={reviewComment}
               onChangeText={setReviewComment}
               multiline
@@ -1716,8 +1878,8 @@ export const UserDashboardScreen = () => {
             />
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={closeReview} mode="text">Cancel</Button>
-            <Button onPress={submitReview} loading={reviewSubmitting} mode="contained">Done</Button>
+            <Button onPress={closeReview} mode="text">Anulare</Button>
+            <Button onPress={submitReview} loading={reviewSubmitting} mode="contained">Trimite</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -2179,6 +2341,54 @@ const styles = StyleSheet.create({
   findClinicsSection: {
     paddingHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.lg,
+  },
+  findClinicsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 8,
+  },
+  availableNowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: theme.colors.primary.main,
+    backgroundColor: 'transparent',
+  },
+  availableNowButtonActive: {
+    backgroundColor: theme.colors.primary.main,
+    borderColor: theme.colors.primary.main,
+  },
+  availableNowDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#22c55e',
+  },
+  availableNowDotActive: {
+    backgroundColor: '#ffffff',
+  },
+  availableNowButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.primary.main,
+  },
+  availableNowButtonTextActive: {
+    color: '#ffffff',
+  },
+  availableNowSummary: {
+    marginBottom: theme.spacing.md,
+  },
+  availableNowSummaryText: {
+    fontSize: 14,
+    color: theme.colors.neutral[600],
+    fontWeight: '600',
   },
   searchContainer: {
     marginBottom: theme.spacing.md,

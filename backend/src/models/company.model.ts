@@ -35,6 +35,9 @@ export const CompanyModel = {
       payment_methods = [],
       opening_hours = {},
       company_completed = true, // Default to true for new companies
+      emergency_available = false,
+      emergency_fee = null,
+      emergency_contact_phone = null,
     } = companyData;
 
     const query = `
@@ -43,14 +46,14 @@ export const CompanyModel = {
         address, city, state, zip_code, latitude, longitude,
         clinic_type, years_in_business, num_veterinarians,
         logo_url, photos, specializations, facilities, payment_methods, opening_hours,
-        company_completed
+        company_completed, emergency_available, emergency_fee, emergency_contact_phone
       )
       VALUES (
         $1, $2, $3, $4, $5, $6,
         $7, $8, $9, $10, $11, $12,
         $13, $14, $15,
         $16, $17, $18, $19, $20, $21,
-        $22
+        $22, $23, $24, $25
       )
       RETURNING *
     `;
@@ -78,6 +81,9 @@ export const CompanyModel = {
       payment_methods,
       JSON.stringify(opening_hours),
       company_completed,
+      emergency_available,
+      emergency_fee ?? null,
+      emergency_contact_phone ?? null,
     ];
 
     try {
@@ -263,6 +269,29 @@ export const CompanyModel = {
     if (companyData.company_completed !== undefined) {
       fields.push(`company_completed = $${paramCount}`);
       values.push(companyData.company_completed);
+      paramCount++;
+    }
+    if (companyData.emergency_available !== undefined) {
+      fields.push(`emergency_available = $${paramCount}`);
+      values.push(companyData.emergency_available);
+      paramCount++;
+    }
+    if (companyData.emergency_fee !== undefined && companyData.emergency_fee !== null) {
+      fields.push(`emergency_fee = $${paramCount}`);
+      values.push(companyData.emergency_fee);
+      paramCount++;
+    } else if (companyData.emergency_fee === null) {
+      fields.push(`emergency_fee = $${paramCount}`);
+      values.push(null);
+      paramCount++;
+    }
+    if (companyData.emergency_contact_phone !== undefined && companyData.emergency_contact_phone !== null) {
+      fields.push(`emergency_contact_phone = $${paramCount}`);
+      values.push(companyData.emergency_contact_phone);
+      paramCount++;
+    } else if (companyData.emergency_contact_phone === null) {
+      fields.push(`emergency_contact_phone = $${paramCount}`);
+      values.push(null);
       paramCount++;
     }
 
@@ -522,6 +551,9 @@ export const CompanyModel = {
       distance_km: row.distance_km !== undefined && row.distance_km !== null ? Number(row.distance_km) : undefined,
       photos: typeof row.photos === 'string' ? JSON.parse(row.photos) : row.photos,
       opening_hours: typeof row.opening_hours === 'string' ? JSON.parse(row.opening_hours) : row.opening_hours,
+      emergency_available: row.emergency_available === true,
+      emergency_fee: row.emergency_fee !== undefined && row.emergency_fee !== null ? Number(row.emergency_fee) : null,
+      emergency_contact_phone: row.emergency_contact_phone ?? null,
     };
   },
 };

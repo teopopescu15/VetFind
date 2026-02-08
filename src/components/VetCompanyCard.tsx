@@ -33,6 +33,8 @@ interface VetCompanyCardProps {
   distance?: number; // Haversine distance in km (fallback)
   routeDistance?: RouteDistance; // Google Routes driving distance (preferred)
   matchedService?: CompanyService; // Optional service matched by a search, used to display price
+  /** When set, show red "Disponibil in regim de urgenta" badge and expandable details (fee, contact) */
+  emergencyOnly?: { emergency_fee?: number | null; emergency_contact_phone?: string | null };
   onPress: () => void;
 }
 
@@ -117,9 +119,10 @@ const getClinicTypeIcon = (clinicType: string): keyof typeof MaterialCommunityIc
  * VetCompanyCard Component - Memoized for performance
  * Only re-renders when props actually change
  */
-const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedService, onPress }: VetCompanyCardProps) => {
+const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedService, emergencyOnly, onPress }: VetCompanyCardProps) => {
   const { colors, borderRadius, responsive } = useTheme();
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
+  const [emergencyDetailsExpanded, setEmergencyDetailsExpanded] = React.useState(false);
 
   const todaySchedule = getTodaySchedule(company.opening_hours);
   const { text: hoursText, isOpen } = formatOpeningHours(todaySchedule);
@@ -259,6 +262,11 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
             </View>
           </View>
 
+          {/* Săgeată laterală sub logo pentru profil complet */}
+          <View style={styles.chevronRow}>
+            <Ionicons name="chevron-forward" size={22} color="#9ca3af" />
+          </View>
+
           {/* Company Info Section */}
           <Card.Content style={styles.cardContent}>
               {/* Header row: company name */}
@@ -309,18 +317,43 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
               </Text>
             </View>
 
-            {/* Opening Hours Status */}
-            <View style={[styles.statusBar, isOpen ? styles.statusOpen : styles.statusClosed]}>
-              <View style={[styles.statusDot, isOpen ? styles.dotOpen : styles.dotClosed]} />
-              <Text style={[styles.statusText, isOpen ? styles.statusTextOpen : styles.statusTextClosed]}>
-                {hoursText}
-              </Text>
-            </View>
-
-            {/* Chevron Indicator */}
-            <View style={styles.chevronContainer}>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-            </View>
+            {/* Când e regim de urgență: bandă mare roșie "Disponibil în regim de urgență - Vezi detalii" în loc de Închis */}
+            {emergencyOnly ? (
+              <>
+                <TouchableOpacity
+                  style={styles.emergencyStatusBar}
+                  onPress={() => setEmergencyDetailsExpanded((v) => !v)}
+                  activeOpacity={0.85}
+                >
+                  <MaterialCommunityIcons name="alert-circle" size={22} color="#dc2626" />
+                  <Text style={styles.emergencyStatusBarTitle}>Disponibil în regim de urgență</Text>
+                  <Text style={styles.emergencyStatusBarSub}>Vezi detalii</Text>
+                  <Ionicons name={emergencyDetailsExpanded ? 'chevron-up' : 'chevron-down'} size={22} color="#dc2626" />
+                </TouchableOpacity>
+                {emergencyDetailsExpanded && (
+                  <View style={styles.emergencyDetails}>
+                    {emergencyOnly.emergency_fee != null && Number(emergencyOnly.emergency_fee) >= 0 && (
+                      <Text style={styles.emergencyDetailText}>
+                        Taxă urgență: {formatPriceRange(emergencyOnly.emergency_fee, null)}
+                      </Text>
+                    )}
+                    {(emergencyOnly.emergency_contact_phone || company.phone) && (
+                      <Text style={styles.emergencyDetailText}>
+                        Contact: {emergencyOnly.emergency_contact_phone || company.phone}
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </>
+            ) : (
+              /* Opening Hours Status (când nu e regim urgență) */
+              <View style={[styles.statusBar, isOpen ? styles.statusOpen : styles.statusClosed]}>
+                <View style={[styles.statusDot, isOpen ? styles.dotOpen : styles.dotClosed]} />
+                <Text style={[styles.statusText, isOpen ? styles.statusTextOpen : styles.statusTextClosed]}>
+                  {hoursText}
+                </Text>
+              </View>
+            )}
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -335,14 +368,14 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
 export const VetCompanyCard = memo(
   VetCompanyCardComponent,
   (prevProps, nextProps) => {
-    // Return true if props are equal (should NOT re-render)
     return (
       prevProps.company.id === nextProps.company.id &&
       prevProps.company.logo_url === nextProps.company.logo_url &&
       prevProps.company.photos?.[0] === nextProps.company.photos?.[0] &&
       prevProps.distance === nextProps.distance &&
       prevProps.routeDistance?.distanceMeters === nextProps.routeDistance?.distanceMeters &&
-      prevProps.matchedService?.id === nextProps.matchedService?.id
+      prevProps.matchedService?.id === nextProps.matchedService?.id &&
+      !!prevProps.emergencyOnly === !!nextProps.emergencyOnly
     );
   }
 );
@@ -531,6 +564,45 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     flex: 1,
   },
+  emergencyStatusBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginTop: 8,
+    backgroundColor: 'rgba(220, 38, 38, 0.12)',
+    borderWidth: 2,
+    borderColor: '#dc2626',
+    gap: 10,
+  },
+  emergencyStatusBarTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#dc2626',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  emergencyStatusBarSub: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#b91c1c',
+    fontStyle: 'italic',
+  },
+  emergencyDetails: {
+    marginTop: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(0,0,0,0.04)',
+    borderRadius: 8,
+    gap: 6,
+  },
+  emergencyDetailText: {
+    fontSize: 14,
+    color: '#374151',
+  },
   statusBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -567,11 +639,14 @@ const styles = StyleSheet.create({
   statusTextClosed: {
     color: '#dc2626',
   },
-  chevronContainer: {
-    position: 'absolute',
-    right: 16,
-    top: '50%',
-    marginTop: 16,
+  chevronRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
   },
 });
 

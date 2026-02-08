@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,10 +8,11 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { Text, Chip } from 'react-native-paper';
+import { Text, Chip, Button, TextInput, Dialog, Portal, Snackbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ApiService } from '../services/api';
+import { vetApi } from '../services/vetApi';
 import type { Appointment } from '../types/vet.types';
 import { theme } from '../theme';
 
@@ -25,9 +26,37 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming');
   const [refreshing, setRefreshing] = useState(false);
 
+  // Review state
+  const [myReviews, setMyReviews] = useState<any[]>([]);
+  const [reviewVisible, setReviewVisible] = useState(false);
+  const [reviewClinicId, setReviewClinicId] = useState<number | null>(null);
+  const [reviewAppointmentId, setReviewAppointmentId] = useState<number | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewCategory, setReviewCategory] = useState<'pisica' | 'caine' | 'pasare' | 'altele'>('altele');
+  const [reviewProfessionalism, setReviewProfessionalism] = useState(5);
+  const [reviewEfficiency, setReviewEfficiency] = useState(5);
+  const [reviewFriendliness, setReviewFriendliness] = useState(5);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [snackMessage, setSnackMessage] = useState('');
+  const [snackVisible, setSnackVisible] = useState(false);
+
+  const fetchMyReviews = useCallback(async () => {
+    try {
+      const data = await vetApi.reviews.getMyReviews();
+      setMyReviews(data || []);
+    } catch (err) {
+      setMyReviews([]);
+    }
+  }, []);
+
   useEffect(() => {
     loadAppointments();
   }, [filter]);
+
+  useEffect(() => {
+    fetchMyReviews();
+  }, [fetchMyReviews]);
 
   const loadAppointments = async () => {
     try {
@@ -73,6 +102,76 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
       await loadAppointments();
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const openReview = (clinicId: number | null, appointmentId?: number | null) => {
+    if (!clinicId) return;
+    setReviewClinicId(clinicId);
+    setReviewAppointmentId(appointmentId ?? null);
+    setReviewRating(5);
+    setReviewComment('');
+    setReviewCategory('altele');
+    setReviewProfessionalism(5);
+    setReviewEfficiency(5);
+    setReviewFriendliness(5);
+    setReviewVisible(true);
+  };
+
+  const closeReview = () => {
+    setReviewVisible(false);
+    setReviewClinicId(null);
+    setReviewAppointmentId(null);
+    setReviewRating(5);
+    setReviewComment('');
+    setReviewCategory('altele');
+    setReviewProfessionalism(5);
+    setReviewEfficiency(5);
+    setReviewFriendliness(5);
+  };
+
+  const renderStarRow = (label: string, value: number, setValue: (n: number) => void) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+      <Text style={{ marginRight: 8, minWidth: 120, fontSize: 14 }}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <TouchableOpacity key={i} onPress={() => setValue(i)} style={{ padding: 2 }}>
+            <MaterialCommunityIcons name={i <= value ? 'star' : 'star-outline'} size={26} color={i <= value ? '#f59e0b' : '#d1d5db'} />
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  const submitReview = async () => {
+    if (!reviewClinicId) return;
+    if (reviewRating < 1 || reviewRating > 5) {
+      setSnackMessage('Rating must be between 1 and 5');
+      setSnackVisible(true);
+      return;
+    }
+    try {
+      setReviewSubmitting(true);
+      const payload = {
+        rating: reviewRating,
+        comment: reviewComment,
+        appointment_id: reviewAppointmentId,
+        category: reviewCategory,
+        professionalism: reviewProfessionalism,
+        efficiency: reviewEfficiency,
+        friendliness: reviewFriendliness,
+      };
+      await vetApi.reviews.create(reviewClinicId, payload as any);
+      setSnackMessage('Mulțumim pentru review!');
+      setSnackVisible(true);
+      await fetchMyReviews();
+      await loadAppointments();
+      closeReview();
+    } catch (err: any) {
+      setSnackMessage(err?.message || 'Nu s-a putut salva review-ul');
+      setSnackVisible(true);
+    } finally {
+      setReviewSubmitting(false);
     }
   };
 
@@ -270,6 +369,23 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         )}
+
+        {String((item as any).status || item.status || '').toLowerCase() === 'completed' && (() => {
+          const hasReviewed = myReviews.some((r) => (r?.appointment_id ?? (r as any)?.appointment_id) === item.id);
+          if (hasReviewed) return null;
+          const clinicId = (item as any).company_id ?? item.clinic_id ?? null;
+          if (!clinicId) return null;
+          return (
+            <TouchableOpacity
+              style={styles.reviewButton}
+              onPress={() => openReview(clinicId, item.id ?? undefined)}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="star-outline" size={18} color={theme.colors.primary.main} />
+              <Text style={styles.reviewButtonText}>Lasă un review</Text>
+            </TouchableOpacity>
+          );
+        })()}
       </View>
     );
   };
@@ -343,6 +459,54 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
           refreshing={refreshing}
         />
       )}
+
+      <Portal>
+        <Dialog visible={reviewVisible} onDismiss={closeReview}>
+          <Dialog.Title>Lasă un review</Dialog.Title>
+          <Dialog.Content>
+            <Text style={{ marginBottom: 6, fontSize: 14, fontWeight: '600' }}>Categorie</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {(['pisica', 'caine', 'pasare', 'altele'] as const).map((cat) => (
+                <Chip
+                  key={cat}
+                  selected={reviewCategory === cat}
+                  onPress={() => setReviewCategory(cat)}
+                  style={{ marginRight: 0 }}
+                >
+                  {cat === 'pisica' ? 'Pisică' : cat === 'caine' ? 'Câine' : cat === 'pasare' ? 'Pasăre' : 'Altele'}
+                </Chip>
+              ))}
+            </View>
+
+            {renderStarRow('Profesionalitate', reviewProfessionalism, setReviewProfessionalism)}
+            {renderStarRow('Eficiență', reviewEfficiency, setReviewEfficiency)}
+            {renderStarRow('Amabilitate', reviewFriendliness, setReviewFriendliness)}
+            {renderStarRow('Overall experience', reviewRating, setReviewRating)}
+
+            <Text style={{ marginBottom: 6, marginTop: 8, fontSize: 14, fontWeight: '600' }}>Spune-ne experiența ta:</Text>
+            <TextInput
+              mode="outlined"
+              placeholder="Comentariu (opțional)"
+              value={reviewComment}
+              onChangeText={setReviewComment}
+              multiline
+              numberOfLines={4}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={closeReview} mode="text">Anulare</Button>
+            <Button onPress={submitReview} loading={reviewSubmitting} mode="contained">Trimite</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+      <Snackbar
+        visible={snackVisible}
+        onDismiss={() => setSnackVisible(false)}
+        duration={3000}
+        action={{ label: 'OK', onPress: () => setSnackVisible(false) }}
+      >
+        {snackMessage}
+      </Snackbar>
     </View>
   );
 };
@@ -568,7 +732,24 @@ const styles = StyleSheet.create({
     color: theme.colors.error.main,
     fontSize: 14,
     fontWeight: '800',
-  }
+  },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: theme.colors.primary[50] || 'rgba(59, 130, 246, 0.1)',
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.primary[200] || theme.colors.primary.main,
+  },
+  reviewButtonText: {
+    color: theme.colors.primary.main,
+    fontSize: 14,
+    fontWeight: '800',
+  },
 });
 
 export default MyAppointmentsScreen;

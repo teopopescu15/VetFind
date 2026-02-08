@@ -16,6 +16,7 @@ export interface User {
   country?: string;
   latitude?: number;
   longitude?: number;
+  show_emergency_clinics?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -46,6 +47,7 @@ export interface SignupData {
   country?: string;
   latitude?: number | null;
   longitude?: number | null;
+  show_emergency_clinics?: boolean;
 }
 
 export interface AuthResponse {

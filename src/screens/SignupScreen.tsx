@@ -74,6 +74,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   });
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
+  const [showEmergencyClinics, setShowEmergencyClinics] = useState(false);
 
   // Inline validation state (keeps user on the same progress with data preserved)
   const [touched, setTouched] = useState({
@@ -237,18 +238,21 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         role,
       };
 
-      // Include address data for pet owners
-      if (role === 'user' && homeAddress.street?.trim()) {
-        signupData.street = homeAddress.street.trim();
-        signupData.street_number = homeAddress.streetNumber?.trim() || null;
-        signupData.building = homeAddress.building?.trim() || null;
-        signupData.apartment = homeAddress.apartment?.trim() || null;
-        signupData.city = homeAddress.city?.trim() || null;
-        signupData.county = homeAddress.county || null;
-        signupData.postal_code = homeAddress.postalCode?.trim() || null;
-        signupData.country = homeAddress.country?.trim() || 'Romania';
-        signupData.latitude = homeAddress.latitude;
-        signupData.longitude = homeAddress.longitude;
+      // Include address data and urgency preference for pet owners
+      if (role === 'user') {
+        if (homeAddress.street?.trim()) {
+          signupData.street = homeAddress.street.trim();
+          signupData.street_number = homeAddress.streetNumber?.trim() || null;
+          signupData.building = homeAddress.building?.trim() || null;
+          signupData.apartment = homeAddress.apartment?.trim() || null;
+          signupData.city = homeAddress.city?.trim() || null;
+          signupData.county = homeAddress.county || null;
+          signupData.postal_code = homeAddress.postalCode?.trim() || null;
+          signupData.country = homeAddress.country?.trim() || 'Romania';
+          signupData.latitude = homeAddress.latitude;
+          signupData.longitude = homeAddress.longitude;
+        }
+        signupData.show_emergency_clinics = showEmergencyClinics;
       }
 
       await signup(signupData);
@@ -629,6 +633,19 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                       </Text>
                     </View>
                   )}
+
+                  <TouchableOpacity
+                    style={styles.urgencyCheckRow}
+                    onPress={() => setShowEmergencyClinics((v) => !v)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.checkbox, showEmergencyClinics && styles.checkboxChecked]}>
+                      {showEmergencyClinics && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                    <Text style={styles.urgencyCheckLabel}>
+                      Arată clinicile disponibile în regim de urgență când sunt închise
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -1217,6 +1234,32 @@ const styles = StyleSheet.create({
     color: '#10b981',
     marginLeft: 6,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  urgencyCheckRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingVertical: 8,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#8b5cf6',
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: '#8b5cf6',
+  },
+  urgencyCheckLabel: {
+    flex: 1,
+    fontSize: 13,
+    color: '#333333',
+    lineHeight: 18,
   },
 });
 

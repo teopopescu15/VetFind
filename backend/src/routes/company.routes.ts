@@ -11,6 +11,9 @@ const companyController = createCompanyController();
 // Protected user-specific route (must come before GET /:id)
 router.get('/my-company', authMiddleware, companyController.getMyCompany); // Get current user's company
 
+// Available now (pet owner: open clinics without in-progress appointment; optional emergency list)
+router.get('/available-now', authMiddleware, requireRole('user'), companyController.getAvailableNow);
+
 // Root path handlers
 router.route('/')
   .get(companyController.search) // Public: Get all companies or search with filters

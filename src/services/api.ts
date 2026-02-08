@@ -480,6 +480,25 @@ const createApiService = () => {
       }
     },
 
+    /**
+     * Get clinics available now: open (no confirmed appointment in progress) and optionally emergency-only list.
+     * Requires auth (pet owner). Emergency list only if user has show_emergency_clinics.
+     */
+    async getAvailableNow(accessToken?: string): Promise<{ openNow: Company[]; emergencyOnly: Company[] }> {
+      try {
+        const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+        const response = await request('/companies/available-now', 'GET', undefined, token || undefined);
+        if (!response.success || !response.data) {
+          return { openNow: [], emergencyOnly: [] };
+        }
+        const { openNow = [], emergencyOnly = [] } = response.data;
+        return { openNow, emergencyOnly };
+      } catch (error: any) {
+        console.error('getAvailableNow error:', error);
+        return { openNow: [], emergencyOnly: [] };
+      }
+    },
+
     // ==================== Company Service Methods ====================
 
     /**

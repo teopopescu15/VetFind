@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, TextInput, Button, Snackbar } from 'react-native-paper';
@@ -45,6 +45,12 @@ export const CompanySettingsScreen = () => {
   }), [company]);
 
   const [form, setForm] = useState<CompanySettingsForm>(initial);
+
+  // Completó formularul cu valorile din company când acestea se încarcă sau se actualizează
+  useEffect(() => {
+    setForm(initial);
+  }, [initial]);
+
   const [saving, setSaving] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -110,16 +116,15 @@ export const CompanySettingsScreen = () => {
       return;
     }
 
-    const coords = await doGeocode();
-    if (!coords) return;
+    if (!validate()) return;
 
     try {
       setSaving(true);
 
-      // Backwards-compatible address line
       const addressLine = [form.street.trim(), form.streetNumber.trim()].filter(Boolean).join(' ');
+      const coords = await doGeocode();
 
-      await updateCompany({
+      const payload: Parameters<typeof updateCompany>[1] = {
         name: form.name.trim(),
         phone: form.phone.trim(),
         cui: form.cui.trim() || undefined,
@@ -132,14 +137,18 @@ export const CompanySettingsScreen = () => {
         county: (form.county as any) || undefined,
         postal_code: form.postalCode.trim(),
 
-        // Deprecated fields for older UI/API consumers
         address: addressLine,
         state: (form.county as any) || undefined,
         zip_code: form.postalCode.trim(),
+      };
 
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-      });
+      if (coords) {
+        payload.latitude = coords.latitude;
+        payload.longitude = coords.longitude;
+      }
+      // Când geocoding eșuează, nu trimitem lat/lng ca să nu ștergem coordonatele existente
+
+      await updateCompany(payload);
 
       setSnackMessage('Setările clinicii au fost actualizate');
       setSnackVisible(true);

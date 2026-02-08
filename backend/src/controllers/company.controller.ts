@@ -3,8 +3,25 @@ import { CompanyModel } from '../models/company.model';
 import { CompanyServiceModel } from '../models/companyService.model';
 import { createReviewModel } from '../models/review.model';
 import { createAppointmentModel } from '../models/appointment.model';
-import { CreateCompanyDTO, UpdateCompanyDTO, CompanySearchFilters } from '../types/company.types';
+import { CreateCompanyDTO, UpdateCompanyDTO, CompanySearchFilters, OpeningHours } from '../types/company.types';
+import { pool } from '../config/database';
 import fs from 'fs';
+
+const DAY_KEYS: (keyof OpeningHours)[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+function isOpenNow(openingHours: OpeningHours | null | undefined): boolean {
+  if (!openingHours) return false;
+  const now = new Date();
+  const dayKey = DAY_KEYS[now.getDay()];
+  const schedule = openingHours[dayKey];
+  if (!schedule || schedule.closed || !schedule.open || !schedule.close) return false;
+  const [openH, openM] = schedule.open.split(':').map(Number);
+  const [closeH, closeM] = schedule.close.split(':').map(Number);
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const openMinutes = openH * 60 + openM;
+  const closeMinutes = closeH * 60 + closeM;
+  return currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+}
 
 // Factory function to create company controller
 export const createCompanyController = () => {
@@ -341,6 +358,11 @@ export const createCompanyController = () => {
         if (req.body.payment_methods !== undefined) updateData.payment_methods = req.body.payment_methods;
         if (req.body.opening_hours !== undefined) updateData.opening_hours = req.body.opening_hours;
         if (req.body.is_active !== undefined) updateData.is_active = req.body.is_active;
+        if ('emergency_available' in req.body) updateData.emergency_available = !!req.body.emergency_available;
+        if (req.body.emergency_fee !== undefined) updateData.emergency_fee = req.body.emergency_fee;
+        if (req.body.emergency_contact_phone !== undefined) updateData.emergency_contact_phone = req.body.emergency_contact_phone;
+        if (req.body.emergency_fee === null) updateData.emergency_fee = null;
+        if (req.body.emergency_contact_phone === null) updateData.emergency_contact_phone = null;
 
         const updatedCompany = await CompanyModel.update(companyId, updateData);
 
@@ -442,6 +464,58 @@ export const createCompanyController = () => {
         });
       } catch (error: any) {
         console.error('Error searching companies:', error);
+        next(error);
+      }
+    },
+
+    /**
+     * Get clinics available now: open (no in-progress appointment) + all closed clinics with emergency enabled.
+     * GET /api/companies/available-now
+     * Requires: authentication, role: user (pet owner)
+     */
+    async getAvailableNow(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const userId = req.user?.id;
+        if (!userId) {
+          res.status(401).json({ success: false, message: 'Unauthorized' });
+          return;
+        }
+
+        const companies = await CompanyModel.findAll({});
+        const activeCompanies = companies.filter((c: any) => c.is_active !== false);
+
+        const now = new Date();
+        const companyIdsWithInProgress = new Set<number>();
+        const inProgressResult = await pool.query(
+          `SELECT DISTINCT company_id FROM appointments
+           WHERE status = 'confirmed'
+             AND (deleted = FALSE OR deleted IS NULL)
+             AND appointment_date <= $1
+             AND (appointment_date + (COALESCE(total_duration_minutes, 30) || ' minutes')::interval) >= $1`,
+          [now]
+        );
+        inProgressResult.rows.forEach((r: any) => companyIdsWithInProgress.add(Number(r.company_id)));
+
+        const openNow: any[] = [];
+        const emergencyOnly: any[] = [];
+
+        for (const company of activeCompanies) {
+          const open = isOpenNow(company.opening_hours);
+          const inProgress = companyIdsWithInProgress.has(company.id);
+
+          if (open && !inProgress) {
+            openNow.push(company);
+          } else if (!open && company.emergency_available === true) {
+            emergencyOnly.push(company);
+          }
+        }
+
+        res.status(200).json({
+          success: true,
+          data: { openNow, emergencyOnly },
+        });
+      } catch (error: any) {
+        console.error('Error getAvailableNow:', error);
         next(error);
       }
     },

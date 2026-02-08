@@ -20,7 +20,30 @@ const getFirstName = (fullName?: string): string => {
   return trimmed.split(/\s+/)[0];
 };
 
-const Stars = ({ value }: { value: number }) => {
+const getTimeAgo = (dateStr?: string | null): string => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (!Number.isFinite(date.getTime())) return '';
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMins < 1) return 'Acum o clipă';
+  if (diffMins < 60) return `Acum ${diffMins} ${diffMins === 1 ? 'minut' : 'minute'}`;
+  if (diffHours < 24) return `Acum ${diffHours} ${diffHours === 1 ? 'oră' : 'ore'}`;
+  if (diffDays === 0) return 'Astăzi';
+  if (diffDays === 1) return 'Ieri';
+  if (diffDays < 7) return `Acum ${diffDays} zile`;
+  if (diffWeeks < 4) return `Acum ${diffWeeks} ${diffWeeks === 1 ? 'săptămână' : 'săptămâni'}`;
+  if (diffMonths < 12) return `Acum ${diffMonths} ${diffMonths === 1 ? 'lună' : 'luni'}`;
+  const diffYears = Math.floor(diffDays / 365);
+  return `Acum ${diffYears} ${diffYears === 1 ? 'an' : 'ani'}`;
+};
+
+const Stars = ({ value, size = 16 }: { value: number; size?: number }) => {
   const v = Math.max(0, Math.min(5, Math.round(value)));
   return (
     <View style={styles.starsRow}>
@@ -28,7 +51,7 @@ const Stars = ({ value }: { value: number }) => {
         <MaterialCommunityIcons
           key={i}
           name={i < v ? 'star' : 'star-outline'}
-          size={16}
+          size={size}
           color={i < v ? '#fbbf24' : '#d1d5db'}
         />
       ))}
@@ -109,12 +132,52 @@ export const CompanyReviewsScreen = () => {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.listContent}>
+          <View style={styles.summaryBlock}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryRating}>
+                {(reviews.reduce((s, r) => s + (r.rating ?? 0), 0) / reviews.length).toFixed(1)}
+              </Text>
+              <Text style={styles.summaryCount}>({reviews.length} {reviews.length === 1 ? 'recenzie' : 'recenzii'})</Text>
+            </View>
+            <Stars value={reviews.reduce((s, r) => s + (r.rating ?? 0), 0) / reviews.length} size={22} />
+            <View style={styles.summarySubScores}>
+              <View style={styles.summarySubCol}>
+                <Text style={styles.summarySubLabel}>Profesionalitate</Text>
+                <Stars value={reviews.reduce((s, r) => s + (r.professionalism ?? 5), 0) / reviews.length} size={18} />
+              </View>
+              <View style={styles.summarySubCol}>
+                <Text style={styles.summarySubLabel}>Eficiență</Text>
+                <Stars value={reviews.reduce((s, r) => s + (r.efficiency ?? 5), 0) / reviews.length} size={18} />
+              </View>
+              <View style={styles.summarySubCol}>
+                <Text style={styles.summarySubLabel}>Amabilitate</Text>
+                <Stars value={reviews.reduce((s, r) => s + (r.friendliness ?? 5), 0) / reviews.length} size={18} />
+              </View>
+            </View>
+          </View>
           {reviews.map((r, idx) => (
             <Card key={r.id ?? idx} style={styles.reviewCard}>
               <Card.Content>
                 <View style={styles.reviewHeaderRow}>
-                  <Text style={styles.author}>{getFirstName(r.user_name)}</Text>
+                  <View>
+                    <Text style={styles.author}>{getFirstName(r.user_name)}</Text>
+                    {(r.created_at || (r as any).created_at) ? (
+                      <Text style={styles.reviewDate}>{getTimeAgo(r.created_at ?? (r as any).created_at)}</Text>
+                    ) : null}
+                  </View>
                   <Stars value={r.rating} />
+                </View>
+                <View style={styles.reviewMetaRow}>
+                  {r.category && (
+                    <Text style={styles.reviewMeta}>
+                      Categorie: {r.category === 'pisica' ? 'Pisică' : r.category === 'caine' ? 'Câine' : r.category === 'pasare' ? 'Pasăre' : 'Altele'}
+                    </Text>
+                  )}
+                  {(r.appointment_service_names ?? (r as any).appointment_service_names) ? (
+                    <Text style={styles.reviewMeta} numberOfLines={2}>
+                      Serviciu: {r.appointment_service_names ?? (r as any).appointment_service_names}
+                    </Text>
+                  ) : null}
                 </View>
                 {r.comment ? (
                   <Text style={styles.comment}>{r.comment}</Text>
@@ -179,6 +242,48 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
+  summaryBlock: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 8,
+  },
+  summaryRating: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  summaryCount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginLeft: 4,
+  },
+  summarySubScores: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  summarySubCol: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  summarySubLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
   reviewCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
@@ -196,9 +301,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
   },
+  reviewDate: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
   starsRow: {
     flexDirection: 'row',
     gap: 2,
+  },
+  reviewMetaRow: {
+    marginBottom: 8,
+    gap: 2,
+  },
+  reviewMeta: {
+    fontSize: 13,
+    color: '#6b7280',
   },
   comment: {
     fontSize: 14,

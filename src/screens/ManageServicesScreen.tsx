@@ -1,17 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, TextInput, Alert, ScrollView } from 'react-native';
+import { View, StyleSheet, FlatList, TextInput, Alert, ScrollView, Switch } from 'react-native';
 import { Text, Button, Card, ActivityIndicator, IconButton, Menu, Surface, Chip, Divider } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCompany } from '../context/CompanyContext';
 import { ApiService } from '../services/api';
 import { CompanyService, ServiceCategoryLabels, ServiceCategoryType } from '../types/company.types';
 import { useAuth } from '../context/AuthContext';
+import { theme } from '../theme';
 
 export const ManageServicesScreen: React.FC = () => {
-  const { company, refreshCompany } = useCompany();
+  const { company, refreshCompany, updateCompany } = useCompany();
   const { accessToken } = useAuth();
   const [services, setServices] = useState<CompanyService[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Regim de urgență (salvat pe company)
+  const [emergencyAvailable, setEmergencyAvailable] = useState(false);
+  const [emergencyFee, setEmergencyFee] = useState('');
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
+  const [emergencySaving, setEmergencySaving] = useState(false);
 
   // Form state for adding
   const [name, setName] = useState('');
@@ -24,6 +31,15 @@ export const ManageServicesScreen: React.FC = () => {
 
   useEffect(() => {
     loadServices();
+  }, [company]);
+
+  useEffect(() => {
+    if (company) {
+      setEmergencyAvailable((company as any).emergency_available === true);
+      const fee = (company as any).emergency_fee;
+      setEmergencyFee(fee != null && fee !== '' ? String(fee) : '');
+      setEmergencyContactPhone(String((company as any).emergency_contact_phone ?? ''));
+    }
   }, [company]);
 
   const loadServices = async () => {
@@ -84,6 +100,26 @@ export const ManageServicesScreen: React.FC = () => {
       Alert.alert('Error', err.message || 'Failed to create service');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const saveEmergencySettings = async () => {
+    if (!company) return;
+    try {
+      setEmergencySaving(true);
+      const feeVal = emergencyFee.trim();
+      const phoneVal = emergencyContactPhone.trim();
+      await updateCompany({
+        emergency_available: Boolean(emergencyAvailable),
+        emergency_fee: feeVal ? parseFloat(feeVal) : (null as any),
+        emergency_contact_phone: phoneVal || (null as any),
+      });
+      Alert.alert('Salvat', 'Setările de urgență au fost actualizate.');
+    } catch (err: any) {
+      console.error('Save emergency settings error:', err);
+      Alert.alert('Eroare', err?.message || 'Nu s-au putut salva setările de urgență.');
+    } finally {
+      setEmergencySaving(false);
     }
   };
 
@@ -202,6 +238,56 @@ export const ManageServicesScreen: React.FC = () => {
             ))}
           </View>
         )}
+
+        {/* Regim de urgență */}
+        <Surface style={styles.emergencySection} elevation={3}>
+          <View style={styles.emergencyHeader}>
+            <MaterialCommunityIcons name="alert-circle" size={24} color="#dc2626" />
+            <Text style={styles.emergencySectionTitle}>Regim de urgență</Text>
+          </View>
+          <Text style={styles.emergencySubtitle}>
+            Când clinica e închisă, proprietarii cu opțiunea de urgență activată te vor vedea cu taxă și contact.
+          </Text>
+          <View style={styles.emergencyRow}>
+            <Text style={styles.emergencyLabel}>Acceptă urgențe când clinica e închisă</Text>
+            <Switch
+              value={emergencyAvailable}
+              onValueChange={setEmergencyAvailable}
+              trackColor={{ false: theme.colors.neutral[300], true: '#dc2626' }}
+              thumbColor="#fff"
+            />
+          </View>
+          {emergencyAvailable && (
+            <>
+              <TextInput
+                placeholder="Taxă urgență (RON)"
+                keyboardType="decimal-pad"
+                value={emergencyFee}
+                onChangeText={setEmergencyFee}
+                style={styles.input}
+                placeholderTextColor="#9ca3af"
+              />
+              <TextInput
+                placeholder="Telefon urgență (ex: +40 7xx xxx xxx)"
+                value={emergencyContactPhone}
+                onChangeText={setEmergencyContactPhone}
+                style={styles.input}
+                placeholderTextColor="#9ca3af"
+                keyboardType="phone-pad"
+              />
+            </>
+          )}
+          <Button
+            mode="contained"
+            onPress={saveEmergencySettings}
+            loading={emergencySaving}
+            disabled={emergencySaving}
+            style={styles.emergencySaveButton}
+            buttonColor="#dc2626"
+          >
+            Salvează setările de urgență
+          </Button>
+        </Surface>
 
         {/* Add Service Form */}
         <Surface style={styles.formSection} elevation={3}>
@@ -527,6 +613,50 @@ const styles = StyleSheet.create({
   },
   addButtonContent: {
     paddingVertical: 6,
+  },
+  emergencySection: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
+    padding: 24,
+    borderRadius: 20,
+    backgroundColor: '#fffbfb',
+    borderWidth: 1,
+    borderColor: 'rgba(220, 38, 38, 0.2)',
+  },
+  emergencyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  emergencySectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  emergencySubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  emergencyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingVertical: 4,
+  },
+  emergencyLabel: {
+    flex: 1,
+    fontSize: 15,
+    color: '#374151',
+    marginRight: 12,
+  },
+  emergencySaveButton: {
+    marginTop: 8,
+    borderRadius: 12,
   },
 });
 

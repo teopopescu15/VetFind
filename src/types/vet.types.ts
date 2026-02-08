@@ -50,6 +50,8 @@ export interface Service {
 }
 
 // Review types
+export type ReviewCategory = 'pisica' | 'caine' | 'pasare' | 'altele';
+
 export interface Review {
   id?: number;
   clinic_id: number;
@@ -58,6 +60,11 @@ export interface Review {
   user_email?: string;
   rating: number;
   comment?: string;
+  category?: ReviewCategory;
+  professionalism?: number;
+  efficiency?: number;
+  friendliness?: number;
+  appointment_service_names?: string; // service names from the reviewed appointment (comma-separated)
   created_at?: string;
   updated_at?: string;
 }

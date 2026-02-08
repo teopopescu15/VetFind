@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import React, { useMemo, useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, TextInput, Button, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,6 +42,28 @@ export const UserSettingsScreen = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackVisible, setSnackVisible] = useState(false);
   const [snackMessage, setSnackMessage] = useState('');
+  const [showEmergencyClinics, setShowEmergencyClinics] = useState(!!user?.show_emergency_clinics);
+  const [savingUrgency, setSavingUrgency] = useState(false);
+
+  useEffect(() => {
+    setShowEmergencyClinics(!!user?.show_emergency_clinics);
+  }, [user?.show_emergency_clinics]);
+
+  const handleUrgencyToggle = async (value: boolean) => {
+    setShowEmergencyClinics(value);
+    try {
+      setSavingUrgency(true);
+      await updateUser({ show_emergency_clinics: value });
+      setSnackMessage(value ? 'Vei vedea clinicile în regim de urgență' : 'Opțiunea de urgență a fost dezactivată');
+      setSnackVisible(true);
+    } catch (e: any) {
+      setShowEmergencyClinics(!value);
+      setSnackMessage(e?.message || 'Nu s-a putut actualiza');
+      setSnackVisible(true);
+    } finally {
+      setSavingUrgency(false);
+    }
+  };
 
   const setField = (k: keyof HomeAddressForm, v: string) => {
     setForm((p) => ({ ...p, [k]: v }));
@@ -132,6 +154,21 @@ export const UserSettingsScreen = () => {
         <View style={styles.header}>
           <Ionicons name="settings-outline" size={22} color={theme.colors.primary.main} />
           <Text style={styles.title}>Setări</Text>
+        </View>
+
+        <Text style={styles.sectionTitle}>Urgență</Text>
+        <Text style={styles.sectionSubtitle}>
+          Când este activat, în „Disponibil acum” vei vedea și clinicile închise care acceptă urgențe (cu taxă și contact).
+        </Text>
+        <View style={styles.urgencyRow}>
+          <Text style={styles.urgencyLabel}>Arată clinicile în regim de urgență când sunt închise</Text>
+          <Switch
+            value={showEmergencyClinics}
+            onValueChange={handleUrgencyToggle}
+            disabled={savingUrgency}
+            trackColor={{ false: theme.colors.neutral[300], true: theme.colors.primary.main }}
+            thumbColor="#fff"
+          />
         </View>
 
         <Text style={styles.sectionTitle}>Home Address</Text>
@@ -254,6 +291,19 @@ const styles = StyleSheet.create({
   coords: { marginTop: 14, padding: 12, borderRadius: 12, backgroundColor: theme.colors.neutral[50], borderWidth: 1, borderColor: theme.colors.neutral[200] },
   coordsLabel: { color: theme.colors.neutral[600], fontWeight: '700' },
   coordsValue: { color: theme.colors.neutral[900], marginTop: 4, fontWeight: '700' },
+  urgencyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingVertical: 8,
+  },
+  urgencyLabel: {
+    flex: 1,
+    fontSize: 15,
+    color: theme.colors.neutral[800],
+    marginRight: 12,
+  },
 });
 
 export default UserSettingsScreen;

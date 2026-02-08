@@ -109,6 +109,11 @@ export interface Company {
   is_active: boolean;
   company_completed: boolean; // Indicates if 4-step registration is complete
 
+  // Emergency (when closed)
+  emergency_available?: boolean;
+  emergency_fee?: number | null;
+  emergency_contact_phone?: string | null;
+
   // Reviews
   rating: number;         // Aggregated average rating (0-5)
   review_count: number;   // Number of reviews
@@ -165,6 +170,11 @@ export interface CreateCompanyDTO {
 
   // Completion Status
   company_completed?: boolean;
+
+  // Emergency (when closed)
+  emergency_available?: boolean;
+  emergency_fee?: number | null;
+  emergency_contact_phone?: string | null;
 }
 
 export interface UpdateCompanyDTO {
@@ -212,6 +222,11 @@ export interface UpdateCompanyDTO {
   // Status
   is_active?: boolean;
   company_completed?: boolean;
+
+  // Emergency (when closed)
+  emergency_available?: boolean;
+  emergency_fee?: number | null;
+  emergency_contact_phone?: string | null;
 }
 
 export interface CompanySearchFilters {
