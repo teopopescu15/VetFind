@@ -52,15 +52,6 @@ type NavigationProp = StackNavigationProp<RootStackParamList, 'UserDashboard'>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Distance options in kilometers
-const DISTANCE_OPTIONS = [
-  { label: 'Toate', value: null },
-  { label: '500 m', value: 0.5 },
-  { label: '1 km', value: 1 },
-  { label: '5 km', value: 5 },
-  { label: '10 km', value: 10 },
-];
-
 /** Leaflet map HTML (works in WebView on native and in iframe/WebView-like HTML). */
 function getMapHtml(
   center: { latitude: number; longitude: number; label?: string },
@@ -133,7 +124,6 @@ export const UserDashboardScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDistance, setSelectedDistance] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
@@ -144,15 +134,17 @@ export const UserDashboardScreen = () => {
   const [snackMessage, setSnackMessage] = useState('');
   const [menuVisible, setMenuVisible] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  // Filtru după rază dezactivat – păstrăm variabila mereu null pentru compatibilitate cu codul existent
+  const selectedDistance: number | null = null;
   // Review modal state
   const [reviewVisible, setReviewVisible] = useState(false);
   const [reviewClinicId, setReviewClinicId] = useState<number | null>(null);
-  const [reviewRating, setReviewRating] = useState<number>(5);
+  const [reviewRating, setReviewRating] = useState<number>(1);
   const [reviewComment, setReviewComment] = useState<string>('');
   const [reviewCategory, setReviewCategory] = useState<'pisica' | 'caine' | 'pasare' | 'altele'>('altele');
-  const [reviewProfessionalism, setReviewProfessionalism] = useState<number>(5);
-  const [reviewEfficiency, setReviewEfficiency] = useState<number>(5);
-  const [reviewFriendliness, setReviewFriendliness] = useState<number>(5);
+  const [reviewProfessionalism, setReviewProfessionalism] = useState<number>(1);
+  const [reviewEfficiency, setReviewEfficiency] = useState<number>(1);
+  const [reviewFriendliness, setReviewFriendliness] = useState<number>(1);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [myReviews, setMyReviews] = useState<any[]>([]);
   const [reviewAppointmentId, setReviewAppointmentId] = useState<number | null>(null);
@@ -170,6 +162,8 @@ export const UserDashboardScreen = () => {
   // Location source: 'current' = GPS, 'home' = user's home address from DB
   const [locationSource, setLocationSource] = useState<'current' | 'home' | null>(null);
   const isLocationActive = locationSource === 'current' || locationSource === 'home';
+  // Alertă „locație necesară” la Sortează după distanță (Dialog pe web, unde Alert.alert poate să nu apară)
+  const [locationRequiredAlertVisible, setLocationRequiredAlertVisible] = useState(false);
 
   // Coordinates for distance and map: from GPS when 'current', from user record when 'home'.
   // useMemo avoids new object each render → prevents useEffect/useCallback dependency churn.
@@ -195,33 +189,8 @@ export const UserDashboardScreen = () => {
       .concat(effectiveEmergencyOnly.map((c) => ({ company: c, distance: undefined as number | undefined, isEmergency: true })));
   }, [availableNowData.openNow, effectiveEmergencyOnly]);
 
-  // Filtrare pe distanță pentru "Disponibil acum" doar când userul a activat locația (butoanele de locație)
-  const availableNowFilteredByDistance = useMemo(() => {
-    if (selectedDistance === null || !effectiveLocation) return null;
-    const openNow = availableNowData.openNow;
-    const emergencyOnly = effectiveEmergencyOnly;
-    const combined = openNow.map((c) => ({ company: c, isEmergency: false }))
-      .concat(emergencyOnly.map((c) => ({ company: c, isEmergency: true })));
-    const origin = effectiveLocation;
-    const withDistances = combined
-      .map(({ company, isEmergency }) => {
-        if (!company.latitude || !company.longitude) return { company, distance: undefined as number | undefined, isEmergency };
-        const distance = calculateDistance(origin.latitude, origin.longitude, company.latitude, company.longitude);
-        return { company, distance, isEmergency };
-      })
-      .filter((item) => item.distance === undefined || item.distance <= selectedDistance)
-      .sort((a, b) => {
-        if (a.distance === undefined) return 1;
-        if (b.distance === undefined) return -1;
-        return a.distance - b.distance;
-      });
-    return withDistances;
-  }, [availableNowData.openNow, effectiveEmergencyOnly, selectedDistance, effectiveLocation]);
-
-  // Ce listă afișăm: cu locație activă și rază selectată → filtrată; altfel → lista completă
-  const availableNowDisplayList = (isLocationActive && selectedDistance !== null && availableNowFilteredByDistance !== null)
-    ? availableNowFilteredByDistance
-    : availableNowFullList;
+  // Lista "Disponibil acum" fără filtrare după rază (nu mai avem filtru de distanță)
+  const availableNowDisplayList = availableNowFullList;
 
   // Web map is rendered via Leaflet in an iframe/WebView-like HTML (no API key required).
 
@@ -462,24 +431,39 @@ export const UserDashboardScreen = () => {
   }, [companies, selectedDistance, location, isLocationActive]);
 
   /**
+   * Sort all companies by distance (no radius filter). Used when "Sortează după distanță" is selected.
+   */
+  const sortAllCompaniesByDistance = useCallback(() => {
+    if (!isLocationActive) return;
+    const coords = effectiveLocation || (locationSource === 'current' ? location : null);
+    if (!coords?.latitude || !coords?.longitude) return;
+    const withDist = companies.map((company) => {
+      if (!company.latitude || !company.longitude) return { company, distance: undefined as number | undefined };
+      const distance = calculateDistance(coords.latitude, coords.longitude, company.latitude, company.longitude);
+      return { company, distance };
+    });
+    withDist.sort((a, b) => {
+      if (a.distance === undefined) return 1;
+      if (b.distance === undefined) return -1;
+      return a.distance - b.distance;
+    });
+    setCompaniesWithDistance(withDist);
+    setFilteredCompanies(withDist.map((x) => x.company));
+  }, [companies, isLocationActive, effectiveLocation, locationSource, location]);
+
+  /**
    * Search companies for a given service name and attach matched service/pricing
    */
   const searchCompaniesByService = useCallback(
     async (query: string) => {
       const q = query.trim().toLowerCase();
       if (!q) {
-        // Clear search - do NOT reset distances when location is active
-        // Simply trigger recalculation through the existing distance system
-        if (isLocationActive) {
-          // When location is active, just clear the search but keep distances
-          // The calculateCompanyDistances useEffect will handle distance display
-          setIsSearching(false);
-          return;
+        if (isLocationActive && sortMode === 'closest') {
+          sortAllCompaniesByDistance();
+        } else {
+          setFilteredCompanies(companies);
+          setCompaniesWithDistance(companies.map((company) => ({ company })));
         }
-
-        // When location is NOT active, restore to full company list without distances
-        setFilteredCompanies(companies);
-        setCompaniesWithDistance(companies.map((company) => ({ company })));
         setIsSearching(false);
         return;
       }
@@ -557,7 +541,7 @@ export const UserDashboardScreen = () => {
     },
     // NOTE: Do NOT include companiesWithDistance in dependencies to avoid infinite loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [companies, filteredCompanies, location, effectiveLocation, selectedDistance, sortMode, isLocationActive]
+    [companies, filteredCompanies, location, effectiveLocation, selectedDistance, sortMode, isLocationActive, sortAllCompaniesByDistance]
   );
 
   // Debounce search queries
@@ -593,16 +577,12 @@ export const UserDashboardScreen = () => {
   }, [isSearchExpanded]);
 
   /**
-   * Fetch route distances when location filter is active and companies are loaded
+   * Fetch route distances when "Sortează după distanță" is active and companies are loaded
    * This provides actual driving distances from Google Routes API
    */
   useEffect(() => {
-    // Only fetch route distances when:
-    // 1. Location filter is active (selectedDistance !== null)
-    // 2. User location is available
-    // 3. We have filtered companies with coordinates
     const origin = effectiveLocation || location;
-    if (selectedDistance === null || !origin || filteredCompanies.length === 0) {
+    if (sortMode !== 'closest' || !origin || filteredCompanies.length === 0) {
       return;
     }
 
@@ -621,28 +601,16 @@ export const UserDashboardScreen = () => {
     if (accessToken) {
       fetchDistances(origin, companyIdsWithCoords, accessToken);
     }
-  }, [selectedDistance, effectiveLocation, location, filteredCompanies, fetchDistances]);
+  }, [sortMode, effectiveLocation, location, filteredCompanies, fetchDistances]);
 
   /**
    * Handle distance selection
    * Works with both the location toggle and the old permission system
    */
-  const handleDistanceSelect = async (distance: number | null) => {
-    setSelectedDistance(distance);
-
-    if (isLocationActive) return;
-
-    // Old system: Request location permission if selecting a distance and not already granted
-    if (distance !== null && permissionStatus !== 'granted') {
-      await requestPermission();
-    }
-  };
-
   /** Use GPS for distance and map. Toggle off if already 'current'. */
   const handleUseCurrentLocation = async () => {
     if (locationSource === 'current') {
       setLocationSource(null);
-      setSelectedDistance(null);
       return;
     }
     if (Platform.OS === 'web') {
@@ -657,7 +625,6 @@ export const UserDashboardScreen = () => {
   const handleUseHomeAddress = () => {
     if (locationSource === 'home') {
       setLocationSource(null);
-      setSelectedDistance(null);
       return;
     }
     const lat = user?.latitude;
@@ -673,55 +640,12 @@ export const UserDashboardScreen = () => {
   };
 
   /**
-   * Calculate distances using Haversine formula with fallback coordinates
-   * Fallback coordinates: Bucharest, Romania (44.4268, 26.1025)
-   * Also applies distance filtering when a distance filter is selected
-   */
-  const calculateCompanyDistances = useCallback(() => {
-    // "All" selected => show ALL clinics, without computing distances
-    if (selectedDistance === null) {
-      setCompaniesWithDistance(companies.map((company) => ({ company })));
-      setFilteredCompanies(companies);
-      return;
-    }
-
-    if (!isLocationActive) {
-      setCompaniesWithDistance(companies.map((company) => ({ company })));
-      setFilteredCompanies(companies);
-      return;
-    }
-
-    const fallback = { latitude: 44.4268, longitude: 26.1025 };
-    const coords = effectiveLocation || (locationSource === 'current' ? (location || fallback) : null);
-    const userLatitude = coords?.latitude ?? fallback.latitude;
-    const userLongitude = coords?.longitude ?? fallback.longitude;
-
-    // Calculate straight-line distance using Haversine formula
-    const companiesWithCalcDistance = companies
-      .map((company) => {
-        if (!company.latitude || !company.longitude) return null;
-        const distance = calculateDistance(userLatitude, userLongitude, company.latitude, company.longitude);
-        return { company, distance };
-      })
-      .filter((item): item is { company: Company; distance: number } => item !== null);
-
-    // Apply distance filter (selectedDistance is guaranteed non-null here)
-    const filtered = companiesWithCalcDistance.filter((item) => item.distance <= selectedDistance);
-
-    // Sort by distance (closest first)
-    filtered.sort((a, b) => a.distance - b.distance);
-
-    setCompaniesWithDistance(filtered);
-    setFilteredCompanies(filtered.map((item) => item.company));
-  }, [companies, isLocationActive, effectiveLocation, locationSource, location, selectedDistance]);
-
-  /**
-   * Calculate distances when location toggle is activated or distance filter changes
+   * When "Sortează după distanță" is active and location is available, keep list sorted by distance
    */
   useEffect(() => {
-    if (!isLocationActive && selectedDistance === null) return;
-    calculateCompanyDistances();
-  }, [calculateCompanyDistances, isLocationActive, selectedDistance]);
+    if (sortMode !== 'closest' || !isLocationActive) return;
+    sortAllCompaniesByDistance();
+  }, [sortMode, isLocationActive, sortAllCompaniesByDistance]);
 
   const handleAvailableNowPress = async () => {
     if (availableNowMode) {
@@ -757,8 +681,8 @@ export const UserDashboardScreen = () => {
         // keep previous data
       }
     }
-    if (isLocationActive) {
-      calculateCompanyDistances();
+    if (isLocationActive && sortMode === 'closest') {
+      sortAllCompaniesByDistance();
     }
     setIsRefreshing(false);
   };
@@ -811,12 +735,12 @@ export const UserDashboardScreen = () => {
     if (!clinicId) return;
     setReviewClinicId(clinicId);
     setReviewAppointmentId(appointmentId ?? null);
-    setReviewRating(5);
+    setReviewRating(1);
     setReviewComment('');
     setReviewCategory('altele');
-    setReviewProfessionalism(5);
-    setReviewEfficiency(5);
-    setReviewFriendliness(5);
+    setReviewProfessionalism(1);
+    setReviewEfficiency(1);
+    setReviewFriendliness(1);
     setReviewVisible(true);
   };
 
@@ -824,12 +748,12 @@ export const UserDashboardScreen = () => {
     setReviewVisible(false);
     setReviewClinicId(null);
     setReviewAppointmentId(null);
-    setReviewRating(5);
+    setReviewRating(1);
     setReviewComment('');
     setReviewCategory('altele');
-    setReviewProfessionalism(5);
-    setReviewEfficiency(5);
-    setReviewFriendliness(5);
+    setReviewProfessionalism(1);
+    setReviewEfficiency(1);
+    setReviewFriendliness(1);
   };
 
   const renderStarRow = (label: string, value: number, setValue: (n: number) => void) => (
@@ -904,22 +828,23 @@ export const UserDashboardScreen = () => {
     const mode: 'rating_desc' = 'rating_desc';
     setSortMode(mode);
 
-    // Only meaningful when we have a current service search (matchedService present)
-    const matches = companiesWithDistance.filter((c) => c.matchedService) as Array<{ company: Company; distance?: number; matchedService: any }>;
-    if (matches.length === 0) return;
+    const hasSearch = (searchQuery || '').trim().length > 0;
+    const listToSort = hasSearch
+      ? (companiesWithDistance.filter((c) => c.matchedService) as Array<{ company: Company; distance?: number; matchedService: any }>)
+      : [...companiesWithDistance];
 
-    matches.sort((a, b) => {
+    if (listToSort.length === 0) return;
+
+    listToSort.sort((a, b) => {
       const ar = typeof (a.company as any).avg_rating === 'number' ? (a.company as any).avg_rating : Number((a.company as any).avg_rating || 0);
       const br = typeof (b.company as any).avg_rating === 'number' ? (b.company as any).avg_rating : Number((b.company as any).avg_rating || 0);
       return (br || 0) - (ar || 0);
     });
 
-    setFilteredCompanies(matches.map((m) => m.company));
-    setCompaniesWithDistance(matches);
+    setFilteredCompanies(listToSort.map((m) => m.company));
+    setCompaniesWithDistance(listToSort.map((m) => ({ company: m.company, distance: m.distance, matchedService: (m as any).matchedService })));
 
-    // Re-run search to ensure the full results set respects this sort choice
-    // (e.g., if async search rebuilt list after a previous sort).
-    if ((searchQuery || '').trim().length > 0) {
+    if (hasSearch) {
       searchCompaniesByService(searchQuery);
     }
   };
@@ -962,6 +887,28 @@ export const UserDashboardScreen = () => {
 
     if ((searchQuery || '').trim().length > 0) {
       searchCompaniesByService(searchQuery);
+    }
+  };
+
+  /** Sortează după distanță: doar dacă ai locație activă și permisiuni (pentru current); altfel Alert */
+  const handleSortByDistance = () => {
+    if (!isLocationActive) {
+      setLocationRequiredAlertVisible(true);
+      return;
+    }
+    if (locationSource === 'current' && permissionStatus === 'denied') {
+      Alert.alert(
+        'Permisiuni necesare',
+        'Nu ai acordat permisiunile de locație. Pentru a sorta după distanță, acordă permisiunile (apasă pe „Folosește locația curentă” și acceptă când browserul sau aplicația îți cere accesul la locație).',
+        [{ text: 'OK' }, { text: 'Acordă permisiuni', onPress: () => requestPermission() }]
+      );
+      return;
+    }
+    setSortMode('closest');
+    if ((searchQuery || '').trim().length > 0) {
+      handleSortClosest();
+    } else {
+      sortAllCompaniesByDistance();
     }
   };
 
@@ -1305,7 +1252,7 @@ export const UserDashboardScreen = () => {
                                   ? (s?.price_min != null && s?.price_max != null
                                       ? formatPriceRange(s.price_min, s.price_max)
                                       : formatPriceRange(s.price ?? s.price_min ?? s.price_max, null))
-                                  : '0 RON';
+                                  : '0 lei';
 
                                 return (
                                   <Text key={si} style={styles.detailText}>
@@ -1320,7 +1267,7 @@ export const UserDashboardScreen = () => {
                                 <Text style={{ fontWeight: '700' }}>Price:</Text>{' '}
                                 {typeof mapped.total_price_min === 'number' && typeof mapped.total_price_max === 'number'
                                   ? formatPriceRange(mapped.total_price_min, mapped.total_price_max)
-                                  : '0 RON'}
+                                  : '0 lei'}
                               </Text>
 
                               <Text style={styles.detailText}>
@@ -1333,7 +1280,7 @@ export const UserDashboardScreen = () => {
                           ) : (
                             <>
                               <Text style={styles.detailText}><Text style={{ fontWeight: '700' }}>Service:</Text> {mapped.service}</Text>
-                              <Text style={styles.detailText}><Text style={{ fontWeight: '700' }}>Price:</Text> {mapped.price ? formatPriceRange(mapped.price, null) : '0 RON'}</Text>
+                              <Text style={styles.detailText}><Text style={{ fontWeight: '700' }}>Price:</Text> {mapped.price ? formatPriceRange(mapped.price, null) : '0 lei'}</Text>
                               <Text style={styles.detailText}><Text style={{ fontWeight: '700' }}>Duration:</Text> {a.service?.duration_minutes ? `${a.service.duration_minutes} min` : '0 min'}</Text>
                             </>
                           )}
@@ -1401,7 +1348,7 @@ export const UserDashboardScreen = () => {
               <View style={styles.filterHeader}>
                 <Ionicons name="location" size={20} color={theme.colors.primary.main} />
                 <Text style={styles.filterTitle}>
-                  Filtrează după distanță
+                  Locație și sortare
                 </Text>
                 <TouchableOpacity
                   onPress={openMap}
@@ -1457,84 +1404,82 @@ export const UserDashboardScreen = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* Info message about location and filtering */}
-              {!isLocationActive && (
-                <View style={styles.locationInfoBanner}>
-                  <Ionicons name="information-circle" size={16} color="#3b82f6" />
-                  <Text style={styles.locationInfoText}>
-                    Alege locația curentă sau adresa de acasă pentru a vedea distanțele și a filtra clinicile
-                  </Text>
-                </View>
-              )}
-              {isLocationActive && (
+              {isLocationActive && locationSource !== 'current' && (
                 <View style={[styles.locationInfoBanner, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                   <Ionicons name="checkmark-circle" size={16} color="#10b981" />
                   <Text style={[styles.locationInfoText, { color: '#065f46' }]}>
-                    Locație activă! Selectează o distanță pentru a filtra clinicile
+                    Locație activă! Poți sorta după distanță și vedea distanțele pe carduri.
                   </Text>
                 </View>
               )}
-
-              {/* Distance Options */}
-              <View style={styles.distanceOptions}>
-                  {DISTANCE_OPTIONS.map((option) => (
-                    <TouchableOpacity
-                      key={option.label}
-                      onPress={() => handleDistanceSelect(option.value)}
-                      style={[
-                        styles.distanceChip,
-                        selectedDistance === option.value && styles.distanceChipSelected,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.distanceChipText,
-                          selectedDistance === option.value && styles.distanceChipTextSelected,
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+              {isLocationActive && locationSource === 'current' && permissionStatus === 'granted' && (
+                <View style={[styles.locationInfoBanner, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                  <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                  <Text style={[styles.locationInfoText, { color: '#065f46' }]}>
+                    Locație activă! Poți sorta după distanță și vedea distanțele pe carduri.
+                  </Text>
                 </View>
-
-                {/* Location Status Message */}
-                {selectedDistance !== null && locationSource === 'current' && permissionStatus === 'denied' && (
-                  <View style={styles.locationWarning}>
-                    <Ionicons name="warning" size={16} color="#f59e0b" />
-                    <Text style={styles.locationWarningText}>
-                      Location access denied. Enable in settings to filter by distance.
+              )}
+              {isLocationActive && locationSource === 'current' && permissionStatus === 'denied' && (
+                <View style={styles.locationPermissionBanner}>
+                  <Ionicons name="warning" size={20} color="#b45309" />
+                  <View style={styles.locationPermissionBannerTextWrap}>
+                    <Text style={styles.locationPermissionBannerText}>
+                      Nu ai acordat permisiunile de locație. Pentru a sorta după distanță și a vedea distanța pe carduri, acordă permisiunile.
                     </Text>
+                    <TouchableOpacity
+                      style={styles.locationPermissionButton}
+                      onPress={() => requestPermission()}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.locationPermissionButtonText}>Acordă permisiuni</Text>
+                    </TouchableOpacity>
                   </View>
-                )}
+                </View>
+              )}
 
-                {selectedDistance !== null && locationLoading && (
-                  <View style={styles.locationStatus}>
-                    <ActivityIndicator size="small" color={theme.colors.primary.main} />
-                    <Text style={styles.locationStatusText}>Se obține locația...</Text>
-                  </View>
-                )}
-
-                {/* Route distances loading indicator */}
-                {selectedDistance !== null && !locationLoading && isLoadingRoutes && (
-                  <View style={styles.locationStatus}>
-                    <ActivityIndicator size="small" color="#3b82f6" />
-                    <Text style={styles.locationStatusText}>Se calculează distanțele...</Text>
-                  </View>
-                )}
+              {/* Sort: Implicit, Rating, Sortează după distanță */}
+              <View style={styles.filterRow}>
+                <Text style={styles.filterRowLabel}>Sortează</Text>
+                <View style={styles.filterChipsRow}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSortMode('none');
+                      if ((searchQuery || '').trim().length > 0) {
+                        searchCompaniesByService(searchQuery);
+                      } else {
+                        setFilteredCompanies(companies);
+                        setCompaniesWithDistance(companies.map((c) => ({ company: c })));
+                      }
+                    }}
+                    style={[styles.filterChip, sortMode === 'none' && styles.filterChipSelected]}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.filterChipText, sortMode === 'none' && styles.filterChipTextSelected]}>Implicit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleSortRating}
+                    style={[styles.filterChip, sortMode === 'rating_desc' && styles.filterChipSelected]}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.filterChipText, sortMode === 'rating_desc' && styles.filterChipTextSelected]}>Rating ★</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleSortByDistance}
+                    style={[styles.filterChip, sortMode === 'closest' && styles.filterChipSelected]}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="location" size={16} color={sortMode === 'closest' ? '#fff' : theme.colors.primary.main} />
+                    <Text style={[styles.filterChipText, sortMode === 'closest' && styles.filterChipTextSelected]}>Sortează după distanță</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
               {/* Results Count */}
               <View style={styles.resultsContainer}>
                 <Text style={styles.resultsText}>
-                  Found{' '}
                   <Text style={styles.resultsCount}>{filteredCompanies.length}</Text>{' '}
-                  vet clinic{filteredCompanies.length !== 1 ? 's' : ''}
-                  {isLocationActive && selectedDistance !== null && (
-                    <Text style={{ fontWeight: '600', color: '#10b981' }}>
-                      {' '}within {selectedDistance < 1 ? `${selectedDistance * 1000} m` : `${selectedDistance} km`}
-                    </Text>
-                  )}
-                  {selectedDistance !== null && isLoadingRoutes && ' (se calculează timpul de condus...)'}
+                  clinic{filteredCompanies.length !== 1 ? 'e' : ''} veterinar{filteredCompanies.length !== 1 ? 'e' : ''}
                 </Text>
               </View>
             </View>
@@ -1558,18 +1503,8 @@ export const UserDashboardScreen = () => {
             <MaterialCommunityIcons name="magnify" size={64} color="#d1d5db" />
             <Text style={styles.emptyTitle}>Nu s-au găsit clinici veterinare</Text>
             <Text style={styles.emptySubtitle}>
-              {selectedDistance !== null
-                ? `No clinics within ${selectedDistance} km of your location`
-                : 'There are no registered vet clinics yet'}
+              Nu există încă clinici înregistrate sau niciuna nu corespunde căutării.
             </Text>
-            {selectedDistance !== null && (
-              <TouchableOpacity
-                style={styles.clearFilterButton}
-                onPress={() => setSelectedDistance(null)}
-              >
-                <Text style={styles.clearFilterButtonText}>Arată toate clinicile</Text>
-              </TouchableOpacity>
-            )}
           </View>
         )}
 
@@ -1577,15 +1512,9 @@ export const UserDashboardScreen = () => {
         {!error && availableNowMode && availableNowDisplayList.length === 0 && (
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons name="clock-outline" size={64} color="#d1d5db" />
-            <Text style={styles.emptyTitle}>
-              {isLocationActive && selectedDistance !== null && (availableNowData.openNow.length > 0 || effectiveEmergencyOnly.length > 0)
-                ? 'Nicio clinică în raza selectată'
-                : 'Nicio clinică disponibilă acum'}
-            </Text>
+            <Text style={styles.emptyTitle}>Nicio clinică disponibilă acum</Text>
             <Text style={styles.emptySubtitle}>
-              {isLocationActive && selectedDistance !== null && (availableNowData.openNow.length > 0 || effectiveEmergencyOnly.length > 0)
-                ? 'Există clinici disponibile, dar niciuna în raza aleasă. Încearcă o rază mai mare sau dezactivează filtrarea pe distanță.'
-                : 'Nu există clinici deschise în acest moment fără programări în derulare. Activează „Arată clinicile în regim de urgență” în Setări pentru a vedea clinicile care acceptă urgențe când sunt închise.'}
+              Nu există clinici deschise în acest moment. Activează „Arată clinicile în regim de urgență” în Setări pentru a vedea clinicile care acceptă urgențe când sunt închise.
             </Text>
             <TouchableOpacity style={styles.clearFilterButton} onPress={() => setAvailableNowMode(false)}>
               <Text style={styles.clearFilterButtonText}>Înapoi la toate clinicile</Text>
@@ -1602,7 +1531,6 @@ export const UserDashboardScreen = () => {
                   {availableNowData.openNow.length > 0 && `${availableNowData.openNow.length} deschise acum`}
                   {availableNowData.openNow.length > 0 && effectiveEmergencyOnly.length > 0 && ' · '}
                   {effectiveEmergencyOnly.length > 0 && `${effectiveEmergencyOnly.length} în regim de urgență`}
-                  {isLocationActive && selectedDistance !== null && ' (filtrat după distanță)'}
                 </Text>
               </View>
             )}
@@ -1646,21 +1574,22 @@ export const UserDashboardScreen = () => {
                   <VetCompanyCard
                     key={company.id}
                     company={company}
-                    distance={isLocationActive && selectedDistance !== null ? distance : undefined}
-                    routeDistance={isLocationActive && selectedDistance !== null ? getDistance(String(company.id)) : undefined}
+                    distance={isLocationActive ? distance : undefined}
+                    routeDistance={isLocationActive ? getDistance(String(company.id)) : undefined}
                     matchedService={undefined}
                     emergencyOnly={isEmergency ? { emergency_fee: company.emergency_fee, emergency_contact_phone: company.emergency_contact_phone } : undefined}
                     onPress={() => handleCompanyPress(company.id)}
                   />
                 ))
               : companiesWithDistance.map(({ company, distance, matchedService }) => {
-                  const distanceProp = selectedDistance !== null ? distance : undefined;
+                  const showDistance = sortMode === 'closest';
+                  const distanceProp = showDistance ? distance : undefined;
                   return (
                     <VetCompanyCard
                       key={company.id}
                       company={company}
                       distance={distanceProp}
-                      routeDistance={selectedDistance !== null ? getDistance(String(company.id)) : undefined}
+                      routeDistance={showDistance ? getDistance(String(company.id)) : undefined}
                       matchedService={matchedService}
                       onPress={() => handleCompanyPress(company.id)}
                     />
@@ -1672,6 +1601,20 @@ export const UserDashboardScreen = () => {
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
       </ScrollView>
+      {/* Alertă locație necesară (pe web Alert.alert nu apare, folosim Dialog) */}
+      <Portal>
+        <Dialog visible={locationRequiredAlertVisible} onDismiss={() => setLocationRequiredAlertVisible(false)} style={{ maxWidth: 400, alignSelf: 'center', width: '92%' }}>
+          <Dialog.Title>Locația este necesară</Dialog.Title>
+          <Dialog.Content>
+            <Text style={{ fontSize: 15, lineHeight: 22 }}>
+              Activează locația: apasă pe „Folosește locația curentă” sau „Folosește Home Address”, apoi Sortează după distanță.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setLocationRequiredAlertVisible(false)}>OK</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
       {/* Map dialog: interactive only on web */}
       <Portal>
         <Dialog visible={mapVisible} onDismiss={() => setMapVisible(false)} style={{ maxWidth: 720, alignSelf: 'center', width: '92%' }}>
@@ -1969,32 +1912,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterCard: {
-    backgroundColor: theme.colors.neutral[50],
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
     marginBottom: theme.spacing.lg,
-    elevation: 3,
-    shadowColor: theme.colors.primary.main,
+    elevation: 2,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
   },
   filterHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+    gap: 10,
+    marginBottom: 18,
   },
   seeMapButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: 'rgba(37, 99, 235, 0.10)',
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(37, 99, 235, 0.18)',
+    borderColor: 'rgba(37, 99, 235, 0.2)',
   },
   seeMapButtonText: {
     color: theme.colors.primary.main,
@@ -2002,10 +1947,53 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   filterTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1f2937',
     flex: 1,
+  },
+  filterRow: {
+    marginBottom: 14,
+  },
+  filterRowLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  filterChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    alignItems: 'center',
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  filterChipWithMenu: {
+    paddingRight: 10,
+  },
+  filterChipSelected: {
+    backgroundColor: theme.colors.primary.main,
+    borderColor: theme.colors.primary.main,
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4b5563',
+  },
+  filterChipTextSelected: {
+    color: '#ffffff',
   },
   distanceOptions: {
     flexDirection: 'row',
@@ -2076,10 +2064,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 12,
-    padding: 10,
+    marginTop: 14,
+    padding: 12,
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderRadius: 8,
+    borderRadius: 10,
   },
   locationWarningText: {
     flex: 1,
@@ -2090,17 +2078,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 12,
+    marginTop: 14,
   },
   locationStatusText: {
     fontSize: 13,
     color: '#6b7280',
   },
   resultsContainer: {
-    marginBottom: 8,
+    marginTop: 4,
+    marginBottom: 4,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.06)',
   },
   resultsText: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#6b7280',
   },
   resultsCount: {
@@ -2430,18 +2422,51 @@ const styles = StyleSheet.create({
   locationInfoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginBottom: 12,
+    gap: 10,
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginBottom: 14,
   },
   locationInfoText: {
     flex: 1,
     fontSize: 13,
     color: '#1e40af',
     fontWeight: '500',
+  },
+  locationPermissionBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  locationPermissionBannerTextWrap: {
+    flex: 1,
+  },
+  locationPermissionBannerText: {
+    fontSize: 13,
+    color: '#92400e',
+    fontWeight: '500',
+    marginBottom: 10,
+  },
+  locationPermissionButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#d97706',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  locationPermissionButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
   },
 });
 

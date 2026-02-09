@@ -32,12 +32,12 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
   const [reviewVisible, setReviewVisible] = useState(false);
   const [reviewClinicId, setReviewClinicId] = useState<number | null>(null);
   const [reviewAppointmentId, setReviewAppointmentId] = useState<number | null>(null);
-  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewRating, setReviewRating] = useState(1);
   const [reviewComment, setReviewComment] = useState('');
   const [reviewCategory, setReviewCategory] = useState<'pisica' | 'caine' | 'pasare' | 'altele'>('altele');
-  const [reviewProfessionalism, setReviewProfessionalism] = useState(5);
-  const [reviewEfficiency, setReviewEfficiency] = useState(5);
-  const [reviewFriendliness, setReviewFriendliness] = useState(5);
+  const [reviewProfessionalism, setReviewProfessionalism] = useState(1);
+  const [reviewEfficiency, setReviewEfficiency] = useState(1);
+  const [reviewFriendliness, setReviewFriendliness] = useState(1);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [snackMessage, setSnackMessage] = useState('');
   const [snackVisible, setSnackVisible] = useState(false);
@@ -110,12 +110,12 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
     if (!clinicId) return;
     setReviewClinicId(clinicId);
     setReviewAppointmentId(appointmentId ?? null);
-    setReviewRating(5);
+    setReviewRating(1);
     setReviewComment('');
     setReviewCategory('altele');
-    setReviewProfessionalism(5);
-    setReviewEfficiency(5);
-    setReviewFriendliness(5);
+    setReviewProfessionalism(1);
+    setReviewEfficiency(1);
+    setReviewFriendliness(1);
     setReviewVisible(true);
   };
 
@@ -123,12 +123,12 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
     setReviewVisible(false);
     setReviewClinicId(null);
     setReviewAppointmentId(null);
-    setReviewRating(5);
+    setReviewRating(1);
     setReviewComment('');
     setReviewCategory('altele');
-    setReviewProfessionalism(5);
-    setReviewEfficiency(5);
-    setReviewFriendliness(5);
+    setReviewProfessionalism(1);
+    setReviewEfficiency(1);
+    setReviewFriendliness(1);
   };
 
   const renderStarRow = (label: string, value: number, setValue: (n: number) => void) => (
@@ -261,8 +261,8 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
     const formatPriceRange = (min?: number, max?: number) => {
       const minN = Number(min ?? 0) || 0;
       const maxN = Number(max ?? minN) || minN;
-      if (minN === maxN) return `$${minN}`;
-      return `$${minN} - $${maxN}`;
+      if (minN === maxN) return `${minN.toFixed(0)} lei`;
+      return `${minN.toFixed(0)} - ${maxN.toFixed(0)} lei`;
     };
 
     const formatDuration = (minutes?: number) => {
@@ -329,7 +329,7 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
                             Number(s.price ?? s.price_min ?? s.price_max ?? 0),
                             Number(s.price ?? s.price_min ?? s.price_max ?? 0)
                           ))
-                    : '$0';
+                    : '0 lei';
                 const durationText = s?.duration_minutes ? `${Number(s.duration_minutes)} min` : '0 min';
 
                 return (

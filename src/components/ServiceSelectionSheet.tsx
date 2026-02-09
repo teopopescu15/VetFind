@@ -28,6 +28,7 @@ import {
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { CompanyService, ServiceCategoryType } from '../types/company.types';
 import { getCategoryLabelRO, translateSpecializationName } from '../constants/serviceTranslations';
+import { formatPriceRange } from '../utils/currency';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -59,20 +60,6 @@ const getCategoryIcon = (category: string): string => {
     custom: 'star',
   };
   return iconMap[category] || 'paw';
-};
-
-/**
- * Format price range
- */
-const formatPrice = (min: number | null | undefined, max: number | null | undefined): string => {
-  // Convert to numbers and handle null/undefined
-  const minPrice = Number(min) || 0;
-  const maxPrice = Number(max) || minPrice;
-
-  if (minPrice === maxPrice) {
-    return `$${minPrice.toFixed(0)}`;
-  }
-  return `$${minPrice.toFixed(0)} - $${maxPrice.toFixed(0)}`;
 };
 
 /**
@@ -241,7 +228,7 @@ export const ServiceSelectionSheet = ({
 
                         <View style={styles.servicePricing}>
                           <Text style={styles.servicePrice}>
-                            {formatPrice(service.price_min, service.price_max)}
+                            {formatPriceRange(service.price_min, service.price_max)}
                           </Text>
                           {service.duration_minutes && (
                             <View style={styles.durationBadge}>

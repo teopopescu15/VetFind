@@ -153,8 +153,8 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
     }
 
     // Create appointment
-    // 1) Default: created as pending (client booking)
-    // 2) Manual block: created as confirmed, user_id = -1, service_id = -1
+    // Programările utilizatorilor sunt create direct ca 'confirmed' (fără confirmare de la clinică).
+    // Manual block: user_id = -1, service_id = -1, tot 'confirmed'.
     const appointmentId = await appointmentModel.create({
       company_id: appointmentData.clinic_id, // Map clinic_id from frontend to company_id in database
       // user_id is NOT NULL in DB. Manual blocks use a reserved placeholder user id (-1).
@@ -162,7 +162,7 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
       service_id: isManualBlock ? -1 : appointmentData.service_id,
       services: isManualBlock ? [] : selectedServices,
       appointment_date: appointmentDate,
-      status: isManualBlock ? 'confirmed' : 'pending',
+      status: 'confirmed',
       notes: appointmentData.notes,
       // Store duration on appointment row so availability uses it when service_id is -1
       total_duration_minutes: isManualBlock ? totalDuration : undefined,

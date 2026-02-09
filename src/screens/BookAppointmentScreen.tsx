@@ -40,6 +40,7 @@ import { DayAvailability, TimeSlot } from '../types/appointment.types';
 import { useAuth } from '../context/AuthContext';
 import AnimatedConfirmation from '../components/AnimatedConfirmation';
 import { translateSpecializationName } from '../constants/serviceTranslations';
+import { formatPriceRange } from '../utils/currency';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -87,18 +88,6 @@ const formatDuration = (minutes?: number): string => {
   const remainingMinutes = minutes % 60;
   if (remainingMinutes === 0) return `${hours} hr`;
   return `${hours}h ${remainingMinutes}m`;
-};
-
-/**
- * Format price range
- */
-const formatPrice = (min: number | null | undefined, max: number | null | undefined): string => {
-  // Convert to numbers and handle null/undefined
-  const minPrice = Number(min) || 0;
-  const maxPrice = Number(max) || minPrice;
-
-  if (minPrice === maxPrice) return `$${minPrice.toFixed(0)}`;
-  return `$${minPrice.toFixed(0)} - $${maxPrice.toFixed(0)}`;
 };
 
 export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps) => {
@@ -508,7 +497,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                   style={styles.priceChip}
                   textStyle={styles.priceChipText}
                 >
-                  {selectedServicesState.length > 0 ? formatPrice(totalPrice.min, totalPrice.max) : (primaryService ? formatPrice(primaryService.price_min, primaryService.price_max) : '—')}
+                  {selectedServicesState.length > 0 ? formatPriceRange(totalPrice.min, totalPrice.max) : (primaryService ? formatPriceRange(primaryService.price_min, primaryService.price_max) : '—')}
                 </Chip>
               </View>
             </Card.Content>
@@ -532,7 +521,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
             </ScrollView>
             <View style={styles.totalDurationContainer}>
               <Text style={styles.totalDurationText}>{formatDuration(totalRequiredDuration)}</Text>
-              <Text style={styles.totalPriceText}>{formatPrice(totalPrice.min, totalPrice.max)}</Text>
+              <Text style={styles.totalPriceText}>{formatPriceRange(totalPrice.min, totalPrice.max)}</Text>
             </View>
           </View>
         )}
@@ -768,7 +757,7 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
                 <View style={styles.confirmRow}>
                   <Text style={styles.confirmLabel}>Preț:</Text>
                   <Text style={styles.confirmValue}>
-                    {selectedServicesState.length > 0 ? formatPrice(totalPrice.min, totalPrice.max) : (primaryService ? formatPrice(primaryService.price_min, primaryService.price_max) : '—')}
+                    {selectedServicesState.length > 0 ? formatPriceRange(totalPrice.min, totalPrice.max) : (primaryService ? formatPriceRange(primaryService.price_min, primaryService.price_max) : '—')}
                   </Text>
                 </View>
               </View>
@@ -794,10 +783,9 @@ export const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScre
       {/* Animated full-screen confirmation for pet owners */}
       <AnimatedConfirmation
         visible={showAnimatedConfirm}
-        message="Programarea a fost trimisa. Așteaptă confirmarea clinicii."
+        message="Programarea a fost confirmată."
         onFinish={() => {
           setShowAnimatedConfirm(false);
-          // After animation completes, navigate to the user dashboard (they'll see the appointment as Pending)
           navigation.navigate('UserDashboard');
         }}
       />

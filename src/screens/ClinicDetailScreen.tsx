@@ -192,7 +192,7 @@ export const ClinicDetailScreen = ({ route, navigation }: ClinicDetailScreenProp
               <View key={service.id} style={styles.serviceCard}>
                 <View style={styles.serviceHeader}>
                   <Text style={styles.serviceName}>{service.name}</Text>
-                  <Text style={styles.servicePrice}>${service.price.toFixed(2)}</Text>
+                  <Text style={styles.servicePrice}>{Number(service.price).toFixed(0)} lei</Text>
                 </View>
 
                 {service.description && (

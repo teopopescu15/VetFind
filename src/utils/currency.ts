@@ -1,12 +1,12 @@
 /**
  * Currency Formatting Utilities
- * Formats prices to Romanian currency (RON)
+ * Formats prices to Romanian currency (lei / RON)
  */
 
 export const formatPrice = (price: number | string | null | undefined): string => {
-  if (price == null) return '0 RON';
+  if (price == null) return '0 lei';
   const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-  return `${numPrice.toFixed(0)} RON`;
+  return `${numPrice.toFixed(0)} lei`;
 };
 
 export const formatPriceRange = (
@@ -19,5 +19,5 @@ export const formatPriceRange = (
   const maxNum = max ? (typeof max === 'string' ? parseFloat(max) : max) : minNum;
 
   if (minNum === maxNum) return formatPrice(minNum);
-  return `${minNum.toFixed(0)} - ${maxNum.toFixed(0)} RON`;
+  return `${minNum.toFixed(0)} - ${maxNum.toFixed(0)} lei`;
 };

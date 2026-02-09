@@ -136,7 +136,7 @@ export const ServiceListBuilder = ({
                 {service.service_name || 'Unnamed Service'}
               </Text>
               <Text style={styles.servicePrice}>
-                ${service.price_min} - ${service.price_max}
+                {service.price_min} - {service.price_max} lei
               </Text>
             </View>
           </View>
@@ -216,7 +216,7 @@ export const ServiceListBuilder = ({
             {/* Price Range */}
             <View style={styles.formRow}>
               <View style={[styles.formGroup, styles.formGroupHalf]}>
-                <Text style={styles.label}>Price Min ($) *</Text>
+                <Text style={styles.label}>Preț min (lei) *</Text>
                 <TextInput
                   style={styles.input}
                   value={String(service.price_min)}
@@ -229,7 +229,7 @@ export const ServiceListBuilder = ({
                 />
               </View>
               <View style={[styles.formGroup, styles.formGroupHalf]}>
-                <Text style={styles.label}>Price Max ($) *</Text>
+                <Text style={styles.label}>Preț max (lei) *</Text>
                 <TextInput
                   style={styles.input}
                   value={String(service.price_max)}
@@ -332,7 +332,7 @@ export const ServiceListBuilder = ({
                 <View style={styles.templateHeader}>
                   <Text style={styles.templateName}>{template.service_name}</Text>
                   <Text style={styles.templatePrice}>
-                    ${template.suggested_price_min} - ${template.suggested_price_max}
+                    {template.suggested_price_min} - {template.suggested_price_max} lei
                   </Text>
                 </View>
                 <Text style={styles.templateCategory}>
