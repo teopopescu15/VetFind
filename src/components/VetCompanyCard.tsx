@@ -340,7 +340,7 @@ const VetCompanyCardComponent = ({ company, distance, routeDistance, matchedServ
                     )}
                     {(emergencyOnly.emergency_contact_phone || company.phone) && (
                       <Text style={styles.emergencyDetailText}>
-                        Contact: {emergencyOnly.emergency_contact_phone || company.phone}
+                        Contact de urgență: {emergencyOnly.emergency_contact_phone || company.phone}
                       </Text>
                     )}
                   </View>

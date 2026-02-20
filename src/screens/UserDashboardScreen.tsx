@@ -177,10 +177,8 @@ export const UserDashboardScreen = () => {
     return null;
   }, [locationSource, location?.latitude, location?.longitude, user?.latitude, user?.longitude]);
 
-  // Urgență: afișăm clinicile în regim de urgență doar dacă userul are opțiunea activată în Setări
-  const effectiveEmergencyOnly = useMemo(() => {
-    return user?.show_emergency_clinics ? availableNowData.emergencyOnly : [];
-  }, [user?.show_emergency_clinics, availableNowData.emergencyOnly]);
+  // La „Disponibil acum” afișăm întotdeauna și clinicile în regim de urgență (cu detaliile corespunzătoare)
+  const effectiveEmergencyOnly = useMemo(() => availableNowData.emergencyOnly, [availableNowData.emergencyOnly]);
 
   // Lista completă "Disponibil acum" (deschise + urgență dacă e activat), fără filtrare
   const availableNowFullList = useMemo(() => {
@@ -1514,7 +1512,7 @@ export const UserDashboardScreen = () => {
             <MaterialCommunityIcons name="clock-outline" size={64} color="#d1d5db" />
             <Text style={styles.emptyTitle}>Nicio clinică disponibilă acum</Text>
             <Text style={styles.emptySubtitle}>
-              Nu există clinici deschise în acest moment. Activează „Arată clinicile în regim de urgență” în Setări pentru a vedea clinicile care acceptă urgențe când sunt închise.
+              Nu există clinici deschise în acest moment și nici clinici care acceptă urgențe când sunt închise.
             </Text>
             <TouchableOpacity style={styles.clearFilterButton} onPress={() => setAvailableNowMode(false)}>
               <Text style={styles.clearFilterButtonText}>Înapoi la toate clinicile</Text>

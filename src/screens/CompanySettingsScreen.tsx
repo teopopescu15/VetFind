@@ -6,15 +6,29 @@ import { theme } from '../theme';
 import { BackHeader } from '../components/BackHeader';
 import { CountyPicker } from '../components/FormComponents/CountyPicker';
 import { LocalityPicker } from '../components/FormComponents/LocalityPicker';
+import { OpeningHoursPicker } from '../components/FormComponents/OpeningHoursPicker';
 import { CountyCode } from '../constants/romania';
 import { validateRomanianPostalCode, validateRomanianPhone, validateCUI } from '../utils/romanianValidation';
 import { buildAddressForGeocoding, geocodeAddress } from '../utils/geocoding';
 import { useCompany } from '../context/CompanyContext';
+import type { OpeningHours } from '../types/company.types';
+
+const DEFAULT_OPENING_HOURS: OpeningHours = {
+  monday: { open: '09:00', close: '17:00', closed: false },
+  tuesday: { open: '09:00', close: '17:00', closed: false },
+  wednesday: { open: '09:00', close: '17:00', closed: false },
+  thursday: { open: '09:00', close: '17:00', closed: false },
+  friday: { open: '09:00', close: '17:00', closed: false },
+  saturday: { open: '09:00', close: '13:00', closed: false },
+  sunday: { open: null, close: null, closed: true },
+};
 
 type CompanySettingsForm = {
   name: string;
   phone: string;
   cui: string;
+  description: string;
+  opening_hours: OpeningHours;
 
   street: string;
   streetNumber: string;
@@ -29,20 +43,34 @@ type CompanySettingsForm = {
 export const CompanySettingsScreen = () => {
   const { company, updateCompany } = useCompany();
 
-  const initial = useMemo<CompanySettingsForm>(() => ({
-    name: String(company?.name ?? ''),
-    phone: String(company?.phone ?? ''),
-    cui: String((company as any)?.cui ?? ''),
+  const initial = useMemo<CompanySettingsForm>(() => {
+    const hours = company?.opening_hours;
+    const mergedHours: OpeningHours = {
+      monday: hours?.monday ?? DEFAULT_OPENING_HOURS.monday,
+      tuesday: hours?.tuesday ?? DEFAULT_OPENING_HOURS.tuesday,
+      wednesday: hours?.wednesday ?? DEFAULT_OPENING_HOURS.wednesday,
+      thursday: hours?.thursday ?? DEFAULT_OPENING_HOURS.thursday,
+      friday: hours?.friday ?? DEFAULT_OPENING_HOURS.friday,
+      saturday: hours?.saturday ?? DEFAULT_OPENING_HOURS.saturday,
+      sunday: hours?.sunday ?? DEFAULT_OPENING_HOURS.sunday,
+    };
+    return {
+      name: String(company?.name ?? ''),
+      phone: String(company?.phone ?? ''),
+      cui: String((company as any)?.cui ?? ''),
+      description: String(company?.description ?? ''),
+      opening_hours: mergedHours,
 
-    street: String((company as any)?.street ?? company?.address ?? ''),
-    streetNumber: String((company as any)?.street_number ?? ''),
-    building: String((company as any)?.building ?? ''),
-    apartment: String((company as any)?.apartment ?? ''),
-    city: String(company?.city ?? ''),
-    county: ((company as any)?.county ?? (company as any)?.state ?? '') as any,
-    postalCode: String((company as any)?.postal_code ?? (company as any)?.zip_code ?? ''),
-    country: 'Romania',
-  }), [company]);
+      street: String((company as any)?.street ?? company?.address ?? ''),
+      streetNumber: String((company as any)?.street_number ?? ''),
+      building: String((company as any)?.building ?? ''),
+      apartment: String((company as any)?.apartment ?? ''),
+      city: String(company?.city ?? ''),
+      county: ((company as any)?.county ?? (company as any)?.state ?? '') as any,
+      postalCode: String((company as any)?.postal_code ?? (company as any)?.zip_code ?? ''),
+      country: 'Romania',
+    };
+  }, [company]);
 
   const [form, setForm] = useState<CompanySettingsForm>(initial);
 
@@ -69,6 +97,7 @@ export const CompanySettingsScreen = () => {
     if (!form.phone.trim()) e.phone = 'Numărul de telefon este obligatoriu';
     else if (!validateRomanianPhone(form.phone)) e.phone = 'Format invalid (ex: +40 7xx xxx xxx)';
     if (form.cui.trim() && !validateCUI(form.cui)) e.cui = 'CUI invalid';
+    if (form.description.length > 2000) e.description = 'Descrierea nu poate depăși 2000 de caractere';
 
     if (!form.street.trim()) e.street = 'Strada este obligatorie';
     if (!form.streetNumber.trim()) e.streetNumber = 'Numărul este obligatoriu';
@@ -128,6 +157,8 @@ export const CompanySettingsScreen = () => {
         name: form.name.trim(),
         phone: form.phone.trim(),
         cui: form.cui.trim() || undefined,
+        description: form.description.trim() || undefined,
+        opening_hours: form.opening_hours,
 
         street: form.street.trim(),
         street_number: form.streetNumber.trim(),
@@ -205,6 +236,33 @@ export const CompanySettingsScreen = () => {
           style={styles.input}
         />
         {!!errors.cui && <Text style={styles.err}>{errors.cui}</Text>}
+
+        <Text style={styles.sectionTitle}>Descriere</Text>
+        <Text style={styles.sectionSubtitle}>
+          Prezentare scurtă a clinicii (opțional, max. 2000 caractere).
+        </Text>
+        <TextInput
+          mode="outlined"
+          label="Descriere clinică"
+          value={form.description}
+          onChangeText={(t) => setField('description', t)}
+          error={!!errors.description}
+          multiline
+          numberOfLines={4}
+          style={[styles.input, styles.descriptionInput]}
+        />
+        {!!errors.description && <Text style={styles.err}>{errors.description}</Text>}
+
+        <Text style={styles.sectionTitle}>Program</Text>
+        <Text style={styles.sectionSubtitle}>
+          Orele de funcționare pentru fiecare zi. Modificați și salvați.
+        </Text>
+        <View style={styles.openingHoursWrap}>
+          <OpeningHoursPicker
+            value={form.opening_hours}
+            onChange={(hours) => setForm((p) => ({ ...p, opening_hours: hours }))}
+          />
+        </View>
 
         <Text style={styles.sectionTitle}>Adresă (cu actualizare coordonate)</Text>
         <Text style={styles.sectionSubtitle}>
@@ -313,10 +371,12 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '800', color: theme.colors.neutral[800], marginTop: 8 },
   sectionSubtitle: { color: theme.colors.neutral[600], marginBottom: 6 },
   input: { backgroundColor: theme.colors.neutral[50] },
+  descriptionInput: { minHeight: 100 },
   err: { color: theme.colors.error.main, fontSize: 12, marginTop: -6 },
   row: { flexDirection: 'row', gap: 10 },
   flex1: { flex: 1 },
   picker: { marginTop: 4 },
+  openingHoursWrap: { marginTop: 4, marginBottom: 8 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 12, justifyContent: 'space-between' },
   coords: { marginTop: 14, padding: 12, borderRadius: 12, backgroundColor: theme.colors.neutral[50], borderWidth: 1, borderColor: theme.colors.neutral[200] },
   coordsLabel: { color: theme.colors.neutral[600], fontWeight: '700' },
