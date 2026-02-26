@@ -35,7 +35,7 @@ function getLoginErrorRomanian(rawMessage: string): string {
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
-  const { login, loginError, clearLoginError } = useAuth();
+  const { login, loginError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -46,8 +46,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
   const handleLogin = async () => {
     setErrorMessage('');
-    clearLoginError();
-    // Validate input
+    // Nu ștergem loginError aici – rămâne până la autentificare reușită (se curăță în AuthContext la success)
     if (!email.trim()) {
       setErrorMessage('Introdu adresa de email.');
       return;
@@ -66,9 +65,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         password,
       });
 
-      // No need to navigate - AuthContext will handle it automatically
+      // La success, AuthContext curăță loginError; nu mai afișăm eroare
     } catch (_error: any) {
-      // Eroarea e deja setată în context (loginError) și supraviețuiește la re-mount
+      // Eroarea e setată în context (loginError) și persistă până când pune parola/emailul corect
     } finally {
       setLoading(false);
     }
@@ -137,7 +136,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   placeholder="email@domeniu.com"
                   placeholderTextColor="#a0a0a0"
                   value={email}
-                  onChangeText={(t) => { setEmail(t); setErrorMessage(''); clearLoginError(); }}
+                  onChangeText={(t) => { setEmail(t); setErrorMessage(''); }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -164,7 +163,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                     placeholder="••••••••••••"
                     placeholderTextColor="#a0a0a0"
                     value={password}
-                    onChangeText={(t) => { setPassword(t); setErrorMessage(''); clearLoginError(); }}
+                    onChangeText={(t) => { setPassword(t); setErrorMessage(''); }}
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                     autoCorrect={false}

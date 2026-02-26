@@ -26,6 +26,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  // Stare globală eroare login: verificată la încărcarea paginii (restaurată din sessionStorage), rămâne până la autentificare reușită
   const [loginError, setLoginError] = useState<string | null>(() => {
     if (typeof window === 'undefined' || !window.sessionStorage) return null;
     try {
