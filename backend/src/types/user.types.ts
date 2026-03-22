@@ -20,6 +20,7 @@ export interface User {
   email: string;
   password: string;
   role: UserRole;
+  phone?: string | null;
   // Home address fields
   street?: string;
   street_number?: string;
@@ -41,6 +42,7 @@ export interface CreateUserDTO {
   email: string;
   password: string;
   role: UserRole;
+  phone?: string | null;
   // Optional address fields (primarily for pet owners)
   street?: string;
   street_number?: string;
@@ -60,6 +62,7 @@ export interface UpdateUserDTO {
   email?: string;
   password?: string;
   role?: UserRole;
+  phone?: string | null;
   // Address fields
   street?: string;
   street_number?: string;
@@ -79,6 +82,7 @@ export interface UserResponse {
   name: string;
   email: string;
   role: UserRole;
+  phone?: string | null;
   // Home address fields
   street?: string;
   street_number?: string;

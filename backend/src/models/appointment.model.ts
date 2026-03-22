@@ -10,7 +10,7 @@ export interface Appointment {
   total_price_max?: number | null;
   total_duration_minutes?: number | null;
   appointment_date: Date;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'expired';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   notes?: string;
   created_at?: Date;
   updated_at?: Date;
@@ -24,23 +24,54 @@ export const createAppointmentModel = () => {
     normalizeStatus(status?: string): Appointment['status'] | undefined {
       if (!status) return undefined;
       const s = String(status).trim().toLowerCase();
-      const allowed: Array<Appointment['status']> = ['pending', 'confirmed', 'cancelled', 'completed', 'expired'];
+      const allowed: Array<Appointment['status']> = ['pending', 'confirmed', 'cancelled', 'completed'];
       return (allowed as string[]).includes(s) ? (s as Appointment['status']) : undefined;
     },
 
-    // Mark appointments as expired if they are in the past and were never completed/cancelled.
-    // This enables the frontend to show a reliable `expired` state even if the clinic never confirmed.
-    async expirePendingAppointments(now: Date = new Date()): Promise<number> {
+    /**
+     * Set status to completed when current time is past (start + total service duration).
+     * Duration: total_duration_minutes, else sum(appointment_services.duration_minutes), else 30 (matches frontend).
+     */
+    async autoCompletePastAppointments(now: Date = new Date()): Promise<number> {
       const result = await pool.query(
-        `UPDATE appointments
-         SET status = 'expired', updated_at = NOW()
-         WHERE appointment_date < $1
-           AND status IN ('pending', 'confirmed')
-           AND (deleted = FALSE OR deleted IS NULL)`,
+        `UPDATE appointments a
+         SET status = 'completed', updated_at = NOW()
+         WHERE a.status IN ('pending', 'confirmed')
+           AND (a.deleted = FALSE OR a.deleted IS NULL)
+           AND (
+             a.appointment_date + (
+               COALESCE(
+                 NULLIF(a.total_duration_minutes, 0),
+                 NULLIF((SELECT SUM(s.duration_minutes)::int FROM appointment_services s WHERE s.appointment_id = a.id), 0),
+                 30
+               ) * INTERVAL '1 minute'
+             )
+           ) <= $1`,
         [now]
       );
 
       return Number(result.rowCount || 0);
+    },
+
+    /** Same completion rule as autoCompletePastAppointments, scoped to one row (for findById / reviews). */
+    async autoCompleteAppointmentByIdIfPast(id: number, now: Date = new Date()): Promise<void> {
+      await pool.query(
+        `UPDATE appointments a
+         SET status = 'completed', updated_at = NOW()
+         WHERE a.id = $1
+           AND a.status IN ('pending', 'confirmed')
+           AND (a.deleted = FALSE OR a.deleted IS NULL)
+           AND (
+             a.appointment_date + (
+               COALESCE(
+                 NULLIF(a.total_duration_minutes, 0),
+                 NULLIF((SELECT SUM(s.duration_minutes)::int FROM appointment_services s WHERE s.appointment_id = a.id), 0),
+                 30
+               ) * INTERVAL '1 minute'
+             )
+           ) <= $2`,
+        [id, now]
+      );
     },
 
     // Create a new appointment. Supports an optional `services` array to snapshot per-service data.
@@ -56,9 +87,20 @@ export const createAppointmentModel = () => {
             ? appointment.services[0].id || appointment.services[0]
             : appointment.service_id ?? null;
 
+        let clientPhone: string | null = null;
+        const uid = Number(appointment.user_id);
+        if (Number.isFinite(uid) && uid > 0) {
+          const pr = await client.query(
+            `SELECT NULLIF(TRIM(phone), '') AS p FROM users WHERE id = $1`,
+            [uid]
+          );
+          const p = pr.rows[0]?.p;
+          clientPhone = p != null && String(p).trim() !== '' ? String(p).trim() : null;
+        }
+
         const insertQuery = `
-          INSERT INTO appointments (company_id, user_id, service_id, appointment_date, status, notes, total_duration_minutes)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          INSERT INTO appointments (company_id, user_id, service_id, appointment_date, status, notes, total_duration_minutes, client_phone)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           RETURNING id
         `;
         const insertValues = [
@@ -69,6 +111,7 @@ export const createAppointmentModel = () => {
           appointment.status || 'pending',
           appointment.notes || null,
           appointment.total_duration_minutes ?? null,
+          clientPhone,
         ];
 
         const insertResult = await client.query(insertQuery, insertValues);
@@ -129,12 +172,15 @@ export const createAppointmentModel = () => {
       const query = `
         SELECT a.*,
                c.name as clinic_name, c.address as clinic_address, c.phone as clinic_phone,
-               u.name as user_name, u.email as user_email
+               u.name as user_name, u.email as user_email,
+               COALESCE(NULLIF(TRIM(u.phone), ''), NULLIF(TRIM(a.client_phone), '')) as user_phone
         FROM appointments a
         JOIN companies c ON a.company_id = c.id
         JOIN users u ON a.user_id = u.id
         WHERE a.id = $1 AND (a.deleted = FALSE OR a.deleted IS NULL)
       `;
+
+      await this.autoCompleteAppointmentByIdIfPast(id);
 
       const result = await pool.query(query, [id]);
       if (result.rows.length === 0) return null;
@@ -158,8 +204,7 @@ export const createAppointmentModel = () => {
 
     // Get appointments by user
     async findByUser(userId: number, status?: string): Promise<any[]> {
-      // Keep statuses consistent before returning data to callers
-      await this.expirePendingAppointments();
+      await this.autoCompletePastAppointments();
 
       let query = `
         SELECT a.*,
@@ -192,12 +237,12 @@ export const createAppointmentModel = () => {
 
     // Get appointments by clinic
     async findByClinic(clinicId: number, status?: string): Promise<any[]> {
-      // Keep statuses consistent before returning data to callers
-      await this.expirePendingAppointments();
+      await this.autoCompletePastAppointments();
 
       let query = `
         SELECT a.*,
-               u.name as user_name, u.email as user_email
+               u.name as user_name, u.email as user_email,
+               COALESCE(NULLIF(TRIM(u.phone), ''), NULLIF(TRIM(a.client_phone), '')) as user_phone
         FROM appointments a
         LEFT JOIN users u ON a.user_id = u.id
         WHERE a.company_id = $1 AND (a.deleted = FALSE OR a.deleted IS NULL)
@@ -241,7 +286,7 @@ export const createAppointmentModel = () => {
 
     // Get upcoming appointments for a user
     async findUpcoming(userId: number): Promise<any[]> {
-      await this.expirePendingAppointments();
+      await this.autoCompletePastAppointments();
       const query = `
         SELECT a.*,
                c.name as clinic_name, c.address as clinic_address, c.phone as clinic_phone,
@@ -249,7 +294,7 @@ export const createAppointmentModel = () => {
         FROM appointments a
         JOIN companies c ON a.company_id = c.id
         LEFT JOIN company_services s ON a.service_id = s.id
-        WHERE a.user_id = $1 AND a.appointment_date >= NOW() AND a.status NOT IN ('cancelled','expired') AND (a.deleted = FALSE OR a.deleted IS NULL)
+        WHERE a.user_id = $1 AND a.appointment_date >= NOW() AND a.status IN ('pending', 'confirmed') AND (a.deleted = FALSE OR a.deleted IS NULL)
         ORDER BY a.appointment_date ASC
       `;
 
@@ -259,7 +304,7 @@ export const createAppointmentModel = () => {
 
     // Get past appointments for a user
     async findPast(userId: number): Promise<any[]> {
-      await this.expirePendingAppointments();
+      await this.autoCompletePastAppointments();
       const query = `
         SELECT a.*,
                c.name as clinic_name, c.address as clinic_address, c.phone as clinic_phone,
@@ -332,6 +377,7 @@ export const createAppointmentModel = () => {
       startDate: Date,
       endDate: Date
     ): Promise<any[]> {
+      await this.autoCompletePastAppointments();
       // Prefer stored total_duration_minutes when available, otherwise fall back to service duration
       const query = `
         SELECT a.*, COALESCE(a.total_duration_minutes, cs.duration_minutes) AS duration_minutes

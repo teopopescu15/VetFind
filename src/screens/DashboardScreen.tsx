@@ -68,7 +68,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   if (isCheckingCompany) {
     return (
       <LinearGradient
-        colors={[theme.colors.primary.main, theme.colors.accent.main]}
+        colors={[...theme.gradients.bannerDuo]}
         style={styles.container}
       >
         <View style={styles.loadingContainer}>
@@ -83,7 +83,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   if (user?.role === 'vetcompany' && !hasCompany) {
     return (
       <LinearGradient
-        colors={[theme.colors.primary.main, theme.colors.accent.main]}
+        colors={[...theme.gradients.bannerDuo]}
         style={styles.container}
       >
         <StatusBar barStyle="light-content" />
@@ -116,7 +116,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   // Fallback for any other case (admin, etc.)
   return (
     <LinearGradient
-      colors={[theme.colors.primary.main, theme.colors.accent.main]}
+      colors={[...theme.gradients.bannerDuo]}
       style={styles.container}
     >
       <StatusBar barStyle="light-content" />

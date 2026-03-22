@@ -1007,14 +1007,14 @@ export const UserDashboardScreen = () => {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={[theme.colors.accent.main]}
-            tintColor={theme.colors.accent.main}
+            colors={[theme.colors.primary[800]]}
+            tintColor={theme.colors.primary[800]}
           />
         }
       >
         {/* Compact Header */}
         <LinearGradient
-          colors={[theme.colors.primary.main, theme.colors.accent.main]}
+          colors={[...theme.gradients.bannerDuo]}
           style={styles.compactHeader}
         >
           <View style={styles.compactHeaderContent}>

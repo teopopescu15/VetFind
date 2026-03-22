@@ -25,6 +25,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'users' AND column_name = 'latitude') THEN
     missing := array_append(missing, 'users.latitude');
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'users' AND column_name = 'phone') THEN
+    missing := array_append(missing, 'users.phone');
+  END IF;
 
   -- 2) companies – schema curentă (008 company_completed, 016 rating/review_count)
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'companies' AND column_name = 'company_completed') THEN
@@ -45,12 +48,15 @@ BEGIN
     missing := array_append(missing, 'company_services.specialization_id');
   END IF;
 
-  -- 4) appointments – schema curentă (012 total_*, 013 deleted, 017 expired)
+  -- 4) appointments – schema curentă (012 total_*, 013 deleted)
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'appointments' AND column_name = 'total_duration_minutes') THEN
     missing := array_append(missing, 'appointments.total_duration_minutes');
   END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'appointments' AND column_name = 'deleted') THEN
     missing := array_append(missing, 'appointments.deleted');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'appointments' AND column_name = 'client_phone') THEN
+    missing := array_append(missing, 'appointments.client_phone');
   END IF;
 
   -- 5) reviews – schema curentă (015 appointment_id; reviews cu company_id, nu clinic_id)
@@ -87,7 +93,7 @@ BEGIN
   END IF;
 END $$;
 
--- Enum folosit de cod: appointment_status cu 'expired' (migrarea 017)
+-- Enum appointment_status (opțional: eticheta legacy 'expired' din 017; datele se migrează cu 023)
 DO $$
 DECLARE
   enum_vals TEXT[];
@@ -98,10 +104,8 @@ BEGIN
   WHERE t.typname = 'appointment_status';
   IF enum_vals IS NULL THEN
     RAISE WARNING 'Tipul appointment_status nu există.';
-  ELSIF NOT ('expired' = ANY(enum_vals)) THEN
-    RAISE WARNING 'appointment_status nu conține valoarea "expired" (migrarea 017).';
   ELSE
-    RAISE NOTICE 'Enum appointment_status include "expired".';
+    RAISE NOTICE 'Valori appointment_status: %', array_to_string(enum_vals, ', ');
   END IF;
 END $$;
 

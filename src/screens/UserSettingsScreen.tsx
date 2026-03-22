@@ -10,10 +10,11 @@ import { BackHeader } from '../components/BackHeader';
 import { CountyPicker } from '../components/FormComponents/CountyPicker';
 import { LocalityPicker } from '../components/FormComponents/LocalityPicker';
 import { CountyCode } from '../constants/romania';
-import { validateRomanianPostalCode } from '../utils/romanianValidation';
+import { validateRomanianPostalCode, validateRomanianPhone } from '../utils/romanianValidation';
 import { buildAddressForGeocoding, geocodeAddress } from '../utils/geocoding';
 
 type HomeAddressForm = {
+  phone: string;
   street: string;
   streetNumber: string;
   building: string;
@@ -37,6 +38,7 @@ export const UserSettingsScreen = () => {
   };
 
   const initial = useMemo<HomeAddressForm>(() => ({
+    phone: String(user?.phone ?? ''),
     street: String(user?.street ?? ''),
     streetNumber: String(user?.street_number ?? ''),
     building: String(user?.building ?? ''),
@@ -61,6 +63,10 @@ export const UserSettingsScreen = () => {
 
   const validateAddress = (): boolean => {
     const e: Record<string, string> = {};
+    const phoneTrim = form.phone.trim();
+    if (phoneTrim && !validateRomanianPhone(phoneTrim)) {
+      e.phone = 'Format invalid (+40 … sau 07…)';
+    }
     if (!form.street.trim()) e.street = 'Strada este obligatorie';
     if (!form.streetNumber.trim()) e.streetNumber = 'Numărul este obligatoriu';
     if (!form.city.trim()) e.city = 'Localitatea este obligatorie';
@@ -106,6 +112,7 @@ export const UserSettingsScreen = () => {
     try {
       setSaving(true);
       await updateUser({
+        phone: form.phone.trim() || null,
         street: form.street.trim(),
         street_number: form.streetNumber.trim(),
         building: form.building.trim() || undefined,
@@ -145,6 +152,21 @@ export const UserSettingsScreen = () => {
           <Ionicons name="settings-outline" size={22} color={theme.colors.primary.main} />
           <Text style={styles.title}>Setări</Text>
         </View>
+
+        <Text style={styles.sectionTitle}>Contact</Text>
+        <Text style={styles.sectionSubtitle}>
+          Numărul de telefon este afișat clinicilor la programările tale (opțional).
+        </Text>
+        <TextInput
+          mode="outlined"
+          label="Telefon (opțional)"
+          value={form.phone}
+          onChangeText={(t) => setField('phone', t)}
+          keyboardType="phone-pad"
+          error={!!errors.phone}
+          style={styles.input}
+        />
+        {!!errors.phone && <Text style={styles.err}>{errors.phone}</Text>}
 
         <Text style={styles.sectionTitle}>Home Address</Text>
         <Text style={styles.sectionSubtitle}>

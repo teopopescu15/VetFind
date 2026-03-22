@@ -4,10 +4,7 @@
  * Object-literal based design system following project conventions.
  * Provides consistent colors, spacing, typography, shadows, and style utilities.
  *
- * Redesigned with warm professional aesthetic:
- * - Primary: Professional blues (#2563eb)
- * - Neutral: Warm beiges/creams (#fafaf9, #f5f5f4)
- * - Accent: Terracotta (#ea580c) for CTAs
+ * Paletă brand (teal #096e77, turcoaz #2a969d, verde #20c571, rose #a57269); inspirație UI: claritate Agendrix.
  *
  * Usage:
  * ```typescript
@@ -24,14 +21,69 @@
  * ```
  */
 
+import { MD3LightTheme } from 'react-native-paper';
 import { colors } from './colors';
 
 /**
- * Main Theme Object
- * Centralized design system with new warm professional color palette
+ * Gradient presets (verde → turcoaz). Folosește cu LinearGradient din expo-linear-gradient.
+ */
+export const gradients = {
+  /** Header hero: teal foarte închis → brand → turcoaz paletă */
+  brand: [colors.primary[900], colors.primary.main, colors.primary[400]] as [string, string, string],
+  /** Bannere app: #096e77 → #2a969d */
+  bannerDuo: [colors.primary.main, colors.primary[400]] as [string, string],
+  /** CTA / carduri: teal închis → verde accent */
+  brandDuo: [colors.primary[800], colors.accent.main] as [string, string],
+  /** Fundal auth — ton #e5e1de + tentă teal foarte fină */
+  surface: [colors.neutral[50], colors.primary[50], colors.neutral[50]] as [string, string, string],
+  /** Buton principal */
+  cta: [colors.primary[700], colors.accent[500]] as [string, string],
+  /** Logo */
+  logo: [colors.primary[800], colors.primary[400]] as [string, string],
+} as const;
+
+/**
+ * Temă React Native Paper (MD3) aliniată la paleta VetFinder
+ */
+export const paperTheme = {
+  ...MD3LightTheme,
+  colors: {
+    ...MD3LightTheme.colors,
+    primary: colors.primary.main,
+    onPrimary: colors.white,
+    primaryContainer: colors.primary[100],
+    onPrimaryContainer: colors.primary[900],
+    secondary: colors.primary[400],
+    onSecondary: colors.white,
+    secondaryContainer: colors.primary[100],
+    onSecondaryContainer: colors.primary[900],
+    tertiary: colors.accent.main,
+    onTertiary: colors.white,
+    error: colors.error.main,
+    onError: colors.white,
+    errorContainer: colors.error[100],
+    onErrorContainer: colors.error[900],
+    background: colors.surface.background,
+    surface: colors.surface.card,
+    surfaceVariant: colors.neutral[100],
+    onSurface: colors.neutral[900],
+    onSurfaceVariant: colors.neutral[600],
+    outline: colors.neutral[300],
+    outlineVariant: colors.neutral[200],
+    inverseSurface: colors.neutral[800],
+    inverseOnSurface: colors.neutral[50],
+    shadow: colors.neutral[900],
+    scrim: 'rgba(0,0,0,0.4)',
+    elevation: MD3LightTheme.colors.elevation,
+  },
+};
+
+/**
+ * Main Theme Object — paletă brand VetFinder
  */
 export const theme = {
   colors,
+  gradients,
 
   /**
    * Spacing System (4px grid)
@@ -166,24 +218,23 @@ export const theme = {
       shadowOpacity: 0.15,
       shadowRadius: 24,
     },
-    // Primary-colored shadows for emphasis (blue instead of purple)
     primarySm: {
       elevation: 2,
-      shadowColor: colors.primary.main,  // Blue shadow
+      shadowColor: colors.primary.main,
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.1,
       shadowRadius: 4,
     },
     primaryMd: {
       elevation: 6,
-      shadowColor: colors.primary.main,  // Blue shadow
+      shadowColor: colors.primary.main,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.15,
       shadowRadius: 12,
     },
     primaryLg: {
       elevation: 8,
-      shadowColor: colors.primary.main,  // Blue shadow
+      shadowColor: colors.primary.main,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.2,
       shadowRadius: 16,
@@ -240,7 +291,7 @@ export const styleHelpers = {
           ...base,
           ...theme.shadows.primaryMd,
           borderWidth: 2,
-          borderColor: theme.colors.primary[300],  // Blue border
+          borderColor: theme.colors.primary[300],
         };
       default:
         return base;
@@ -249,7 +300,7 @@ export const styleHelpers = {
 
   /**
    * Generate button styles with variants
-   * Primary uses blue, accent variant available for terracotta CTAs
+   * Primary = teal; accent = turcoaz
    */
   button: (variant: 'primary' | 'secondary' | 'outlined' | 'ghost' | 'accent' = 'primary') => {
     const base = {
@@ -265,13 +316,13 @@ export const styleHelpers = {
       case 'primary':
         return {
           ...base,
-          backgroundColor: theme.colors.primary.main,  // Blue
+          backgroundColor: theme.colors.primary.main,
           ...theme.shadows.sm,
         };
       case 'accent':
         return {
           ...base,
-          backgroundColor: theme.colors.accent.main,  // Terracotta for CTAs
+          backgroundColor: theme.colors.accent.main,
           ...theme.shadows.sm,
         };
       case 'secondary':
@@ -284,7 +335,7 @@ export const styleHelpers = {
           ...base,
           backgroundColor: theme.colors.transparent,
           borderWidth: 2,
-          borderColor: theme.colors.primary.main,  // Blue border
+          borderColor: theme.colors.primary.main,
         };
       case 'ghost':
         return {
@@ -298,7 +349,7 @@ export const styleHelpers = {
 
   /**
    * Generate input/form field styles with states
-   * Using warm neutrals and blue for focus, terracotta for error
+   * Focus primary; erori rose (error)
    */
   input: (state: 'default' | 'focused' | 'error' | 'success' | 'disabled' = 'default') => {
     const base = {
@@ -317,15 +368,15 @@ export const styleHelpers = {
         return {
           ...base,
           borderWidth: 2,
-          borderColor: theme.colors.primary.main,  // Blue focus border
+          borderColor: theme.colors.primary.main,
           ...theme.shadows.sm,
         };
       case 'error':
         return {
           ...base,
           borderWidth: 2,
-          borderColor: theme.colors.accent.main,  // Terracotta error border
-          backgroundColor: theme.colors.accent[50],  // Light terracotta background
+          borderColor: theme.colors.error.main,
+          backgroundColor: theme.colors.error[50],
         };
       case 'success':
         return {
@@ -359,8 +410,8 @@ export const styleHelpers = {
     };
 
     const colorMap = {
-      primary: { bg: theme.colors.primary.main, text: theme.colors.white },  // Blue
-      accent: { bg: theme.colors.accent.main, text: theme.colors.white },  // Terracotta
+      primary: { bg: theme.colors.primary.main, text: theme.colors.white },
+      accent: { bg: theme.colors.accent.main, text: theme.colors.white },
       success: { bg: theme.colors.success.main, text: theme.colors.white },
       error: { bg: theme.colors.error.main, text: theme.colors.white },
       warning: { bg: theme.colors.warning.main, text: theme.colors.white },
@@ -392,8 +443,8 @@ export const styleHelpers = {
     };
 
     const colorMap = {
-      primary: { bg: theme.colors.primary[100], text: theme.colors.primary[700], border: theme.colors.primary[300] },  // Blue
-      accent: { bg: theme.colors.accent[100], text: theme.colors.accent[700], border: theme.colors.accent[300] },  // Terracotta
+      primary: { bg: theme.colors.primary[100], text: theme.colors.primary[700], border: theme.colors.primary[300] },
+      accent: { bg: theme.colors.accent[100], text: theme.colors.accent[700], border: theme.colors.accent[300] },
       success: { bg: theme.colors.success[100], text: theme.colors.success[700], border: theme.colors.success[300] },
       error: { bg: theme.colors.error[100], text: theme.colors.error[700], border: theme.colors.error[300] },
       warning: { bg: theme.colors.warning[100], text: theme.colors.warning[700], border: theme.colors.warning[300] },

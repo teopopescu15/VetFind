@@ -16,13 +16,15 @@ export const UserModel = {
         name, email, password, role,
         street, street_number, building, apartment,
         city, county, postal_code, country,
-        latitude, longitude, show_emergency_clinics
+        latitude, longitude, show_emergency_clinics,
+        phone
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING id, name, email, role,
         street, street_number, building, apartment,
         city, county, postal_code, country,
         latitude, longitude, show_emergency_clinics,
+        phone,
         created_at, updated_at
     `;
 
@@ -42,6 +44,7 @@ export const UserModel = {
       userData.latitude ?? null,
       userData.longitude ?? null,
       userData.show_emergency_clinics ?? false,
+      userData.phone != null && String(userData.phone).trim() !== '' ? String(userData.phone).trim() : null,
     ];
 
     try {
@@ -77,6 +80,7 @@ export const UserModel = {
         street, street_number, building, apartment,
         city, county, postal_code, country,
         latitude, longitude, show_emergency_clinics,
+        phone,
         created_at, updated_at
       FROM users
       ORDER BY created_at DESC
@@ -174,6 +178,11 @@ export const UserModel = {
       values.push(userData.show_emergency_clinics);
       paramCount++;
     }
+    if (userData.phone !== undefined) {
+      fields.push(`phone = $${paramCount}`);
+      values.push(userData.phone === null || userData.phone === '' ? null : String(userData.phone).trim());
+      paramCount++;
+    }
 
     if (fields.length === 0) {
       const u = await this.findById(id);
@@ -192,6 +201,7 @@ export const UserModel = {
         street, street_number, building, apartment,
         city, county, postal_code, country,
         latitude, longitude, show_emergency_clinics,
+        phone,
         created_at, updated_at
     `;
 
@@ -225,6 +235,7 @@ export const UserModel = {
         street, street_number, building, apartment,
         city, county, postal_code, country,
         latitude, longitude,
+        phone,
         created_at, updated_at
       FROM users
       WHERE role = $1
@@ -249,6 +260,7 @@ export const UserModel = {
         street, street_number, building, apartment,
         city, county, postal_code, country,
         latitude, longitude,
+        phone,
         created_at, updated_at
       FROM users
       WHERE name ILIKE $1 OR email ILIKE $1

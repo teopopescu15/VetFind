@@ -6,6 +6,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Appointment } from '../../types/appointment.types';
 import { theme } from '../../theme';
 import { formatPriceRange } from '../../utils/currency';
+import { getAppointmentClientPhone } from '../../utils/appointmentClientPhone';
 
 export interface EditAppointmentModalProps {
   visible: boolean;
@@ -21,7 +22,9 @@ export const EditAppointmentModal = ({
   onCancel,
 }: EditAppointmentModalProps) => {
   const [appointmentDate, setAppointmentDate] = useState<Date>(new Date(appointment.appointment_date));
-  const [status, setStatus] = useState<string>(appointment.status);
+  const [status, setStatus] = useState<string>(
+    () => (appointment.status === 'pending' ? 'confirmed' : appointment.status)
+  );
   const [notes, setNotes] = useState<string>(appointment.notes || '');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -32,14 +35,15 @@ export const EditAppointmentModal = ({
   // Reset form when appointment changes
   useEffect(() => {
     setAppointmentDate(new Date(appointment.appointment_date));
-    setStatus(appointment.status);
+    setStatus(appointment.status === 'pending' ? 'confirmed' : appointment.status);
     setNotes(appointment.notes || '');
   }, [appointment]);
 
   const handleSave = () => {
+    const statusToSave = status === 'pending' ? 'confirmed' : status;
     const updatedData: Partial<Appointment> = {
       appointment_date: appointmentDate,
-      status: status as any,
+      status: statusToSave as any,
       notes: notes,
     };
 
@@ -76,21 +80,6 @@ export const EditAppointmentModal = ({
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
-
-  const getStatusColor = (statusValue: string) => {
-    switch (statusValue) {
-      case 'confirmed':
-        return theme.colors.success.main;
-      case 'pending':
-        return theme.colors.warning.main;
-      case 'cancelled':
-        return theme.colors.error.main;
-      case 'completed':
-        return theme.colors.neutral[500];
-      default:
-        return theme.colors.neutral[400];
-    }
   };
 
   const formatDuration = (minutes?: number | null) => {
@@ -155,6 +144,8 @@ export const EditAppointmentModal = ({
     handleMarkNotCompleted(otherReasonText.trim() || 'Altul');
   };
 
+  const clientPhoneLine = getAppointmentClientPhone(appointment);
+
   return (
     <Portal>
       <Modal
@@ -168,7 +159,7 @@ export const EditAppointmentModal = ({
             {/* Header */}
             <View style={styles.modalHeader}>
               <Text variant="titleLarge" style={styles.modalTitle}>
-                Edit Appointment
+               Detalii programare
               </Text>
               <TouchableOpacity onPress={onCancel} style={styles.closeButton}>
                 <Ionicons name="close" size={24} color={theme.colors.neutral[600]} />
@@ -187,6 +178,14 @@ export const EditAppointmentModal = ({
                     {(appointment as any).user_name || 'Client necunoscut'}
                   </Text>
                 </View>
+                {clientPhoneLine ? (
+                  <View style={styles.infoRow}>
+                    <Ionicons name="call-outline" size={20} color={theme.colors.neutral[600]} />
+                    <Text variant="bodyMedium" style={styles.infoText}>
+                      {clientPhoneLine}
+                    </Text>
+                  </View>
+                ) : null}
                 {(appointment as any).user_email && (
                   <View style={styles.infoRow}>
                     <Ionicons name="mail" size={20} color={theme.colors.neutral[600]} />
@@ -200,7 +199,7 @@ export const EditAppointmentModal = ({
               {/* Detalii programare: servicii alese, durată, preț */}
               <View style={styles.section}>
                 <Text variant="titleSmall" style={styles.sectionTitle}>
-                  Detalii programare
+                  Sumar programare
                 </Text>
                 <View style={styles.detailsCard}>
                   {servicesList.length > 0 ? (
@@ -336,21 +335,6 @@ export const EditAppointmentModal = ({
                     Status programare
                   </Text>
                   <View style={styles.statusChips}>
-                    <Chip
-                      mode={status === 'pending' ? 'flat' : 'outlined'}
-                      selected={status === 'pending'}
-                      onPress={() => setStatus('pending')}
-                      style={[
-                        styles.statusChip,
-                        status === 'pending' && { backgroundColor: theme.colors.warning[100] },
-                      ]}
-                      textStyle={[
-                        styles.statusChipText,
-                        status === 'pending' && { color: theme.colors.warning.main },
-                      ]}
-                    >
-                      În așteptare
-                    </Chip>
                     <Chip
                       mode={status === 'confirmed' ? 'flat' : 'outlined'}
                       selected={status === 'confirmed'}

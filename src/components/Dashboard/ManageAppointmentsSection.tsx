@@ -1,11 +1,24 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, useWindowDimensions } from 'react-native';
+import React, { useState, useEffect, useMemo, type CSSProperties } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  TouchableOpacity,
+  useWindowDimensions,
+  Platform,
+  Modal,
+  Pressable,
+  type LayoutChangeEvent,
+} from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Text, Card, ActivityIndicator, Chip, IconButton, Button } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiService } from '../../services/api';
 import { Appointment } from '../../types/appointment.types';
 import { theme } from '../../theme';
 import { EditAppointmentModal } from './EditAppointmentModal';
+import { getAppointmentClientPhone } from '../../utils/appointmentClientPhone';
 import { useCompany } from '../../context/CompanyContext';
 import type { OpeningHours } from '../../types/company.types';
 
@@ -13,6 +26,12 @@ const DEFAULT_HOUR_START = 8;
 const DEFAULT_HOUR_END = 18;
 const SLOT_HEIGHT = 44;
 const SLOTS_PER_HOUR = 2;
+/** Minute reprezentate de un rând din grilă (30 când sunt 2 sloturi/oră). */
+const MINUTES_PER_GRID_ROW = 60 / SLOTS_PER_HOUR;
+/** Minim chenar doar cât un rând text + padding discret (programări foarte scurte); duratele mai mari rămân proporționale. */
+const MIN_APPOINTMENT_BLOCK_HEIGHT = 26;
+/** De la această înălțime afișăm ora și numele pe rânduri separate (nume până la 2 rânduri). */
+const BLOCK_HEIGHT_FOR_TWO_ROW_LABELS = 52;
 const TIME_COLUMN_WIDTH = 52;
 const DAY_LABELS = ['Lun', 'Mar', 'Mie', 'Joi', 'Vin', 'Sâm', 'Dum'];
 
@@ -47,7 +66,7 @@ function getOpeningHoursRange(hours?: OpeningHours | null): { hourStart: number;
   };
 }
 
-function getMonday(d: Date): Date {
+export function getMonday(d: Date): Date {
   const date = new Date(d);
   const day = date.getDay();
   const diff = day === 0 ? -6 : 1 - day;
@@ -63,14 +82,61 @@ function getWeekEnd(monday: Date): Date {
   return end;
 }
 
+/** Start of local calendar day (00:00:00.000). */
+export function startOfLocalDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+/**
+ * Pe web, `@react-native-community/datetimepicker` nu randează nimic (returnează null).
+ * Folosim input HTML nativ ca selector de zi.
+ */
+function WebDatePickerInput({
+  value,
+  onChange,
+}: {
+  value: Date;
+  onChange: (d: Date) => void;
+}) {
+  const str = `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  const webStyle: CSSProperties = {
+    width: '100%',
+    maxWidth: 320,
+    padding: 14,
+    fontSize: 16,
+    borderRadius: theme.borderRadius.md,
+    border: `1px solid ${theme.colors.neutral[300]}`,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+    boxSizing: 'border-box',
+  };
+  return React.createElement('input', {
+    type: 'date',
+    value: str,
+    onChange: (e: { target: { value: string } }) => {
+      const v = e.target.value;
+      if (v && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        const [yy, mm, dd] = v.split('-').map(Number);
+        onChange(startOfLocalDay(new Date(yy, mm - 1, dd, 12, 0, 0, 0)));
+      }
+    },
+    style: webStyle,
+  });
+}
+
+/** End of local calendar day (23:59:59.999). */
+function endOfLocalDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(23, 59, 59, 999);
+  return x;
+}
+
 function formatWeekRange(monday: Date): string {
   const end = new Date(monday);
   end.setDate(end.getDate() + 6);
   return `${monday.getDate()} - ${end.getDate()} ${end.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' })}`;
-}
-
-function getAppointmentDuration(app: Appointment): number {
-  return (app as any).service?.duration_minutes ?? (app.service as any)?.duration_minutes ?? 30;
 }
 
 /** Total duration (sum of all services) for positioning and end-time. */
@@ -98,27 +164,315 @@ function isAppointmentPastEndTime(app: Appointment): boolean {
   return Date.now() >= endTime;
 }
 
-interface WeekCalendarViewProps {
+function getAppointmentServiceLabels(app: Appointment): string[] {
+  const a = app as any;
+  const label = (x: any) => String(x?.service_name || x?.name || '').trim();
+  if (Array.isArray(a.services) && a.services.length) {
+    return a.services.map(label).filter(Boolean);
+  }
+  if (Array.isArray(a.selected_services) && a.selected_services.length) {
+    return a.selected_services.map(label).filter(Boolean);
+  }
+  if (app.service_name) return [String(app.service_name).trim()].filter(Boolean);
+  if (app.service?.service_name) return [String(app.service.service_name).trim()].filter(Boolean);
+  return [];
+}
+
+/** Estimează câte rânduri ocupă textul servicii separate prin „ · ” la lățime dată. */
+function estimateServiceLines(servicesJoined: string, innerWidthPx: number, avgCharPx = 5.7): number {
+  if (!servicesJoined.trim()) return 0;
+  const cpl = Math.max(5, Math.floor(innerWidthPx / avgCharPx));
+  let lines = 1;
+  let curLen = 0;
+  const parts = servicesJoined.split(' · ');
+  for (let i = 0; i < parts.length; i++) {
+    const piece = i === 0 ? parts[i] : ` · ${parts[i]}`;
+    if (curLen + piece.length <= cpl) {
+      curLen += piece.length;
+    } else {
+      lines++;
+      curLen = parts[i].length;
+    }
+  }
+  return lines;
+}
+
+function estimateDayAppointmentCardHeight(innerWidthPx: number, servicesJoined: string): number {
+  const padV = 8;
+  const nameLine = 16;
+  const rowLine = 14;
+  const serviceLine = 13;
+  let h = padV + nameLine + 2 + rowLine;
+  if (servicesJoined) {
+    h += estimateServiceLines(servicesJoined, innerWidthPx) * serviceLine;
+  }
+  return Math.ceil(h) + 6;
+}
+
+type DayPlacedBlock = {
+  app: Appointment;
+  startMin: number;
+  endMin: number;
+  durationMin: number;
+  top: number;
+  height: number;
+  timeStr: string;
+  clientName: string;
+  servicesJoined: string;
+  color: string;
+};
+
+function yAtMinuteOnHourHeights(
+  minuteFromGrid: number,
+  hourHeights: number[],
+  gridMinutes: number
+): number {
+  if (minuteFromGrid <= 0) return 0;
+  const total = hourHeights.reduce((a, b) => a + b, 0);
+  if (minuteFromGrid >= gridMinutes) return total;
+  const hourSpan = hourHeights.length;
+  const hi = Math.min(Math.floor(minuteFromGrid / 60), hourSpan - 1);
+  const u = minuteFromGrid - hi * 60;
+  let y = 0;
+  for (let k = 0; k < hi; k++) y += hourHeights[k];
+  y += (u / 60) * hourHeights[hi];
+  return y;
+}
+
+function hourIndicesForInterval(
+  startMin: number,
+  endMin: number,
+  hourSpan: number,
+  gridMinutes: number
+): number[] {
+  const s = Math.max(0, startMin);
+  const e = Math.min(endMin, gridMinutes);
+  if (e <= s) return [];
+  const h0 = Math.floor(s / 60);
+  const h1 = Math.min(hourSpan - 1, Math.floor((e - 1e-6) / 60));
+  const out: number[] = [];
+  for (let h = Math.max(0, h0); h <= h1; h++) out.push(h);
+  return out;
+}
+
+/** Mărește înălțimea orelor de la `fromHour` în coloană, astfel încât pozițiile de timp de la acea oră în jos coboară cu ~extraPx. */
+function expandHourSuffix(fromHour: number, extraPx: number, hourHeights: number[]): void {
+  if (extraPx <= 0) return;
+  const span = hourHeights.length;
+  let suffix = 0;
+  for (let k = Math.max(0, fromHour); k < span; k++) suffix += hourHeights[k];
+  if (suffix < 1) suffix = 1;
+  const factor = (suffix + extraPx) / suffix;
+  for (let k = Math.max(0, fromHour); k < span; k++) hourHeights[k] *= factor;
+}
+
+function computeDayDynamicLayout(
+  appointments: Appointment[],
+  hourStart: number,
+  hourEnd: number,
+  innerColumnWidth: number,
+  getStatusColor: (status: string) => string,
+  getBlockColor?: (app: Appointment) => string
+): { totalHeight: number; hourHeights: number[]; blocks: DayPlacedBlock[] } {
+  const gridMinutes = (hourEnd - hourStart) * 60;
+  const hourSpan = hourEnd - hourStart;
+  if (gridMinutes <= 0 || hourSpan <= 0) {
+    return { totalHeight: 0, hourHeights: [], blocks: [] };
+  }
+
+  const H0 = SLOTS_PER_HOUR * SLOT_HEIGHT;
+  const hourHeights = Array.from({ length: hourSpan }, () => H0);
+
+  type Parsed = {
+    app: Appointment;
+    startMin: number;
+    durationMin: number;
+    endMinFull: number;
+    endMinClip: number;
+    contentHeight: number;
+    timeStr: string;
+    clientName: string;
+    servicesJoined: string;
+    color: string;
+  };
+
+  const parsed: Parsed[] = [];
+  for (const app of appointments) {
+    const d = new Date(app.appointment_date);
+    const hdec = d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
+    if (hdec < hourStart || hdec >= hourEnd) continue;
+    const startMin = (hdec - hourStart) * 60;
+    const durationMin = getAppointmentTotalDuration(app);
+    const endMinFull = startMin + durationMin;
+    const endMinClip = Math.min(endMinFull, gridMinutes);
+    const timeStr = d.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
+    const clientName = String((app as any).user_name || 'Client');
+    const servicesJoined = getAppointmentServiceLabels(app).join(' · ');
+    const contentHeight = estimateDayAppointmentCardHeight(innerColumnWidth, servicesJoined);
+    const color = getBlockColor ? getBlockColor(app) : getStatusColor(app.status);
+    parsed.push({
+      app,
+      startMin,
+      durationMin,
+      endMinFull,
+      endMinClip,
+      contentHeight,
+      timeStr,
+      clientName,
+      servicesJoined,
+      color,
+    });
+  }
+  parsed.sort((a, b) => a.startMin - b.startMin);
+
+  const EPS = 0.75;
+
+  // Faza 1: text mai înalt decât banda proporțională duratei → mărim întreaga/întregile ore atinse
+  for (let pass = 0; pass < 28; pass++) {
+    let changed = false;
+    for (const p of parsed) {
+      const y0 = yAtMinuteOnHourHeights(p.startMin, hourHeights, gridMinutes);
+      const y1 = yAtMinuteOnHourHeights(Math.min(p.endMinFull, gridMinutes), hourHeights, gridMinutes);
+      const span = Math.max(EPS, y1 - y0);
+      if (p.contentHeight > span + EPS) {
+        const f = p.contentHeight / span;
+        for (const h of hourIndicesForInterval(p.startMin, p.endMinFull, hourSpan, gridMinutes)) {
+          hourHeights[h] *= f;
+          changed = true;
+        }
+      }
+    }
+    if (!changed) break;
+  }
+
+  // Faza 2: fără suprapunere — dacă două intervale se calculează în același spațiu, lărgim orele de la ora început în jos
+  let blocks: DayPlacedBlock[] = [];
+
+  for (let outer = 0; outer < 36; outer++) {
+    let expanded = false;
+    blocks = [];
+
+    for (const p of parsed) {
+      const y0 = yAtMinuteOnHourHeights(p.startMin, hourHeights, gridMinutes);
+      const y1 = yAtMinuteOnHourHeights(Math.min(p.endMinFull, gridMinutes), hourHeights, gridMinutes);
+      const spanDur = Math.max(EPS, y1 - y0);
+      const height = Math.max(spanDur, p.contentHeight, MIN_APPOINTMENT_BLOCK_HEIGHT);
+      let top = y0;
+      for (const q of blocks) {
+        if (top < q.top + q.height - EPS && top + height > q.top + EPS) {
+          top = Math.max(top, q.top + q.height);
+        }
+      }
+      if (top > y0 + EPS) {
+        const gap = top - y0;
+        const hi = Math.min(Math.floor(p.startMin / 60), hourSpan - 1);
+        expandHourSuffix(hi, gap, hourHeights);
+        expanded = true;
+        break;
+      }
+      blocks.push({
+        app: p.app,
+        startMin: p.startMin,
+        endMin: p.endMinClip,
+        durationMin: p.durationMin,
+        top,
+        height,
+        timeStr: p.timeStr,
+        clientName: p.clientName,
+        servicesJoined: p.servicesJoined,
+        color: p.color,
+      });
+    }
+
+    if (!expanded) break;
+  }
+
+  const totalHeight = hourHeights.reduce((a, b) => a + b, 0);
+  return { totalHeight, hourHeights, blocks };
+}
+
+function DayAppointmentCardContent({
+  clientName,
+  timeStr,
+  servicesJoined,
+}: {
+  clientName: string;
+  timeStr: string;
+  servicesJoined: string;
+}) {
+  return (
+    <View style={styles.dayCardInner}>
+      <Text variant="bodyMedium" style={styles.dayCardName} numberOfLines={2}>
+        {clientName}
+      </Text>
+      <Text style={styles.dayCardTime}>{timeStr}</Text>
+      {servicesJoined ? <Text style={styles.dayCardServices}>{servicesJoined}</Text> : null}
+    </View>
+  );
+}
+
+interface ScheduleCalendarViewProps {
+  mode: 'day' | 'week';
+  /** Zi (00:00) sau luni săptămânii (00:00), în funcție de mod. */
+  periodStart: Date;
+  onPrev: () => void;
+  onNext: () => void;
   appointments: Appointment[];
-  weekStart: Date;
-  onPrevWeek: () => void;
-  onNextWeek: () => void;
   onAppointmentPress: (a: Appointment) => void;
   getStatusColor: (status: string) => string;
-  /** If provided, used for block color (e.g. to show "awaiting completion" when past end time). */
   getBlockColor?: (app: Appointment) => string;
-  /** Hour range for the grid: ora minimă deschidere și maximă închidere din programul clinicii. */
   hourStart: number;
   hourEnd: number;
   screenWidth: number;
   contentPadding: number;
+  /** Mod zi: deschide selectorul de dată din antet (emoji + calendar). */
+  onSelectDayDate?: (date: Date) => void;
 }
 
-function WeekCalendarView({
+function formatDayTitle(day: Date): string {
+  return day.toLocaleDateString('ro-RO', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function CalendarAppointmentBlockLabels({
+  timeStr,
+  clientName,
+  compact,
+}: {
+  timeStr: string;
+  clientName: string;
+  compact: boolean;
+}) {
+  if (compact) {
+    return (
+      <Text style={styles.blockCompactLine} numberOfLines={1} ellipsizeMode="tail">
+        <Text style={styles.blockTimeInline}>{timeStr}</Text>
+        <Text style={styles.blockNameInline}> · {clientName}</Text>
+      </Text>
+    );
+  }
+  return (
+    <>
+      <Text variant="labelSmall" style={styles.blockTime} numberOfLines={1} ellipsizeMode="tail">
+        {timeStr}
+      </Text>
+      <Text variant="bodySmall" style={styles.blockName} numberOfLines={2} ellipsizeMode="tail">
+        {clientName}
+      </Text>
+    </>
+  );
+}
+
+function ScheduleCalendarView({
+  mode,
+  periodStart,
+  onPrev,
+  onNext,
   appointments,
-  weekStart,
-  onPrevWeek,
-  onNextWeek,
   onAppointmentPress,
   getStatusColor,
   getBlockColor,
@@ -126,45 +480,97 @@ function WeekCalendarView({
   hourEnd,
   screenWidth,
   contentPadding,
-}: WeekCalendarViewProps) {
-  const weekEnd = getWeekEnd(weekStart);
-  const dayWidth = (screenWidth - contentPadding - TIME_COLUMN_WIDTH) / 7;
+  onSelectDayDate,
+}: ScheduleCalendarViewProps) {
+  const [calendarLayoutWidth, setCalendarLayoutWidth] = useState<number | null>(null);
+  const [showDayDatePicker, setShowDayDatePicker] = useState(false);
+  const [iosPickerDate, setIosPickerDate] = useState(() => startOfLocalDay(new Date()));
+
+  const onCalendarContainerLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w <= 0) return;
+    setCalendarLayoutWidth((prev) => (prev != null && Math.abs(prev - w) < 0.5 ? prev : w));
+  };
+
+  const numCols = mode === 'week' ? 7 : 1;
+  const periodEnd = useMemo(
+    () => (mode === 'week' ? getWeekEnd(periodStart) : endOfLocalDay(periodStart)),
+    [mode, periodStart]
+  );
+
+  const { dayWidth, gridTotalWidth } = useMemo(() => {
+    const fallback = Math.max(260, screenWidth - contentPadding);
+    const usableBase =
+      calendarLayoutWidth != null && calendarLayoutWidth > 0 ? calendarLayoutWidth : fallback;
+    const usable = Math.max(260, usableBase);
+    if (mode === 'week') {
+      const dw = (usable - TIME_COLUMN_WIDTH) / 7;
+      return { dayWidth: dw, gridTotalWidth: TIME_COLUMN_WIDTH + 7 * dw };
+    }
+    const targetTotal = Math.round(Math.min(Math.max(usable * 0.8, 320), 492));
+    const dw = Math.max(188, targetTotal - TIME_COLUMN_WIDTH);
+    return { dayWidth: dw, gridTotalWidth: TIME_COLUMN_WIDTH + dw };
+  }, [mode, screenWidth, contentPadding, calendarLayoutWidth]);
+
   const totalSlots = (hourEnd - hourStart) * SLOTS_PER_HOUR;
   const gridHeight = totalSlots * SLOT_HEIGHT;
 
-  const appointmentsInWeek = useMemo(() => {
-    const start = weekStart.getTime();
-    const end = weekEnd.getTime();
+  const appointmentsInRange = useMemo(() => {
+    const start = periodStart.getTime();
+    const end = periodEnd.getTime();
     return appointments.filter((a) => {
       const t = new Date(a.appointment_date).getTime();
       return t >= start && t <= end;
     });
-  }, [appointments, weekStart, weekEnd]);
+  }, [appointments, periodStart, periodEnd]);
 
-  const weekDays = useMemo(() => {
-    const days: Date[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(weekStart);
-      d.setDate(d.getDate() + i);
-      days.push(d);
+  const dayCardInnerEstimateWidth = Math.max(72, dayWidth - 28);
+
+  const dayDynamicLayout = useMemo(() => {
+    if (mode !== 'day') return null;
+    return computeDayDynamicLayout(
+      appointmentsInRange,
+      hourStart,
+      hourEnd,
+      dayCardInnerEstimateWidth,
+      getStatusColor,
+      getBlockColor
+    );
+  }, [mode, appointmentsInRange, hourStart, hourEnd, dayCardInnerEstimateWidth, getStatusColor, getBlockColor]);
+
+  const headerDays = useMemo(() => {
+    if (mode === 'week') {
+      const days: Date[] = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(periodStart);
+        d.setDate(d.getDate() + i);
+        days.push(d);
+      }
+      return days;
     }
-    return days;
-  }, [weekStart]);
+    return [startOfLocalDay(periodStart)];
+  }, [mode, periodStart]);
 
   const appointmentBlocks = useMemo(() => {
-    return appointmentsInWeek.map((app) => {
+    if (mode === 'day') {
+      return [];
+    }
+    return appointmentsInRange.map((app) => {
       const d = new Date(app.appointment_date);
-      const dayIndex = Math.floor((d.getTime() - weekStart.getTime()) / (24 * 60 * 60 * 1000));
+      const dayIndex = Math.floor((d.getTime() - periodStart.getTime()) / (24 * 60 * 60 * 1000));
       if (dayIndex < 0 || dayIndex > 6) return null;
       const hours = d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
       if (hours < hourStart || hours >= hourEnd) return null;
-      const durationMin = getAppointmentDuration(app);
+      const durationMin = getAppointmentTotalDuration(app);
       const top = (hours - hourStart) * SLOT_HEIGHT * SLOTS_PER_HOUR;
-      const height = Math.max(SLOT_HEIGHT, (durationMin / 30) * SLOT_HEIGHT);
+      const heightRaw = (durationMin / MINUTES_PER_GRID_ROW) * SLOT_HEIGHT;
+      const height = Math.max(MIN_APPOINTMENT_BLOCK_HEIGHT, heightRaw);
       const left = TIME_COLUMN_WIDTH + dayIndex * dayWidth + 2;
       const width = dayWidth - 4;
       const timeStr = d.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
       const color = getBlockColor ? getBlockColor(app) : getStatusColor(app.status);
+      const clientName = String((app as any).user_name || 'Client');
+      const compact = height < BLOCK_HEIGHT_FOR_TWO_ROW_LABELS;
       return {
         app,
         left,
@@ -172,112 +578,317 @@ function WeekCalendarView({
         width,
         height,
         timeStr,
+        clientName,
+        compact,
         color,
       };
-    }).filter(Boolean) as Array<{ app: Appointment; left: number; top: number; width: number; height: number; timeStr: string; color: string }>;
-  }, [appointmentsInWeek, weekStart, getStatusColor, getBlockColor, hourStart, hourEnd]);
+    }).filter(Boolean) as Array<{
+      app: Appointment;
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+      timeStr: string;
+      clientName: string;
+      compact: boolean;
+      color: string;
+    }>;
+  }, [appointmentsInRange, mode, periodStart, getStatusColor, getBlockColor, hourStart, hourEnd, dayWidth]);
+
+  const rangeTitle =
+    mode === 'week' ? formatWeekRange(periodStart) : formatDayTitle(headerDays[0]);
 
   return (
-    <View style={styles.calendarContainer}>
+    <View style={styles.calendarContainer} onLayout={onCalendarContainerLayout}>
       <View style={styles.weekNav}>
-        <TouchableOpacity onPress={onPrevWeek} style={styles.weekNavButton} accessibilityLabel="Săptămâna precedentă">
+        <TouchableOpacity
+          onPress={onPrev}
+          style={styles.weekNavButton}
+          accessibilityLabel={mode === 'week' ? 'Săptămâna precedentă' : 'Ziua anterioară'}
+        >
           <Ionicons name="chevron-back" size={24} color={theme.colors.primary.main} />
-          <Text variant="bodyMedium" style={styles.weekNavLabel}>Săpt. precedentă</Text>
+          <Text variant="bodyMedium" style={styles.weekNavLabel}>
+            {mode === 'week' ? 'Săpt. precedentă' : 'Ziua anterioară'}
+          </Text>
         </TouchableOpacity>
-        <Text variant="titleSmall" style={styles.weekNavTitle}>{formatWeekRange(weekStart)}</Text>
-        <TouchableOpacity onPress={onNextWeek} style={styles.weekNavButton} accessibilityLabel="Săptămâna următoare">
-          <Text variant="bodyMedium" style={styles.weekNavLabel}>Săpt. următoare</Text>
+        <View style={styles.weekNavTitleBlock}>
+          <Text variant="titleSmall" style={[styles.weekNavTitle, mode === 'day' && styles.weekNavTitleDay]} numberOfLines={2}>
+            {rangeTitle}
+          </Text>
+          {mode === 'day' && onSelectDayDate ? (
+            <Pressable
+              onPress={() => {
+                setIosPickerDate(startOfLocalDay(periodStart));
+                setShowDayDatePicker(true);
+              }}
+              style={styles.weekNavCalendarIconHit}
+              accessibilityRole="button"
+              accessibilityLabel="Alege ziua în calendar"
+            >
+              <Ionicons name="calendar-outline" size={22} color={theme.colors.neutral[800]} />
+            </Pressable>
+          ) : null}
+        </View>
+        <TouchableOpacity
+          onPress={onNext}
+          style={styles.weekNavButton}
+          accessibilityLabel={mode === 'week' ? 'Săptămâna următoare' : 'Ziua următoare'}
+        >
+          <Text variant="bodyMedium" style={styles.weekNavLabel}>
+            {mode === 'week' ? 'Săpt. următoare' : 'Ziua următoare'}
+          </Text>
           <Ionicons name="chevron-forward" size={24} color={theme.colors.primary.main} />
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={true}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={[styles.calendarGrid, { width: TIME_COLUMN_WIDTH + 7 * dayWidth, minWidth: screenWidth - contentPadding }]}>
-            {/* Day headers */}
-            <View style={[styles.calendarRow, styles.headerRow, { height: 36 }]}>
-              <View style={[styles.timeCell, { width: TIME_COLUMN_WIDTH }]} />
-              {weekDays.map((day, i) => (
-                <View key={i} style={[styles.dayCell, { width: dayWidth }]}>
-                  <Text variant="labelSmall" style={styles.dayLabel}>{DAY_LABELS[i]}</Text>
-                  <Text variant="bodySmall" style={styles.dayNum}>{day.getDate()}</Text>
-                </View>
-              ))}
-            </View>
-            {/* Time grid */}
-            <View style={[styles.gridBody, { height: gridHeight }]}>
-              {Array.from({ length: totalSlots }, (_, i) => {
-                const hour = hourStart + Math.floor(i / SLOTS_PER_HOUR);
-                const label = i % SLOTS_PER_HOUR === 0 ? `${hour.toString().padStart(2, '0')}:00` : '';
-                const isHourStart = i % SLOTS_PER_HOUR === 0;
-                return (
+        {mode === 'day' ? (
+          dayDynamicLayout ? (
+            <View style={styles.dayCalendarCenterWrap}>
+              <View style={styles.dayModeOuterFrame}>
+                <View style={[styles.calendarGrid, styles.calendarGridDayMode, { width: gridTotalWidth }]}>
+                  <View style={[styles.calendarRow, styles.headerRow, { height: 36 }]}>
+                    <View style={[styles.timeCell, { width: TIME_COLUMN_WIDTH }]} />
+                    {headerDays.map((day, i) => {
+                      const labelIdx = (day.getDay() + 6) % 7;
+                      return (
+                        <View key={i} style={[styles.dayCell, { width: dayWidth }]}>
+                          <Text variant="labelSmall" style={styles.dayLabel}>{DAY_LABELS[labelIdx]}</Text>
+                          <Text variant="bodySmall" style={styles.dayNum}>{day.getDate()}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                  <View style={[styles.gridBody, { height: dayDynamicLayout.totalHeight }]}>
+                    {Array.from({ length: hourEnd - hourStart }, (_, hi) => {
+                      const rowH = dayDynamicLayout.hourHeights[hi] ?? SLOTS_PER_HOUR * SLOT_HEIGHT;
+                      const hour = hourStart + hi;
+                      return (
+                        <View
+                          key={hi}
+                          style={[
+                            styles.calendarRowDayDynamic,
+                            { height: rowH },
+                            hi > 0 && styles.calendarRowHourLine,
+                          ]}
+                        >
+                          <View style={[styles.timeCell, styles.timeCellGrid, { width: TIME_COLUMN_WIDTH }]}>
+                            <Text variant="bodySmall" style={styles.timeLabel}>
+                              {`${hour.toString().padStart(2, '0')}:00`}
+                            </Text>
+                          </View>
+                          {headerDays.map((_, j) => (
+                            <View key={j} style={[styles.daySlot, { width: dayWidth }]} />
+                          ))}
+                        </View>
+                      );
+                    })}
+                  </View>
                   <View
-                    key={i}
                     style={[
-                      styles.calendarRow,
-                      { height: SLOT_HEIGHT },
-                      isHourStart && styles.calendarRowHourLine,
+                      styles.blocksOverlay,
+                      { width: gridTotalWidth, height: dayDynamicLayout.totalHeight + 36 },
                     ]}
+                    pointerEvents="box-none"
                   >
-                    <View style={[styles.timeCell, { width: TIME_COLUMN_WIDTH }]}>
-                      {label ? <Text variant="bodySmall" style={styles.timeLabel}>{label}</Text> : null}
-                    </View>
-                    {weekDays.map((_, j) => (
-                      <View key={j} style={[styles.daySlot, { width: dayWidth, borderColor: theme.colors.neutral[200] }]} />
+                    {dayDynamicLayout.blocks.map((b) => (
+                      <TouchableOpacity
+                        key={b.app.id}
+                        style={[
+                          styles.appointmentBlock,
+                          styles.appointmentBlockDayRich,
+                          {
+                            left: TIME_COLUMN_WIDTH + 2,
+                            top: 36 + b.top,
+                            width: dayWidth - 4,
+                            height: b.height,
+                          },
+                        ]}
+                        onPress={() => onAppointmentPress(b.app)}
+                        activeOpacity={0.85}
+                      >
+                        <View style={[styles.appointmentBlockAccent, { backgroundColor: b.color }]} />
+                        <View style={styles.appointmentBlockInnerDayRich}>
+                          <DayAppointmentCardContent
+                            clientName={b.clientName}
+                            timeStr={b.timeStr}
+                            servicesJoined={b.servicesJoined}
+                          />
+                        </View>
+                      </TouchableOpacity>
                     ))}
                   </View>
-                );
-              })}
+                </View>
+              </View>
             </View>
-            {/* Appointment blocks overlay */}
-            <View style={[styles.blocksOverlay, { width: TIME_COLUMN_WIDTH + 7 * dayWidth, height: gridHeight + 36 }]} pointerEvents="box-none">
-              {appointmentBlocks.map(({ app, left, top, width, height, timeStr, color }) => (
-                <TouchableOpacity
-                  key={app.id}
-                  style={[
-                    styles.appointmentBlock,
-                    {
-                      left,
-                      top: 36 + top,
-                      width,
-                      height,
-                      backgroundColor: String(app.status).toLowerCase() === 'completed' ? theme.colors.primary.main : color,
-                    },
-                  ]}
-                  onPress={() => onAppointmentPress(app)}
-                  activeOpacity={0.8}
-                >
-                  <Text variant="labelSmall" style={styles.blockTime} numberOfLines={1}>{timeStr}</Text>
-                  <Text variant="bodySmall" style={styles.blockName} numberOfLines={2}>{(app as any).user_name || 'Client'}</Text>
-                </TouchableOpacity>
-              ))}
+          ) : null
+        ) : (
+          <View style={styles.weekCalendarFill}>
+            <View style={[styles.calendarGrid, { width: gridTotalWidth }]}>
+              <View style={[styles.calendarRow, styles.headerRow, { height: 36 }]}>
+                <View style={[styles.timeCell, { width: TIME_COLUMN_WIDTH }]} />
+                {headerDays.map((day, i) => {
+                  const labelIdx = mode === 'week' ? i : (day.getDay() + 6) % 7;
+                  return (
+                    <View key={i} style={[styles.dayCell, { width: dayWidth }]}>
+                      <Text variant="labelSmall" style={styles.dayLabel}>{DAY_LABELS[labelIdx]}</Text>
+                      <Text variant="bodySmall" style={styles.dayNum}>{day.getDate()}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+              <View style={[styles.gridBody, { height: gridHeight }]}>
+                {Array.from({ length: totalSlots }, (_, i) => {
+                  const hour = hourStart + Math.floor(i / SLOTS_PER_HOUR);
+                  const label = i % SLOTS_PER_HOUR === 0 ? `${hour.toString().padStart(2, '0')}:00` : '';
+                  const isHourStart = i % SLOTS_PER_HOUR === 0;
+                  return (
+                    <View
+                      key={i}
+                      style={[
+                        styles.calendarRow,
+                        { height: SLOT_HEIGHT },
+                        isHourStart && styles.calendarRowHourLine,
+                      ]}
+                    >
+                      <View style={[styles.timeCell, styles.timeCellGrid, { width: TIME_COLUMN_WIDTH }]}>
+                        {label ? <Text variant="bodySmall" style={styles.timeLabel}>{label}</Text> : null}
+                      </View>
+                      {headerDays.map((_, j) => (
+                        <View key={j} style={[styles.daySlot, { width: dayWidth }]} />
+                      ))}
+                    </View>
+                  );
+                })}
+              </View>
+              <View style={[styles.blocksOverlay, { width: gridTotalWidth, height: gridHeight + 36 }]} pointerEvents="box-none">
+                {appointmentBlocks.map(({ app, left, top, width, height, timeStr, clientName, compact, color }) => (
+                  <TouchableOpacity
+                    key={app.id}
+                    style={[
+                      styles.appointmentBlock,
+                      {
+                        left,
+                        top: 36 + top,
+                        width,
+                        height,
+                      },
+                    ]}
+                    onPress={() => onAppointmentPress(app)}
+                    activeOpacity={0.85}
+                  >
+                    <View style={[styles.appointmentBlockAccent, { backgroundColor: color }]} />
+                    <View style={[styles.appointmentBlockInner, compact && styles.appointmentBlockInnerCompact]}>
+                      <CalendarAppointmentBlockLabels timeStr={timeStr} clientName={clientName} compact={compact} />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           </View>
-        </ScrollView>
+        )}
       </ScrollView>
 
-      {appointmentsInWeek.length === 0 && (
+      {appointmentsInRange.length === 0 && (
         <View style={styles.calendarEmpty}>
-          <Text variant="bodyMedium" style={styles.calendarEmptyText}>Nicio programare în această săptămână</Text>
+          <Text variant="bodyMedium" style={styles.calendarEmptyText}>
+            {mode === 'day' ? 'Nicio programare în această zi' : 'Nicio programare în această săptămână'}
+          </Text>
         </View>
       )}
+
+      {mode === 'day' && onSelectDayDate && showDayDatePicker && Platform.OS === 'android' ? (
+        <DateTimePicker
+          value={periodStart}
+          mode="date"
+          display="default"
+          onChange={(event, date) => {
+            setShowDayDatePicker(false);
+            if (event.type === 'set' && date) {
+              onSelectDayDate(startOfLocalDay(date));
+            }
+          }}
+        />
+      ) : null}
+
+      {mode === 'day' && onSelectDayDate ? (
+        <Modal
+          visible={showDayDatePicker && Platform.OS !== 'android'}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDayDatePicker(false)}
+        >
+          <View style={styles.dayPickerModalRoot}>
+            <Pressable
+              style={[StyleSheet.absoluteFillObject, styles.dayPickerBackdrop]}
+              onPress={() => setShowDayDatePicker(false)}
+              accessibilityLabel="Închide"
+            />
+            <View style={styles.dayPickerModalCard}>
+              <Text variant="titleSmall" style={styles.dayPickerModalTitle}>
+                Alege ziua
+              </Text>
+              {Platform.OS === 'web' ? (
+                <WebDatePickerInput value={iosPickerDate} onChange={setIosPickerDate} />
+              ) : (
+                <View style={styles.dayPickerNativeWrap}>
+                  <DateTimePicker
+                    value={iosPickerDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    onChange={(_, date) => {
+                      if (date) setIosPickerDate(date);
+                    }}
+                    style={styles.dayPickerIos}
+                  />
+                </View>
+              )}
+              <View style={styles.dayPickerModalActions}>
+                <Button mode="text" onPress={() => setShowDayDatePicker(false)} textColor={theme.colors.neutral[600]}>
+                  Anulează
+                </Button>
+                <Button
+                  mode="contained"
+                  onPress={() => {
+                    onSelectDayDate(startOfLocalDay(iosPickerDate));
+                    setShowDayDatePicker(false);
+                  }}
+                  buttonColor={theme.colors.primary.main}
+                >
+                  OK
+                </Button>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
     </View>
   );
 }
 
 export interface ManageAppointmentsSectionProps {
   onRefresh?: () => void;
+  calendarMode: 'day' | 'week';
+  weekStart: Date;
+  setWeekStart: React.Dispatch<React.SetStateAction<Date>>;
+  dayCalendarDate: Date;
+  setDayCalendarDate: React.Dispatch<React.SetStateAction<Date>>;
 }
 
-export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSectionProps) => {
+export const ManageAppointmentsSection = ({
+  onRefresh,
+  calendarMode,
+  weekStart,
+  setWeekStart,
+  dayCalendarDate,
+  setDayCalendarDate,
+}: ManageAppointmentsSectionProps) => {
   const { company } = useCompany();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
-  const [busyIds, setBusyIds] = useState<number[]>([]);
-  const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
   const { width: screenWidth } = useWindowDimensions();
 
   const { hourStart, hourEnd } = useMemo(
@@ -293,31 +904,7 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
     try {
       setIsLoading(true);
       const data = await ApiService.getCompanyAppointments(undefined, statusFilter);
-      const toAutoComplete = data.filter(
-        (a) => (a.status === 'pending' || a.status === 'confirmed') && isAppointmentPastEndTime(a)
-      );
-
-      if (toAutoComplete.length > 0) {
-        const completedIds = new Set(toAutoComplete.map((a) => a.id));
-        setAppointments(
-          data.map((a) =>
-            completedIds.has(a.id!) ? { ...a, status: 'completed' as const } : a
-          )
-        );
-        await Promise.allSettled(
-          toAutoComplete.map((a) => ApiService.updateAppointment(a.id!, { status: 'completed' } as any))
-        );
-        const refreshed = await ApiService.getCompanyAppointments(undefined, statusFilter);
-        setAppointments(
-          refreshed.map((a) => {
-            if (!completedIds.has(a.id!)) return a;
-            if (a.status === 'completed') return a;
-            return { ...a, status: 'completed' as const };
-          })
-        );
-      } else {
-        setAppointments(data);
-      }
+      setAppointments(data);
     } catch (error) {
       console.error('Error loading appointments:', error);
       Alert.alert('Eroare', 'Nu s-au putut încărca programările.');
@@ -329,67 +916,6 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
   const handleEditAppointment = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     setIsEditModalVisible(true);
-  };
-
-  const handleAccept = async (appointment: Appointment) => {
-    if (!appointment.id) return;
-
-    // Optimistic UI: mark as confirmed immediately
-    const prevStatus = appointment.status;
-    setAppointments((prev) => prev.map((a) => (a.id === appointment.id ? { ...a, status: 'confirmed' } : a)));
-    setBusyIds((b) => [...b, appointment.id!]);
-
-    try {
-  // Use the standard ApiService PATCH endpoint for appointment updates
-  await ApiService.updateAppointment(appointment.id!, { status: 'confirmed' } as any);
-      // success - reload to ensure fresh data
-      loadAppointments();
-      onRefresh?.();
-    } catch (error: any) {
-      // revert and show detailed error
-      setAppointments((prev) => prev.map((a) => (a.id === appointment.id ? { ...a, status: prevStatus } : a)));
-      console.error('Accept appointment error:', error);
-      Alert.alert('Eroare la acceptare', (error && (error.message || String(error))) || 'Nu s-a putut accepta programarea.');
-    } finally {
-      setBusyIds((b) => b.filter((id) => id !== appointment.id));
-    }
-  };
-
-  const handleReject = async (appointment: Appointment) => {
-    if (!appointment.id) return;
-
-    const prevStatus = appointment.status;
-    setAppointments((prev) => prev.map((a) => (a.id === appointment.id ? { ...a, status: 'cancelled' } : a)));
-    setBusyIds((b) => [...b, appointment.id!]);
-
-    try {
-      // Try to update the appointment status via the standard PATCH endpoint
-      await ApiService.updateAppointment(appointment.id!, { status: 'cancelled' } as any);
-      // success - reload to ensure fresh data
-      loadAppointments();
-      onRefresh?.();
-    } catch (error: any) {
-      // If the PATCH update fails (CORS/404/network or other), try the dedicated cancel endpoint as a fallback
-      console.warn('Update to cancelled failed, attempting cancel endpoint as fallback', error);
-      try {
-        const cancelled = await ApiService.cancelAppointment(appointment.id!);
-        if (cancelled) {
-          // refresh list after successful cancel
-          loadAppointments();
-          onRefresh?.();
-          return;
-        }
-        // if cancel endpoint returned false, fallthrough to revert + alert
-        throw new Error('Cancel endpoint did not succeed');
-      } catch (fallbackError: any) {
-        // revert optimistic change
-        setAppointments((prev) => prev.map((a) => (a.id === appointment.id ? { ...a, status: prevStatus } : a)));
-        console.error('Cancel appointment error (fallback):', fallbackError);
-        Alert.alert('Eroare la anulare', (fallbackError && (fallbackError.message || String(fallbackError))) || 'Nu s-a putut anula programarea.');
-      }
-    } finally {
-      setBusyIds((b) => b.filter((id) => id !== appointment.id));
-    }
   };
 
   const handleSaveAppointment = async (updatedData: Partial<Appointment>) => {
@@ -472,16 +998,52 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Ionicons name="calendar" size={24} color={theme.colors.primary.main} />
-          <Text variant="titleLarge" style={styles.title}>
-            Gestionează programări
-          </Text>
+      {/* Filtre + total programări (titlul e pe ecranul părinte) */}
+      <View style={styles.filterBar}>
+        <View style={styles.filterChipsGroup}>
+          <Chip
+            mode={statusFilter === undefined ? 'flat' : 'outlined'}
+            selected={statusFilter === undefined}
+            onPress={() => setStatusFilter(undefined)}
+            style={styles.filterChip}
+            textStyle={statusFilter === undefined ? styles.filterChipTextActive : styles.filterChipText}
+            compact
+          >
+            All
+          </Chip>
+          <Chip
+            mode={statusFilter === 'confirmed' ? 'flat' : 'outlined'}
+            selected={statusFilter === 'confirmed'}
+            onPress={() => setStatusFilter('confirmed')}
+            style={styles.filterChip}
+            textStyle={statusFilter === 'confirmed' ? styles.filterChipTextActive : styles.filterChipText}
+            compact
+          >
+            Confirmat
+          </Chip>
+          <Chip
+            mode={statusFilter === 'completed' ? 'flat' : 'outlined'}
+            selected={statusFilter === 'completed'}
+            onPress={() => setStatusFilter('completed')}
+            style={styles.filterChip}
+            textStyle={statusFilter === 'completed' ? styles.filterChipTextActive : styles.filterChipText}
+            compact
+          >
+            Finalizat
+          </Chip>
+          <Chip
+            mode={statusFilter === 'cancelled' ? 'flat' : 'outlined'}
+            selected={statusFilter === 'cancelled'}
+            onPress={() => setStatusFilter('cancelled')}
+            style={styles.filterChip}
+            textStyle={statusFilter === 'cancelled' ? styles.filterChipTextActive : styles.filterChipText}
+            compact
+          >
+            Anulate
+          </Chip>
         </View>
         <Chip
-          style={styles.countChip}
+          style={[styles.filterChip, styles.countChip]}
           textStyle={styles.countChipText}
           compact
         >
@@ -489,81 +1051,59 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
         </Chip>
       </View>
 
-      {/* Status Filter */}
-      <View style={styles.filterContainer}>
-        <Chip
-          mode={statusFilter === undefined ? 'flat' : 'outlined'}
-          selected={statusFilter === undefined}
-          onPress={() => setStatusFilter(undefined)}
-          style={styles.filterChip}
-          textStyle={statusFilter === undefined ? styles.filterChipTextActive : styles.filterChipText}
-          compact
-        >
-          All
-        </Chip>
-        <Chip
-          mode={statusFilter === 'pending' ? 'flat' : 'outlined'}
-          selected={statusFilter === 'pending'}
-          onPress={() => setStatusFilter('pending')}
-          style={styles.filterChip}
-          textStyle={statusFilter === 'pending' ? styles.filterChipTextActive : styles.filterChipText}
-          compact
-        >
-          În așteptare
-        </Chip>
-        <Chip
-          mode={statusFilter === 'confirmed' ? 'flat' : 'outlined'}
-          selected={statusFilter === 'confirmed'}
-          onPress={() => setStatusFilter('confirmed')}
-          style={styles.filterChip}
-          textStyle={statusFilter === 'confirmed' ? styles.filterChipTextActive : styles.filterChipText}
-          compact
-        >
-          Confirmat
-        </Chip>
-        <Chip
-          mode={statusFilter === 'completed' ? 'flat' : 'outlined'}
-          selected={statusFilter === 'completed'}
-          onPress={() => setStatusFilter('completed')}
-          style={styles.filterChip}
-          textStyle={statusFilter === 'completed' ? styles.filterChipTextActive : styles.filterChipText}
-          compact
-        >
-          Finalizat
-        </Chip>
-        <Chip
-          mode={statusFilter === 'cancelled' ? 'flat' : 'outlined'}
-          selected={statusFilter === 'cancelled'}
-          onPress={() => setStatusFilter('cancelled')}
-          style={styles.filterChip}
-          textStyle={statusFilter === 'cancelled' ? styles.filterChipTextActive : styles.filterChipText}
-          compact
-        >
-          Anulate
-        </Chip>
-      </View>
-
       {/* All = calendar view; other filters = list */}
       {statusFilter === undefined ? (
-        <WeekCalendarView
-          appointments={appointments.filter((a) => a.status !== 'cancelled')}
-          weekStart={weekStart}
-          onPrevWeek={() => setWeekStart((prev) => { const m = new Date(prev); m.setDate(m.getDate() - 7); return m; })}
-          onNextWeek={() => setWeekStart((prev) => { const m = new Date(prev); m.setDate(m.getDate() + 7); return m; })}
-          onAppointmentPress={handleEditAppointment}
-          getStatusColor={getStatusColor}
-          getBlockColor={(app) => {
-            if (String(app.status).toLowerCase() === 'completed') return theme.colors.primary.main;
-            if ((app.status === 'pending' || app.status === 'confirmed') && isAppointmentPastEndTime(app)) {
-              return theme.colors.info.main;
+        <ScheduleCalendarView
+            mode={calendarMode}
+            periodStart={calendarMode === 'week' ? weekStart : dayCalendarDate}
+            onPrev={() => {
+              if (calendarMode === 'week') {
+                setWeekStart((prev) => {
+                  const m = new Date(prev);
+                  m.setDate(m.getDate() - 7);
+                  return m;
+                });
+              } else {
+                setDayCalendarDate((prev) => {
+                  const m = new Date(prev);
+                  m.setDate(m.getDate() - 1);
+                  return startOfLocalDay(m);
+                });
+              }
+            }}
+            onNext={() => {
+              if (calendarMode === 'week') {
+                setWeekStart((prev) => {
+                  const m = new Date(prev);
+                  m.setDate(m.getDate() + 7);
+                  return m;
+                });
+              } else {
+                setDayCalendarDate((prev) => {
+                  const m = new Date(prev);
+                  m.setDate(m.getDate() + 1);
+                  return startOfLocalDay(m);
+                });
+              }
+            }}
+            appointments={appointments.filter((a) => a.status !== 'cancelled')}
+            onAppointmentPress={handleEditAppointment}
+            getStatusColor={getStatusColor}
+            getBlockColor={(app) => {
+              if (String(app.status).toLowerCase() === 'completed') return theme.colors.primary.main;
+              if ((app.status === 'pending' || app.status === 'confirmed') && isAppointmentPastEndTime(app)) {
+                return theme.colors.info.main;
+              }
+              return getStatusColor(app.status);
+            }}
+            hourStart={hourStart}
+            hourEnd={hourEnd}
+            screenWidth={screenWidth}
+            contentPadding={theme.spacing.lg * 2}
+            onSelectDayDate={
+              calendarMode === 'day' ? (d) => setDayCalendarDate(startOfLocalDay(d)) : undefined
             }
-            return getStatusColor(app.status);
-          }}
-          hourStart={hourStart}
-          hourEnd={hourEnd}
-          screenWidth={screenWidth}
-          contentPadding={theme.spacing.lg * 2}
-        />
+          />
       ) : appointments.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="calendar-outline" size={64} color={theme.colors.neutral[300]} />
@@ -571,12 +1111,14 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
             Nu s-au găsit programări
           </Text>
           <Text variant="bodyMedium" style={styles.emptyText}>
-            {`Nicio programare ${({ pending: 'în așteptare', confirmed: 'confirmată', completed: 'finalizată', cancelled: 'anulată' } as Record<string, string>)[statusFilter] || statusFilter} în acest moment`}
+            {`Nicio programare ${({ confirmed: 'confirmată', completed: 'finalizată', cancelled: 'anulată' } as Record<string, string>)[statusFilter] || statusFilter} în acest moment`}
           </Text>
         </View>
       ) : (
         <ScrollView style={styles.appointmentsList} showsVerticalScrollIndicator={false}>
-          {appointments.map((appointment) => (
+          {appointments.map((appointment) => {
+            const clientPhone = getAppointmentClientPhone(appointment);
+            return (
             <Card key={appointment.id} style={styles.appointmentCard}>
               <Card.Content style={styles.cardContent}>
                 {/* Header Row */}
@@ -617,6 +1159,14 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
                     {(appointment as any).user_name || 'Client necunoscut'}
                   </Text>
                 </View>
+                {clientPhone ? (
+                  <View style={styles.clientInfo}>
+                    <Ionicons name="call-outline" size={16} color={theme.colors.neutral[600]} />
+                    <Text variant="bodySmall" style={styles.clientEmail}>
+                      {clientPhone}
+                    </Text>
+                  </View>
+                ) : null}
                 {(appointment as any).user_email && (
                   <View style={styles.clientInfo}>
                     <Ionicons name="mail" size={16} color={theme.colors.neutral[600]} />
@@ -660,32 +1210,11 @@ export const ManageAppointmentsSection = ({ onRefresh }: ManageAppointmentsSecti
                   >
                     Editează
                   </Button>
-                  {appointment.status === 'pending' && (
-                    <View style={styles.pendingActions}>
-                      <Button
-                        mode="contained"
-                        onPress={() => handleAccept(appointment)}
-                        style={styles.acceptButton}
-                        compact
-                        disabled={busyIds.includes(appointment.id)}
-                      >
-                        {busyIds.includes(appointment.id) ? 'Se procesează...' : 'Acceptă'}
-                      </Button>
-                      <Button
-                        mode="outlined"
-                        onPress={() => handleReject(appointment)}
-                        style={styles.rejectButton}
-                        compact
-                        disabled={busyIds.includes(appointment.id)}
-                      >
-                        {busyIds.includes(appointment.id) ? 'Se procesează...' : 'Anulare'}
-                      </Button>
-                    </View>
-                  )}
                 </View>
               </Card.Content>
             </Card>
-          ))}
+          );
+          })}
         </ScrollView>
       )}
 
@@ -726,29 +1255,81 @@ const styles = StyleSheet.create({
     color: theme.colors.primary.main,
     fontWeight: '600',
   },
+  weekNavTitleBlock: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.xs,
+    gap: 8,
+  },
   weekNavTitle: {
     color: theme.colors.neutral[800],
     fontWeight: '700',
+    flexShrink: 1,
+    textAlign: 'center',
+  },
+  weekNavCalendarIconHit: {
+    padding: 4,
+    marginLeft: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  weekNavTitleDay: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   calendarScroll: {
     flex: 1,
   },
+  weekCalendarFill: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  dayCalendarCenterWrap: {
+    width: '100%',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xs,
+  },
+  dayModeOuterFrame: {
+    borderWidth: 1,
+    borderColor: theme.colors.neutral[200],
+    borderRadius: theme.borderRadius.lg,
+    padding: 4,
+    backgroundColor: theme.colors.primary[50],
+    overflow: 'hidden',
+  },
+  calendarGridDayMode: {
+    borderWidth: 0,
+    ...theme.shadows.none,
+  },
   calendarGrid: {
     paddingBottom: theme.spacing.xl,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.primary[100],
+    overflow: 'hidden',
+    ...theme.shadows.sm,
   },
   headerRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral[200],
+    borderBottomColor: theme.colors.primary[100],
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: theme.colors.primary[50],
+    borderTopLeftRadius: theme.borderRadius.lg,
+    borderTopRightRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
   },
   calendarRow: {
     flexDirection: 'row',
+    backgroundColor: theme.colors.white,
   },
   calendarRowHourLine: {
     borderTopWidth: 1,
-    borderTopColor: theme.colors.neutral[200],
+    borderTopColor: theme.colors.primary[100],
   },
   timeCell: {
     justifyContent: 'flex-start',
@@ -764,7 +1345,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderLeftWidth: 1,
-    borderLeftColor: theme.colors.neutral[200],
+    borderLeftColor: theme.colors.primary[100],
   },
   dayLabel: {
     color: theme.colors.neutral[600],
@@ -773,35 +1354,160 @@ const styles = StyleSheet.create({
   dayNum: {
     color: theme.colors.neutral[700],
   },
+  dayPickerModalRoot: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+  },
+  dayPickerBackdrop: {
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  dayPickerModalCard: {
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '88%',
+    zIndex: 1,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
+    ...theme.shadows.lg,
+  },
+  dayPickerModalTitle: {
+    textAlign: 'center',
+    marginBottom: theme.spacing.sm,
+    color: theme.colors.neutral[800],
+    fontWeight: '700',
+  },
+  dayPickerNativeWrap: {
+    minHeight: 300,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  dayPickerIos: {
+    alignSelf: 'center',
+    width: '100%',
+  },
+  dayPickerModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
   gridBody: {
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral[200],
+    borderBottomColor: theme.colors.primary[100],
+    backgroundColor: theme.colors.white,
+    borderBottomLeftRadius: theme.borderRadius.lg,
+    borderBottomRightRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+  },
+  timeCellGrid: {
+    backgroundColor: theme.colors.primary[50],
   },
   daySlot: {
     borderLeftWidth: 1,
+    borderLeftColor: theme.colors.primary[100],
+    backgroundColor: theme.colors.white,
   },
   blocksOverlay: {
     position: 'absolute',
     left: 0,
     top: 0,
   },
+  calendarRowDayDynamic: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.white,
+  },
   appointmentBlock: {
     position: 'absolute',
-    borderRadius: 8,
-    padding: 6,
+    flexDirection: 'row',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral[200],
+    backgroundColor: theme.colors.primary[50],
+    overflow: 'hidden',
+  },
+  appointmentBlockDayRich: {
+    minHeight: 0,
+  },
+  appointmentBlockInnerDayRich: {
+    flex: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
     justifyContent: 'flex-start',
-    ...theme.shadows.sm,
+    minWidth: 0,
+  },
+  dayCardInner: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+  },
+  dayCardName: {
+    color: theme.colors.neutral[900],
+    fontWeight: '700',
+    fontSize: 13,
+    lineHeight: 17,
+  },
+  dayCardTime: {
+    color: theme.colors.neutral[800],
+    fontWeight: '700',
+    fontSize: 11,
+    lineHeight: 14,
+    marginTop: 2,
+  },
+  dayCardServices: {
+    color: theme.colors.neutral[600],
+    fontWeight: '500',
+    fontSize: 10,
+    lineHeight: 13,
+    marginTop: 3,
+  },
+  appointmentBlockAccent: {
+    width: 4,
+    alignSelf: 'stretch',
+  },
+  appointmentBlockInner: {
+    flex: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    justifyContent: 'flex-start',
+    minWidth: 0,
+  },
+  appointmentBlockInnerCompact: {
+    justifyContent: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 5,
   },
   blockTime: {
-    color: 'rgba(255,255,255,0.95)',
+    color: theme.colors.neutral[800],
     fontWeight: '700',
     fontSize: 11,
   },
   blockName: {
-    color: '#FFFFFF',
+    color: theme.colors.neutral[700],
     fontWeight: '600',
     marginTop: 2,
     fontSize: 12,
+  },
+  blockCompactLine: {
+    fontSize: 11,
+    lineHeight: 14,
+    minWidth: 0,
+  },
+  blockTimeInline: {
+    color: theme.colors.neutral[800],
+    fontWeight: '700',
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  blockNameInline: {
+    color: theme.colors.neutral[700],
+    fontWeight: '600',
+    fontSize: 11,
+    lineHeight: 14,
   },
   calendarEmpty: {
     padding: theme.spacing.xl,
@@ -819,40 +1525,22 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     color: theme.colors.neutral[600],
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  pendingActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: theme.spacing.sm,
-  },
-  acceptButton: {
-    marginLeft: theme.spacing.sm,
-  },
-  rejectButton: {
-    marginLeft: theme.spacing.xs,
-  },
-  title: {
-    fontWeight: '700',
-    color: theme.colors.neutral[900],
-  },
   countChip: {
     backgroundColor: theme.colors.primary[100],
+    alignSelf: 'flex-start',
   },
   countChipText: {
     color: theme.colors.primary[700],
     fontWeight: '600',
   },
-  filterContainer: {
+  filterBar: {
     marginBottom: theme.spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+  },
+  filterChipsGroup: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',

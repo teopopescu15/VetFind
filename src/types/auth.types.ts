@@ -5,6 +5,8 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  /** Opțional; afișat clinicilor la programări */
+  phone?: string | null;
   // Home address fields (pet owner)
   street?: string;
   street_number?: string;

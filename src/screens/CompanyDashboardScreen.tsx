@@ -186,7 +186,7 @@ export const CompanyDashboardScreen = () => {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       {/* Compact Header */}
       <LinearGradient
-        colors={[theme.colors.primary.main, theme.colors.accent.main]}
+        colors={[...theme.gradients.bannerDuo]}
         style={styles.header}
       >
         <View style={styles.headerContent}>

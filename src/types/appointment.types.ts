@@ -7,8 +7,7 @@ export type AppointmentStatus =
   | 'pending'
   | 'confirmed'
   | 'cancelled'
-  | 'completed'
-  | 'expired';
+  | 'completed';
 
 export interface Appointment {
   id: number;
@@ -32,6 +31,9 @@ export interface Appointment {
   };
   user_name?: string;
   user_email?: string;
+  user_phone?: string | null;
+  /** Snapshot la rezervare (backend); folosit împreună cu user_phone */
+  client_phone?: string | null;
   clinic_name?: string;
   clinic_address?: string;
   clinic_phone?: string;

@@ -210,15 +210,12 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
         return theme.colors.error.main;
       case 'completed':
         return theme.colors.info.main;
-      case 'expired':
-        return theme.colors.neutral[500];
       default:
         return theme.colors.neutral[500];
     }
   };
 
   const getStatusLabel = (status: string) => {
-    if (status === 'expired') return 'Expired';
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
@@ -364,7 +361,7 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
           )}
         </View>
 
-        {!isPast && canCancel && item.status !== 'expired' && (
+        {!isPast && canCancel && (
           <TouchableOpacity style={styles.cancelButton} onPress={() => handleCancelAppointment(item.id!)}>
             <Ionicons name="close-circle-outline" size={18} color={theme.colors.error.main} />
             <Text style={styles.cancelButtonText}>Anulare</Text>
@@ -393,7 +390,7 @@ export const MyAppointmentsScreen = ({ navigation }: MyAppointmentsScreenProps) 
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={[theme.colors.primary.main, theme.colors.accent.main]} style={styles.header}>
+      <LinearGradient colors={[...theme.gradients.bannerDuo]} style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => navigation.goBack?.()} style={styles.backButton} activeOpacity={0.8}>
             <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
